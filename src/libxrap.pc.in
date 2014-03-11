@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libxrap
+Description: a C implementation of UnifyProject/draft/RFC-4
+Version: @VERSION@
+Requires: libzmq libczmq libzyre
+Libs: -L${libdir} -lxrap
+Cflags: -I${includedir}
