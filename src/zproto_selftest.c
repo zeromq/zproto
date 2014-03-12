@@ -22,7 +22,7 @@
     =========================================================================
 */
 
-#include "zproto.h"
+#include "../include/zproto.h"
 
 int main (int argc, char *argv [])
 {

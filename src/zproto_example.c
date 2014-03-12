@@ -359,9 +359,9 @@ s_headers_write (const char *key, void *item, void *argument)
 int
 zproto_example_send (zproto_example_t **self_p, void *output)
 {
-    assert (output);
     assert (self_p);
     assert (*self_p);
+    assert (output);
 
     //  Calculate size of serialized data
     zproto_example_t *self = *self_p;
@@ -509,6 +509,19 @@ zproto_example_send (zproto_example_t **self_p, void *output)
 
 
 //  --------------------------------------------------------------------------
+//  Send the zproto_example to the output, and do not destroy it
+
+int
+zproto_example_send_again (zproto_example_t *self, void *output)
+{
+    assert (self);
+    assert (output);
+    self = zproto_example_dup (self);
+    return zproto_example_send (&self, output);
+}
+
+
+//  --------------------------------------------------------------------------
 //  Send the LOG to the socket in one step
 
 int
@@ -593,20 +606,20 @@ zproto_example_dup (zproto_example_t *self)
             copy->node = self->node;
             copy->peer = self->peer;
             copy->time = self->time;
-            copy->data = strdup (self->data);
+            copy->data = self->data? strdup (self->data): NULL;
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
             copy->sequence = self->sequence;
-            copy->aliases = zlist_dup (self->aliases);
-            copy->headers = zhash_dup (self->headers);
+            copy->aliases = self->aliases? zlist_dup (self->aliases): NULL;
+            copy->headers = self->headers? zhash_dup (self->headers): NULL;
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
             copy->sequence = self->sequence;
             memcpy (copy->flags, self->flags, 4);
-            copy->address = zframe_dup (self->address);
-            copy->content = zmsg_dup (self->content);
+            copy->address = self->address? zframe_dup (self->address): NULL;
+            copy->content = self->content? zmsg_dup (self->content): NULL;
             break;
 
     }
@@ -660,6 +673,8 @@ zproto_example_dump (zproto_example_t *self)
             printf ("    headers={\n");
             if (self->headers)
                 zhash_foreach (self->headers, s_headers_dump, self);
+            else
+                printf ("(NULL)\n");
             printf ("    }\n");
             break;
             
@@ -677,10 +692,14 @@ zproto_example_dump (zproto_example_t *self)
             printf ("    address={\n");
             if (self->address)
                 zframe_print (self->address, NULL);
+            else
+                printf ("(NULL)\n");
             printf ("    }\n");
             printf ("    content={\n");
             if (self->content)
                 zmsg_dump (self->content);
+            else
+                printf ("(NULL)\n");
             printf ("    }\n");
             break;
             
@@ -1108,8 +1127,15 @@ zproto_example_test (bool verbose)
     zsocket_connect (input, "inproc://selftest");
     
     //  Encode/send/decode and verify each message type
-
+    int instance;
+    zproto_example_t *copy;
     self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
+    
+    //  Check that _dup works on empty message
+    copy = zproto_example_dup (self);
+    assert (copy);
+    zproto_example_destroy (&copy);
+
     zproto_example_set_sequence (self, 123);
     zproto_example_set_level (self, 123);
     zproto_example_set_event (self, 123);
@@ -1117,55 +1143,81 @@ zproto_example_test (bool verbose)
     zproto_example_set_peer (self, 123);
     zproto_example_set_time (self, 123);
     zproto_example_set_data (self, "Life is short but Now lasts for ever");
+    //  Send twice from same object
+    zproto_example_send_again (self, output);
     zproto_example_send (&self, output);
-    
-    self = zproto_example_recv (input);
-    assert (self);
-    assert (zproto_example_sequence (self) == 123);
-    assert (zproto_example_level (self) == 123);
-    assert (zproto_example_event (self) == 123);
-    assert (zproto_example_node (self) == 123);
-    assert (zproto_example_peer (self) == 123);
-    assert (zproto_example_time (self) == 123);
-    assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
-    zproto_example_destroy (&self);
 
+    for (instance = 0; instance < 2; instance++) {
+        self = zproto_example_recv (input);
+        assert (self);
+        
+        assert (zproto_example_sequence (self) == 123);
+        assert (zproto_example_level (self) == 123);
+        assert (zproto_example_event (self) == 123);
+        assert (zproto_example_node (self) == 123);
+        assert (zproto_example_peer (self) == 123);
+        assert (zproto_example_time (self) == 123);
+        assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
+        zproto_example_destroy (&self);
+    }
     self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
+    
+    //  Check that _dup works on empty message
+    copy = zproto_example_dup (self);
+    assert (copy);
+    zproto_example_destroy (&copy);
+
     zproto_example_set_sequence (self, 123);
     zproto_example_aliases_append (self, "Name: %s", "Brutus");
     zproto_example_aliases_append (self, "Age: %d", 43);
     zproto_example_headers_insert (self, "Name", "Brutus");
     zproto_example_headers_insert (self, "Age", "%d", 43);
+    //  Send twice from same object
+    zproto_example_send_again (self, output);
     zproto_example_send (&self, output);
-    
-    self = zproto_example_recv (input);
-    assert (self);
-    assert (zproto_example_sequence (self) == 123);
-    assert (zproto_example_aliases_size (self) == 2);
-    assert (streq (zproto_example_aliases_first (self), "Name: Brutus"));
-    assert (streq (zproto_example_aliases_next (self), "Age: 43"));
-    assert (zproto_example_headers_size (self) == 2);
-    assert (streq (zproto_example_headers_string (self, "Name", "?"), "Brutus"));
-    assert (zproto_example_headers_number (self, "Age", 0) == 43);
-    zproto_example_destroy (&self);
 
+    for (instance = 0; instance < 2; instance++) {
+        self = zproto_example_recv (input);
+        assert (self);
+        
+        assert (zproto_example_sequence (self) == 123);
+        assert (zproto_example_aliases_size (self) == 2);
+        assert (streq (zproto_example_aliases_first (self), "Name: Brutus"));
+        assert (streq (zproto_example_aliases_next (self), "Age: 43"));
+        assert (zproto_example_headers_size (self) == 2);
+        assert (streq (zproto_example_headers_string (self, "Name", "?"), "Brutus"));
+        assert (zproto_example_headers_number (self, "Age", 0) == 43);
+        zproto_example_destroy (&self);
+    }
     self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
+    
+    //  Check that _dup works on empty message
+    copy = zproto_example_dup (self);
+    assert (copy);
+    zproto_example_destroy (&copy);
+
     zproto_example_set_sequence (self, 123);
     byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
     memset (flags_data, 123, ZPROTO_EXAMPLE_FLAGS_SIZE);
     zproto_example_set_flags (self, flags_data);
     zproto_example_set_address (self, zframe_new ("Captcha Diem", 12));
     zproto_example_set_content (self, zmsg_new ());
+//    zmsg_addstr (zproto_example_content (self), "Hello, World");
+    //  Send twice from same object
+    zproto_example_send_again (self, output);
     zproto_example_send (&self, output);
-    
-    self = zproto_example_recv (input);
-    assert (self);
-    assert (zproto_example_sequence (self) == 123);
-    assert (zproto_example_flags (self) [0] == 123);
-    assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
-    assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
-    assert (zmsg_size (zproto_example_content (self)) == 0);
-    zproto_example_destroy (&self);
+
+    for (instance = 0; instance < 2; instance++) {
+        self = zproto_example_recv (input);
+        assert (self);
+        
+        assert (zproto_example_sequence (self) == 123);
+        assert (zproto_example_flags (self) [0] == 123);
+        assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
+        assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
+        assert (zmsg_size (zproto_example_content (self)) == 0);
+        zproto_example_destroy (&self);
+    }
 
     zctx_destroy (&ctx);
     //  @end
