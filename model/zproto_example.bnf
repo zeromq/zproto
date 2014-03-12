@@ -1,0 +1,40 @@
+The following ABNF grammar defines the zproto example protocol:
+
+    zproto_example  = *( C:LOG | C:STRUCTURES | C:BINARY )
+
+    C:LOG           = signature %d1 level event node peer time data
+    signature       = %xAA %d0              ; two octets
+    level           = number-1              ; Log severity level
+    event           = number-1              ; Type of event
+    node            = number-2              ; Sending node
+    peer            = number-2              ; Refers to this peer
+    time            = number-8              ; Log date/time
+    data            = string-2              ; Actual log message
+
+    C:STRUCTURES    = signature %d2 aliases headers
+    aliases         = strings               ; List of strings
+    headers         = dictionary            ; Other random properties
+
+    C:BINARY        = signature %d3 flags address content
+    flags           = 4OCTET                ; A set of flags
+    address         = frame                 ; Return address as frame
+    content         = msg                   ; Message to be delivered
+
+    number-1        = 1OCTET                ; Unsigned int
+    number-2        = 1OCTET                ; Unsigned int
+    number-4        = 1OCTET                ; Unsigned int
+    number-8        = 1OCTET                ; Unsigned int
+    
+    string-1        = 1OCTET *VCHAR         ; Size + body
+    string-2        = 2OCTET *VCHAR         ; Size + body
+    string-4        = 4OCTET *VCHAR         ; Size + body
+    string-8        = 8OCTET *VCHAR         ; Size + body
+    
+    frame           = *OCTET                ; ZeroMQ frame
+
+    dictionary      = count *key-value
+    count           = OCTET
+    key-value       = string-1              ; "name=value"
+
+    strings         = count *value
+    value           = string-1

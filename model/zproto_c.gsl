@@ -57,6 +57,9 @@
 .       elsif type = "octets"
         $(name)             $(type) [$(size)]\
                                         $(field.?'':)
+.       elsif type = "string"
+.           size ?= 1
+        $(name)             $(type)     $(field.?'':)
 .       else
         $(name)             $(type)     $(field.?'':)
 .       endif
