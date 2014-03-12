@@ -1,4 +1,4 @@
-.#  codec_c.gsl
+.#  zproto_c.gsl
 .#
 .#  Generates a codec for a protocol specification
 .#
@@ -40,7 +40,7 @@
 .   for field
 .       field.name = "$(field.name:c)"
 .       if type = "number"
-.           size ?= 8
+.           size ?= 1
 .           if size = 1
 .               field.ctype = "byte"
 .           elsif size = 2
@@ -111,6 +111,9 @@ int
 int
     $(class.name)_send_$(name) (void *output\
 .for field where !defined (value)
+.   if defined (message.has_msg)
+.       echo "E: 'msg' field must be last in the message"
+.   endif
 ,
 .   if type = "number"
         $(ctype) $(name)\
@@ -123,9 +126,11 @@ int
 .   elsif type = "dictionary"
         zhash_t *$(name)\
 .   elsif type = "frame"
+.       message.has_frame = 1
         zframe_t *$(name)\
 .   elsif type = "msg"
         zmsg_t *$(name)\
+.       message.has_msg = name
 .   endif
 .endfor
 );
@@ -139,11 +144,11 @@ $(class.name)_t *
 void
     $(class.name)_dump ($(class.name)_t *self);
 
-//  Get/set the message address
+//  Get/set the message routing id
 zframe_t *
-    $(class.name)_address ($(class.name)_t *self);
+    $(class.name)_routing_id ($(class.name)_t *self);
 void
-    $(class.name)_set_address ($(class.name)_t *self, zframe_t *address);
+    $(class.name)_set_routing_id ($(class.name)_t *self, zframe_t *routing_id);
 
 //  Get the $(class.name) id and printable command
 int
@@ -262,7 +267,7 @@ int
 //  Structure of our class
 
 struct _$(class.name)_t {
-    zframe_t *address;          //  Address of peer if any
+    zframe_t *routing_id;       //  Routing_id from ROUTER, if any
     int id;                     //  $(class.name) message ID
     byte *needle;               //  Read/write pointer for serialization
     byte *ceiling;              //  Valid upper limit for read pointer
@@ -293,13 +298,13 @@ struct _$(class.name)_t {
 #define STRING_MAX  255
 
 //  Put a block to the frame
-#define PUT_BLOCK(host,size) { \\
+#define PUT_OCTETS(host,size) { \\
     memcpy (self->needle, (host), size); \\
     self->needle += size; \\
     }
 
 //  Get a block from the frame
-#define GET_BLOCK(host,size) { \\
+#define GET_OCTETS(host,size) { \\
     if (self->needle + size > self->ceiling) \\
         goto malformed; \\
     memcpy ((host), self->needle, size); \\
@@ -427,7 +432,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
         $(class.name)_t *self = *self_p;
 
         //  Free class properties
-        zframe_destroy (&self->address);
+        zframe_destroy (&self->routing_id);
 .for class.field
 .   if type = "string"
         free (self->$(name));
@@ -465,11 +470,11 @@ $(class.name)_recv (void *input)
     //  Read valid message frame from socket; we loop over any
     //  garbage data we might receive from badly-connected peers
     while (true) {
-        //  If we're reading from a ROUTER socket, get address
+        //  If we're reading from a ROUTER socket, get routing_id
         if (zsocket_type (input) == ZMQ_ROUTER) {
-            zframe_destroy (&self->address);
-            self->address = zframe_recv (input);
-            if (!self->address)
+            zframe_destroy (&self->routing_id);
+            self->routing_id = zframe_recv (input);
+            if (!self->routing_id)
                 goto empty;         //  Interrupted
             if (!zsocket_rcvmore (input))
                 goto malformed;
@@ -508,7 +513,7 @@ $(class.name)_recv (void *input)
                 goto malformed;
 .           endif
 .       elsif type = "octets"
-            GET_BLOCK (self->$(name), $(size));
+            GET_OCTETS (self->$(name), $(size));
 .       elsif type = "string"
             free (self->$(name));
             GET_STRING (self->$(name));
@@ -679,7 +684,7 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
             PUT_NUMBER$(size) (self->$(name));
 .           endif
 .       elsif type = "octets"
-            PUT_BLOCK (self->$(name), $(size));
+            PUT_OCTETS (self->$(name), $(size));
 .       elsif type = "string"
 .           if defined (field.value)
             PUT_STRING ("$(field.value:)");
@@ -708,20 +713,21 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
             }
             else
                 PUT_NUMBER1 (0);    //  Empty dictionary
-.       elsif type = "frame"
-            frame_flags = ZFRAME_MORE;
-.       elsif type = "msg"
-            frame_flags = zmsg_size (self->$(name))? ZFRAME_MORE: 0;
 .       endif
 .   endfor
+.   if defined (message.has_frame)
+            frame_flags = ZFRAME_MORE;
+.   elsif defined (message.has_msg)
+            frame_flags = zmsg_size (self->$(message.has_msg))? ZFRAME_MORE: 0;
+.   endif
             break;
-            
+
 .endfor
     }
-    //  If we're sending to a ROUTER, we send the address first
+    //  If we're sending to a ROUTER, we send the routing_id first
     if (zsocket_type (output) == ZMQ_ROUTER) {
-        assert (self->address);
-        if (zframe_send (&self->address, output, ZFRAME_MORE)) {
+        assert (self->routing_id);
+        if (zframe_send (&self->routing_id, output, ZFRAME_MORE)) {
             zframe_destroy (&frame);
             $(class.name)_destroy (self_p);
             return -1;
@@ -740,11 +746,14 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
         //  If $(name) isn't set, send an empty frame
         if (!self->$(field.name))
             self->$(field.name) = zframe_new (NULL, 0);
-.       if last ()
-        if (zframe_send (&self->$(field.name), output, 0)) {
+.       if item (field) = count (message.field)
+        frame_flags = 0;
+.       elsif item (field) = count (message.field) - 1 & defined (message.has_msg)
+        frame_flags = zmsg_size (self->$(message.has_msg))? ZFRAME_MORE: 0;
 .       else
-        if (zframe_send (&self->$(field.name), output, ZFRAME_MORE)) {
+        frame_flags = ZFRAME_MORE;
 .       endif
+        if (zframe_send (&self->$(field.name), output, frame_flags)) {
             zframe_destroy (&frame);
             $(class.name)_destroy (self_p);
             return -1;
@@ -822,8 +831,8 @@ $(class.name)_dup ($(class.name)_t *self)
         return NULL;
         
     $(class.name)_t *copy = $(class.name)_new (self->id);
-    if (self->address)
-        copy->address = zframe_dup (self->address);
+    if (self->routing_id)
+        copy->routing_id = zframe_dup (self->routing_id);
 
     switch (self->id) {
 .for class.message
@@ -935,21 +944,21 @@ $(class.name)_dump ($(class.name)_t *self)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the message address
+//  Get/set the message routing_id
 
 zframe_t *
-$(class.name)_address ($(class.name)_t *self)
+$(class.name)_routing_id ($(class.name)_t *self)
 {
     assert (self);
-    return self->address;
+    return self->routing_id;
 }
 
 void
-$(class.name)_set_address ($(class.name)_t *self, zframe_t *address)
+$(class.name)_set_routing_id ($(class.name)_t *self, zframe_t *routing_id)
 {
-    if (self->address)
-        zframe_destroy (&self->address);
-    self->address = zframe_dup (address);
+    if (self->routing_id)
+        zframe_destroy (&self->routing_id);
+    self->routing_id = zframe_dup (routing_id);
 }
 
 

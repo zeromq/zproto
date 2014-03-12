@@ -1,77 +1,100 @@
-<class name = "proto_msg" signature = "5" title = "proto serialization over ZMTP">
-Message structures for proto over ZMTP, UnifyProject/draft/RFC-4.
+<class name = "zproto_example" signature = "0" title = "zproto example protocol">
+This is an example protocol designed to teach you how this stuff works.
+
+The class name tells the code generator what .c and .h to generate. Use
+the same name as you're using for this .xml file.
+
+The signature is put into every protocol message and lets us filter bogus
+or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
+for each protocol you write, at least.
+
 <include filename = "license.xml" />
 
-<message name = "POST" id = "1">
-    <field name = "parent" type = "string">Schema/type/name</field>
-    <field name = "content type" type = "string">Content type</field>
-    <field name = "content body" type = "frame">New resource specification</field>
-Create a new, dynamically named resource in some parent.
+You can define constants. These are put into the header file, prefixed by
+the class name, so e.g. #define ZPROTO_EXAMPLE_VERSION  1
+
+<define name = "VERSION" value = "1" />
+
+You can optionally define a header that will be repeated at the start of
+every message. This is just a kind of macro.
+
+<header>
+    <field name = "sequence" type = "number" size = "2" />
+</header>
+
+The protocol consists of one or more 'messages', each consisting of one or
+more 'fields'. You number the messages with unique 'id's. We could do this
+automatically but experience tells us it's better to do this by hand, so
+you can provide forward compatibility by defining new message ids yourself
+and leaving old ones as-is.
+
+A field has a type and possibly a size. zcodec insists that a field with a
+given name have the same type and size anywhere you use it in a protocol.
+This keeps your APIs and grammars sane.
+
+There are a few ways to version a protocol. You could use a version number
+in the header. You could add it to the first message in a conversation, as
+FILEMQ does.
+
+The best way to avoid lots of breaking changes in a protocol is to split
+the fields into those that rarely change, and those that often change, and
+to put the second lot into hash tables (the 'dictionary' type).
+
+OK, let's see some meat.
+
+<message name = "LOG" id = "1">
+    <field name = "level" type = "number" size = "1">Log severity level</field>
+    <field name = "event" type = "number" size = "1">Type of event</field>
+    <field name = "node" type = "number" size = "2">Sending node</field>
+    <field name = "peer" type = "number" size = "2">Refers to this peer</field>
+    <field name = "time" type = "number" size = "8">Log date/time</field>
+    <field name = "data" type = "string" size = "2">Actual log message</field>
+Log an event.
 </message>
 
-<message name = "POST OK" id = "2">
-    <field name = "status code" type = "number" size = "2">Response status code 2xx</field>
-    <field name = "location" type = "string">Schema/type/name</field>
-    <field name = "etag" type = "string">Opaque hash tag</field>
-    <field name = "date modified" type = "number" size="8">Date and time modified</field>
-    <field name = "content type" type = "string">Content type</field>
-    <field name = "content body" type = "frame">Resource contents</field>
-Success response for POST.
+Note that you can add a short comment for each field, and for the message.
+Use these, it helps when reading the source code.
+
+zproto supports numbers (unsigned integers) of 1, 2, 4, and 8 bytes. If you
+don't specify the size, it's 1 byte by default.
+
+zproto supports strings encoded as length + data, in the proper ZeroMQ style,
+without trailing nulls or any of that language-specific stuff. The length
+can, again, be 1, 2, 4, or 8 bytes, and defaults to 1 byte.
+
+Strings contain UTF-8 data; that is, no zero bytes. Their encoded size is the
+number of bytes in the string (not including the size field).
+
+zproto supports lists and hashes of strings:
+
+<message name = "STRUCTURES" id = "2">
+    <field name = "aliases" type = "strings">List of strings</field>
+    <field name = "headers" type = "dictionary">Other random properties</field>
+This message contains a list and a hash.
 </message>
 
-<message name = "GET" id = "3">
-    <field name = "resource" type = "string">Schema/type/name</field>
-    <field name = "if modified since" type = "number" size="8">GET if more recent</field>
-    <field name = "if none match" type = "string">GET if changed</field>
-    <field name = "content type" type = "string">Desired content type</field>
-Retrieve a known resource.
-</message>
+You should read the zproto_example.h file quite carefully to see what API
+these field types generate.
 
-<message name = "GET OK" id = "4">
-    <field name = "status code" type = "number" size = "2">Response status code 2xx</field>
-    <field name = "content type" type = "string">Actual content type</field>
-    <field name = "content body" type = "frame">Resource specification</field>
-Success response for GET.
-</message>
+zproto supports three kinds of binary data. First, you can define a raw octet
+string with fixed size. You can use this to encode short binary strings. Do
+not use for anything longer than e.g. 256 octets, as octet strings are not
+variable length.
 
-<message name = "GET EMPTY" id = "5">
-    <field name = "status code" type = "number" size = "2">Response status code 3xx</field>
-Conditional GET returned 304 Not Modified.
-</message>
+Second, you can define frames, which are sent as separate ZeroMQ frames on
+the wire. This is ideal for variable-size binary data such as images, or
+other blobs.
 
-<message name = "PUT" id = "6">
-    <field name = "resource" type = "string">Schema/type/name</field>
-    <field name = "if unmodified since" type = "number" size="8">Update if same date</field>
-    <field name = "if match" type = "string">Update if same ETag</field>
-    <field name = "content type" type = "string">Content type</field>
-    <field name = "content body" type = "frame">New resource specification</field>
-Update a known resource.
-</message>
+Lastly, you can define ZeroMQ messages (that is, one or more frames). This
+is useful for protocols that want to wrap entire ZeroMQ messages in other
+data. If you use a "msg" type field, it must be the last field in the
+message.
 
-<message name = "PUT OK" id = "7">
-    <field name = "status code" type = "number" size = "2">Response status code 2xx</field>
-    <field name = "location" type = "string">Schema/type/name</field>
-    <field name = "etag" type = "string">Opaque hash tag</field>
-    <field name = "date modified" type = "number" size="8">Date and time modified</field>
-Success response for PUT.
-</message>
-
-<message name = "DELETE" id = "8">
-    <field name = "resource" type = "string">schema/type/name</field>
-    <field name = "if unmodified since" type = "number" size="8">DELETE if same date</field>
-    <field name = "if match" type = "string">DELETE if same ETag</field>
-Remove a known resource.
-</message>
-
-<message name = "DELETE OK" id = "9">
-    <field name = "status code" type = "number" size = "2">Response status code 2xx</field>
-Success response for DELETE.
-</message>
-
-<message name = "ERROR" id = "10">
-    <field name = "status code" type = "number" size = "2">Response status code, 4xx or 5xx</field>
-    <field name = "status text" type = "string">Response status text</field>
-Error response for any request.
+<message name = "BINARY" id = "3">
+    <field name = "flags" type = "octets" size = "4">A set of flags</field>
+    <field name = "address" type = "frame">Return address as frame</field>
+    <field name = "content" type = "msg">Message to be delivered</field>
+Deliver a multi-part message.
 </message>
 
 </class>
