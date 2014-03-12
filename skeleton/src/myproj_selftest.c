@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zproto_selftest - run self tests
+    myproj_selftest - run self tests
 
     Permission is hereby granted, free of charge, to any person obtaining
     a copy of this software and associated documentation files (the
@@ -22,7 +22,7 @@
     =========================================================================
 */
 
-#include "../include/zproto.h"
+#include "../include/myproj.h"
 
 int main (int argc, char *argv [])
 {
@@ -33,7 +33,7 @@ int main (int argc, char *argv [])
         verbose = false;
 
     printf ("Running self tests...\n");
-    zproto_example_test (verbose);
+    myproj_msg_test (verbose);
     printf ("Tests passed OK\n");
     return 0;
 }

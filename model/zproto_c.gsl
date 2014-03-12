@@ -4,6 +4,7 @@
 .#
 .include "library.gsl"
 .resolve_includes ()
+.set_defaults ()
 .echo "Generating ../include/$(class.name).h..."
 .output "../include/$(class.name).h"
 /*  =========================================================================
@@ -20,53 +21,20 @@
 
 /*  These are the $(class.name) messages:
 .for message
-.   message.name = "$(message.name:c)"
-.   for field where item() = 1
-.       for class.header
-.           for field as hfield
-.               copy hfield before field
-.           endfor
-.       endfor
-.   else
-.       for class.header
-.           for field as hfield
-.               copy hfield to message
-.           endfor
-.       endfor
-.   endfor
-.
 
     $(NAME) - $(string.trim (.?''):left)
 .   for field
-.       field.name = "$(field.name:c)"
 .       if type = "number"
-.           size ?= 1
-.           if size = 1
-.               field.ctype = "byte"
-.           elsif size = 2
-.               field.ctype = "uint16_t"
-.           elsif size = 4
-.               field.ctype = "uint32_t"
-.           elsif size = 8
-.               field.ctype = "uint64_t"
-.           else
-.               echo "E: bad size $(size) for $(name)"
-.           endif
         $(name)             $(type) $(size)\
                                         $(field.?'':)
 .       elsif type = "octets"
         $(name)             $(type) [$(size)]\
                                         $(field.?'':)
+.       elsif type = "string"
+        $(name)             $(type)     $(field.?'':)
 .       else
         $(name)             $(type)     $(field.?'':)
 .       endif
-.       for class.field as cfield where cfield.name = field.name
-.           if cfield.type <> field.type
-.               echo "E: field '$(name)' must have same type everywhere"
-.           endif
-.       else
-.           copy field to class
-.       endfor
 .   endfor
 .endfor
 */
@@ -105,6 +73,10 @@ $(class.name)_t *
 //  Send the $(class.name) to the output, and destroy it
 int
     $(class.name)_send ($(class.name)_t **self_p, void *output);
+
+//  Send the $(class.name) to the output, and do not destroy it
+int
+    $(class.name)_send_again ($(class.name)_t *self, void *output);
 
 .for message
 //  Send the $(message.NAME) to the output in one step
@@ -609,9 +581,9 @@ s_$(name)_write (const char *key, void *item, void *argument)
 int
 $(class.name)_send ($(class.name)_t **self_p, void *output)
 {
-    assert (output);
     assert (self_p);
     assert (*self_p);
+    assert (output);
 
     //  Calculate size of serialized data
     $(class.name)_t *self = *self_p;
@@ -775,6 +747,19 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
 }
 
 
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the output, and do not destroy it
+
+int
+$(class.name)_send_again ($(class.name)_t *self, void *output)
+{
+    assert (self);
+    assert (output);
+    self = $(class.name)_dup (self);
+    return $(class.name)_send (&self, output);
+}
+
+
 .for message
 //  --------------------------------------------------------------------------
 //  Send the $(message.NAME) to the socket in one step
@@ -843,15 +828,15 @@ $(class.name)_dup ($(class.name)_t *self)
 .       elsif type = "octets"
             memcpy (copy->$(name), self->$(name), $(size));
 .       elsif type = "string"
-            copy->$(name) = strdup (self->$(name));
+            copy->$(name) = self->$(name)? strdup (self->$(name)): NULL;
 .       elsif type = "strings"
-            copy->$(name) = zlist_dup (self->$(name));
+            copy->$(name) = self->$(name)? zlist_dup (self->$(name)): NULL;
 .       elsif type = "dictionary"
-            copy->$(name) = zhash_dup (self->$(name));
+            copy->$(name) = self->$(name)? zhash_dup (self->$(name)): NULL;
 .       elsif type = "frame"
-            copy->$(name) = zframe_dup (self->$(name));
+            copy->$(name) = self->$(name)? zframe_dup (self->$(name)): NULL;
 .       elsif type = "msg"
-            copy->$(name) = zmsg_dup (self->$(name));
+            copy->$(name) = self->$(name)? zmsg_dup (self->$(name)): NULL;
 .       endif
 .   endfor
             break;
@@ -923,16 +908,22 @@ $(class.name)_dump ($(class.name)_t *self)
             printf ("    $(name)={\\n");
             if (self->$(name))
                 zhash_foreach (self->$(name), s_$(name)_dump, self);
+            else
+                printf ("(NULL)\\n");
             printf ("    }\\n");
 .       elsif type = "frame"
             printf ("    $(name)={\\n");
             if (self->$(name))
                 zframe_print (self->$(name), NULL);
+            else
+                printf ("(NULL)\\n");
             printf ("    }\\n");
 .       elsif type = "msg"
             printf ("    $(name)={\\n");
             if (self->$(name))
                 zmsg_dump (self->$(name));
+            else
+                printf ("(NULL)\\n");
             printf ("    }\\n");
 .       endif
 .   endfor
@@ -1273,9 +1264,16 @@ $(class.name)_test (bool verbose)
     zsocket_connect (input, "inproc://selftest");
     
     //  Encode/send/decode and verify each message type
+    int instance;
+    $(class.name)_t *copy;
 .for class.message
-
     self = $(class.name)_new ($(CLASS.NAME)_$(MESSAGE.NAME));
+    
+    //  Check that _dup works on empty message
+    copy = $(class.name)_dup (self);
+    assert (copy);
+    $(class.name)_destroy (&copy);
+
 .   for field where !defined (value)
 .       if type = "number"
     $(class.name)_set_$(name) (self, 123);
@@ -1295,35 +1293,41 @@ $(class.name)_test (bool verbose)
     $(class.name)_set_$(name) (self, zframe_new ("Captcha Diem", 12));
 .       elsif type = "msg"
     $(class.name)_set_$(name) (self, zmsg_new ());
+//    zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
 .       endif
 .   endfor
+    //  Send twice from same object
+    $(class.name)_send_again (self, output);
     $(class.name)_send (&self, output);
-    
-    self = $(class.name)_recv (input);
-    assert (self);
+
+    for (instance = 0; instance < 2; instance++) {
+        self = $(class.name)_recv (input);
+        assert (self);
+        
 .   for field where !defined (value)
 .       if type = "number"
-    assert ($(class.name)_$(name) (self) == 123);
+        assert ($(class.name)_$(name) (self) == 123);
 .       elsif type = "octets"
-    assert ($(class.name)_$(name) (self) [0] == 123);
-    assert ($(class.name)_$(name) (self) [$(CLASS.NAME)_$(FIELD.NAME)_SIZE - 1] == 123);
+        assert ($(class.name)_$(name) (self) [0] == 123);
+        assert ($(class.name)_$(name) (self) [$(CLASS.NAME)_$(FIELD.NAME)_SIZE - 1] == 123);
 .       elsif type = "string"
-    assert (streq ($(class.name)_$(name) (self), "Life is short but Now lasts for ever"));
+        assert (streq ($(class.name)_$(name) (self), "Life is short but Now lasts for ever"));
 .       elsif type = "strings"
-    assert ($(class.name)_$(name)_size (self) == 2);
-    assert (streq ($(class.name)_$(name)_first (self), "Name: Brutus"));
-    assert (streq ($(class.name)_$(name)_next (self), "Age: 43"));
+        assert ($(class.name)_$(name)_size (self) == 2);
+        assert (streq ($(class.name)_$(name)_first (self), "Name: Brutus"));
+        assert (streq ($(class.name)_$(name)_next (self), "Age: 43"));
 .       elsif type = "dictionary"
-    assert ($(class.name)_$(name)_size (self) == 2);
-    assert (streq ($(class.name)_$(name)_string (self, "Name", "?"), "Brutus"));
-    assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);
+        assert ($(class.name)_$(name)_size (self) == 2);
+        assert (streq ($(class.name)_$(name)_string (self, "Name", "?"), "Brutus"));
+        assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);
 .       elsif type = "frame"
-    assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
+        assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .       elsif type = "msg"
-    assert (zmsg_size ($(class.name)_$(name) (self)) == 0);
+        assert (zmsg_size ($(class.name)_$(name) (self)) == 0);
 .       endif
 .   endfor
-    $(class.name)_destroy (&self);
+        $(class.name)_destroy (&self);
+    }
 .endfor
 
     zctx_destroy (&ctx);

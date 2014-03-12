@@ -1,7 +1,7 @@
 /*  =========================================================================
-    zproto_example - zproto example protocol
+    myproj_msg - myproj example protocol
     
-    Generated codec header for zproto_example
+    Generated codec header for myproj_msg
     -------------------------------------------------------------------------
     Copyright (C) 2014 the Authors                                         
                                                                            
@@ -26,10 +26,10 @@
     =========================================================================
 */
 
-#ifndef __ZPROTO_EXAMPLE_H_INCLUDED__
-#define __ZPROTO_EXAMPLE_H_INCLUDED__
+#ifndef __MYPROJ_EXAMPLE_H_INCLUDED__
+#define __MYPROJ_EXAMPLE_H_INCLUDED__
 
-/*  These are the zproto_example messages:
+/*  These are the myproj_msg messages:
 
     LOG - Log an event.
         sequence            number 2    
@@ -52,44 +52,40 @@
         content             msg         Message to be delivered
 */
 
-#define ZPROTO_EXAMPLE_VERSION              1
+#define MYPROJ_EXAMPLE_VERSION              1
 
-#define ZPROTO_EXAMPLE_LOG                  1
-#define ZPROTO_EXAMPLE_STRUCTURES           2
-#define ZPROTO_EXAMPLE_BINARY               3
-#define ZPROTO_EXAMPLE_FLAGS_SIZE           4
+#define MYPROJ_EXAMPLE_LOG                  1
+#define MYPROJ_EXAMPLE_STRUCTURES           2
+#define MYPROJ_EXAMPLE_BINARY               3
+#define MYPROJ_EXAMPLE_FLAGS_SIZE           4
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 //  Opaque class structure
-typedef struct _zproto_example_t zproto_example_t;
+typedef struct _myproj_msg_t myproj_msg_t;
 
 //  @interface
-//  Create a new zproto_example
-zproto_example_t *
-    zproto_example_new (int id);
+//  Create a new myproj_msg
+myproj_msg_t *
+    myproj_msg_new (int id);
 
-//  Destroy the zproto_example
+//  Destroy the myproj_msg
 void
-    zproto_example_destroy (zproto_example_t **self_p);
+    myproj_msg_destroy (myproj_msg_t **self_p);
 
-//  Receive and parse a zproto_example from the input
-zproto_example_t *
-    zproto_example_recv (void *input);
+//  Receive and parse a myproj_msg from the input
+myproj_msg_t *
+    myproj_msg_recv (void *input);
 
-//  Send the zproto_example to the output, and destroy it
+//  Send the myproj_msg to the output, and destroy it
 int
-    zproto_example_send (zproto_example_t **self_p, void *output);
-
-//  Send the zproto_example to the output, and do not destroy it
-int
-    zproto_example_send_again (zproto_example_t *self, void *output);
+    myproj_msg_send (myproj_msg_t **self_p, void *output);
 
 //  Send the LOG to the output in one step
 int
-    zproto_example_send_log (void *output,
+    myproj_msg_send_log (void *output,
         uint16_t sequence,
         byte level,
         byte event,
@@ -100,136 +96,136 @@ int
     
 //  Send the STRUCTURES to the output in one step
 int
-    zproto_example_send_structures (void *output,
+    myproj_msg_send_structures (void *output,
         uint16_t sequence,
         zlist_t *aliases,
         zhash_t *headers);
     
 //  Send the BINARY to the output in one step
 int
-    zproto_example_send_binary (void *output,
+    myproj_msg_send_binary (void *output,
         uint16_t sequence,
         byte *flags,
         zframe_t *address,
         zmsg_t *content);
     
-//  Duplicate the zproto_example message
-zproto_example_t *
-    zproto_example_dup (zproto_example_t *self);
+//  Duplicate the myproj_msg message
+myproj_msg_t *
+    myproj_msg_dup (myproj_msg_t *self);
 
 //  Print contents of message to stdout
 void
-    zproto_example_dump (zproto_example_t *self);
+    myproj_msg_dump (myproj_msg_t *self);
 
 //  Get/set the message routing id
 zframe_t *
-    zproto_example_routing_id (zproto_example_t *self);
+    myproj_msg_routing_id (myproj_msg_t *self);
 void
-    zproto_example_set_routing_id (zproto_example_t *self, zframe_t *routing_id);
+    myproj_msg_set_routing_id (myproj_msg_t *self, zframe_t *routing_id);
 
-//  Get the zproto_example id and printable command
+//  Get the myproj_msg id and printable command
 int
-    zproto_example_id (zproto_example_t *self);
+    myproj_msg_id (myproj_msg_t *self);
 void
-    zproto_example_set_id (zproto_example_t *self, int id);
+    myproj_msg_set_id (myproj_msg_t *self, int id);
 char *
-    zproto_example_command (zproto_example_t *self);
+    myproj_msg_command (myproj_msg_t *self);
 
 //  Get/set the sequence field
 uint16_t
-    zproto_example_sequence (zproto_example_t *self);
+    myproj_msg_sequence (myproj_msg_t *self);
 void
-    zproto_example_set_sequence (zproto_example_t *self, uint16_t sequence);
+    myproj_msg_set_sequence (myproj_msg_t *self, uint16_t sequence);
 
 //  Get/set the level field
 byte
-    zproto_example_level (zproto_example_t *self);
+    myproj_msg_level (myproj_msg_t *self);
 void
-    zproto_example_set_level (zproto_example_t *self, byte level);
+    myproj_msg_set_level (myproj_msg_t *self, byte level);
 
 //  Get/set the event field
 byte
-    zproto_example_event (zproto_example_t *self);
+    myproj_msg_event (myproj_msg_t *self);
 void
-    zproto_example_set_event (zproto_example_t *self, byte event);
+    myproj_msg_set_event (myproj_msg_t *self, byte event);
 
 //  Get/set the node field
 uint16_t
-    zproto_example_node (zproto_example_t *self);
+    myproj_msg_node (myproj_msg_t *self);
 void
-    zproto_example_set_node (zproto_example_t *self, uint16_t node);
+    myproj_msg_set_node (myproj_msg_t *self, uint16_t node);
 
 //  Get/set the peer field
 uint16_t
-    zproto_example_peer (zproto_example_t *self);
+    myproj_msg_peer (myproj_msg_t *self);
 void
-    zproto_example_set_peer (zproto_example_t *self, uint16_t peer);
+    myproj_msg_set_peer (myproj_msg_t *self, uint16_t peer);
 
 //  Get/set the time field
 uint64_t
-    zproto_example_time (zproto_example_t *self);
+    myproj_msg_time (myproj_msg_t *self);
 void
-    zproto_example_set_time (zproto_example_t *self, uint64_t time);
+    myproj_msg_set_time (myproj_msg_t *self, uint64_t time);
 
 //  Get/set the data field
 char *
-    zproto_example_data (zproto_example_t *self);
+    myproj_msg_data (myproj_msg_t *self);
 void
-    zproto_example_set_data (zproto_example_t *self, char *format, ...);
+    myproj_msg_set_data (myproj_msg_t *self, char *format, ...);
 
 //  Get/set the aliases field
 zlist_t *
-    zproto_example_aliases (zproto_example_t *self);
+    myproj_msg_aliases (myproj_msg_t *self);
 void
-    zproto_example_set_aliases (zproto_example_t *self, zlist_t *aliases);
+    myproj_msg_set_aliases (myproj_msg_t *self, zlist_t *aliases);
 
 //  Iterate through the aliases field, and append a aliases value
 char *
-    zproto_example_aliases_first (zproto_example_t *self);
+    myproj_msg_aliases_first (myproj_msg_t *self);
 char *
-    zproto_example_aliases_next (zproto_example_t *self);
+    myproj_msg_aliases_next (myproj_msg_t *self);
 void
-    zproto_example_aliases_append (zproto_example_t *self, char *format, ...);
+    myproj_msg_aliases_append (myproj_msg_t *self, char *format, ...);
 size_t
-    zproto_example_aliases_size (zproto_example_t *self);
+    myproj_msg_aliases_size (myproj_msg_t *self);
 
 //  Get/set the headers field
 zhash_t *
-    zproto_example_headers (zproto_example_t *self);
+    myproj_msg_headers (myproj_msg_t *self);
 void
-    zproto_example_set_headers (zproto_example_t *self, zhash_t *headers);
+    myproj_msg_set_headers (myproj_msg_t *self, zhash_t *headers);
     
 //  Get/set a value in the headers dictionary
 char *
-    zproto_example_headers_string (zproto_example_t *self, char *key, char *default_value);
+    myproj_msg_headers_string (myproj_msg_t *self, char *key, char *default_value);
 uint64_t
-    zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t default_value);
+    myproj_msg_headers_number (myproj_msg_t *self, char *key, uint64_t default_value);
 void
-    zproto_example_headers_insert (zproto_example_t *self, char *key, char *format, ...);
+    myproj_msg_headers_insert (myproj_msg_t *self, char *key, char *format, ...);
 size_t
-    zproto_example_headers_size (zproto_example_t *self);
+    myproj_msg_headers_size (myproj_msg_t *self);
 
 //  Get/set the flags field
 byte *
-    zproto_example_flags (zproto_example_t *self);
+    myproj_msg_flags (myproj_msg_t *self);
 void
-    zproto_example_set_flags (zproto_example_t *self, byte *flags);
+    myproj_msg_set_flags (myproj_msg_t *self, byte *flags);
 
 //  Get/set the address field
 zframe_t *
-    zproto_example_address (zproto_example_t *self);
+    myproj_msg_address (myproj_msg_t *self);
 void
-    zproto_example_set_address (zproto_example_t *self, zframe_t *frame);
+    myproj_msg_set_address (myproj_msg_t *self, zframe_t *frame);
 
 //  Get/set the content field
 zmsg_t *
-    zproto_example_content (zproto_example_t *self);
+    myproj_msg_content (myproj_msg_t *self);
 void
-    zproto_example_set_content (zproto_example_t *self, zmsg_t *msg);
+    myproj_msg_set_content (myproj_msg_t *self, zmsg_t *msg);
 
 //  Self test of this class
 int
-    zproto_example_test (bool verbose);
+    myproj_msg_test (bool verbose);
 //  @end
 
 #ifdef __cplusplus

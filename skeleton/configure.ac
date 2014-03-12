@@ -2,11 +2,11 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.61)
 #
-# The version number is extracted from include/zproto.h using
+# The version number is extracted from include/myproj.h using
 # the version.sh script. Hence, it should be updated there.
 # The version in git should reflect the *next* version planned.
 #
-AC_INIT([zproto],[m4_esyscmd([./version.sh zproto])],[zproto@zeromq.org])
+AC_INIT([myproj],[m4_esyscmd([./version.sh myproj])],[myproj@zeromq.org)
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -19,11 +19,11 @@ PV_MAJOR=`echo $PACKAGE_VERSION | cut -d . -f 1`
 PV_MINOR=`echo $PACKAGE_VERSION | cut -d . -f 2`
 PV_PATCH=`echo $PACKAGE_VERSION | cut -d . -f 3`
 AC_DEFINE_UNQUOTED([PACKAGE_VERSION_MAJOR],[$PV_MAJOR],
-    [zproto major version])
+    [myproj major version])
 AC_DEFINE_UNQUOTED([PACKAGE_VERSION_MINOR],[$PV_MINOR],
-    [zproto minor version])
+    [myproj minor version])
 AC_DEFINE_UNQUOTED([PACKAGE_VERSION_PATCH],[$PV_PATCH],
-    [zproto patchlevel])
+    [myproj patchlevel])
 # This lets us use PACKAGE_VERSION in Makefiles
 AC_SUBST(PACKAGE_VERSION)
 
@@ -34,12 +34,12 @@ AC_SUBST(PACKAGE_VERSION)
 # know exactly what you're doing and have read and understand
 # http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
 #
-# libzproto -version-info
+# libmyproj -version-info
 LTVER="2:0:1"
 AC_SUBST(LTVER)
 
 # Capture c flags
-ZPROTO_ORIG_CFLAGS="${CFLAGS:-none}"
+MYPROJ_ORIG_CFLAGS="${CFLAGS:-none}"
 
 # Checks for programs
 AC_PROG_CC
@@ -53,13 +53,13 @@ AC_PROG_AWK
 # Code coverage
 AC_ARG_WITH(gcov, [AS_HELP_STRING([--with-gcov=yes/no],
                   [With GCC Code Coverage reporting.])],
-                  [ZPROTO_GCOV="$withval"])
+                  [MYPROJ_GCOV="$withval"])
 
-if test "x${ZPROTO_GCOV}" == "xyes"; then
+if test "x${MYPROJ_GCOV}" == "xyes"; then
     CFLAGS="-O0 -g -fprofile-arcs -ftest-coverage"
 
-    if test "x${ZPROTO_ORIG_CFLAGS}" != "xnone"; then
-        CFLAGS="${CFLAGS} ${ZPROTO_ORIG_CFLAGS}"
+    if test "x${MYPROJ_ORIG_CFLAGS}" != "xnone"; then
+        CFLAGS="${CFLAGS} ${MYPROJ_ORIG_CFLAGS}"
     fi
 fi
 
@@ -118,27 +118,27 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <czmq.h>],
 AC_CANONICAL_HOST
 
 # Determine whether or not documentation should be built and installed.
-zproto_build_doc="yes"
-zproto_install_man="yes"
+myproj_build_doc="yes"
+myproj_install_man="yes"
 
 # Check for asciidoc and xmlto and don't build the docs if these are not installed.
-AC_CHECK_PROG(zproto_have_asciidoc, asciidoc, yes, no)
-AC_CHECK_PROG(zproto_have_xmlto, xmlto, yes, no)
-if test "x$zproto_have_asciidoc" = "xno" -o "x$zproto_have_xmlto" = "xno"; then
-    zproto_build_doc="no"
+AC_CHECK_PROG(myproj_have_asciidoc, asciidoc, yes, no)
+AC_CHECK_PROG(myproj_have_xmlto, xmlto, yes, no)
+if test "x$myproj_have_asciidoc" = "xno" -o "x$myproj_have_xmlto" = "xno"; then
+    myproj_build_doc="no"
     # Tarballs built with 'make dist' ship with prebuilt documentation.
-    if ! test -f doc/zproto.7; then
-        zproto_install_man="no"
-        AC_MSG_WARN([You are building an unreleased version of libzproto and asciidoc or xmlto are not installed.])
+    if ! test -f doc/myproj.7; then
+        myproj_install_man="no"
+        AC_MSG_WARN([You are building an unreleased version of libmyproj and asciidoc or xmlto are not installed.])
         AC_MSG_WARN([Documentation will not be built and manual pages will not be installed.])
     fi
 fi
 AC_MSG_CHECKING([whether to build documentation])
-AC_MSG_RESULT([$zproto_build_doc])
+AC_MSG_RESULT([$myproj_build_doc])
 AC_MSG_CHECKING([whether to install manpages])
-AC_MSG_RESULT([$zproto_install_man])
+AC_MSG_RESULT([$myproj_install_man])
 
-# Set some default features required by libzproto code.
+# Set some default features required by libmyproj code.
 CPPFLAGS="-D_REENTRANT -D_THREAD_SAFE $CPPFLAGS"
 
 # OS-specific tests
@@ -146,54 +146,54 @@ case "${host_os}" in
     *linux*)
         # Define on Linux to enable all library features
         CPPFLAGS="-D_GNU_SOURCE -DLINUX $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_LINUX, 1, [Have Linux OS])
+        AC_DEFINE(MYPROJ_HAVE_LINUX, 1, [Have Linux OS])
         ;;
     *solaris*)
         # Define on Solaris to enable all library features
         CPPFLAGS="-D_PTHREADS $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_SOLARIS, 1, [Have Solaris OS])
+        AC_DEFINE(MYPROJ_HAVE_SOLARIS, 1, [Have Solaris OS])
         CFLAGS="${CFLAGS} -lsocket -lssp"
         ;;
     *freebsd*)
         # Define on FreeBSD to enable all library features
         CPPFLAGS="-D__BSD_VISIBLE $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_FREEBSD, 1, [Have FreeBSD OS])
+        AC_DEFINE(MYPROJ_HAVE_FREEBSD, 1, [Have FreeBSD OS])
         ;;
     *darwin*)
         # Define on Darwin to enable all library features
         CPPFLAGS="-D_DARWIN_C_SOURCE $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_OSX, 1, [Have DarwinOSX OS])
+        AC_DEFINE(MYPROJ_HAVE_OSX, 1, [Have DarwinOSX OS])
         ;;
     *netbsd*)
         # Define on NetBSD to enable all library features
         CPPFLAGS="-D_NETBSD_SOURCE $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_NETBSD, 1, [Have NetBSD OS])
+        AC_DEFINE(MYPROJ_HAVE_NETBSD, 1, [Have NetBSD OS])
         ;;
     *openbsd*)
         # Define on OpenBSD to enable all library features
         CPPFLAGS="-D_BSD_SOURCE $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_OPENBSD, 1, [Have OpenBSD OS])
+        AC_DEFINE(MYPROJ_HAVE_OPENBSD, 1, [Have OpenBSD OS])
         ;;
     *nto-qnx*)
-        AC_DEFINE(ZPROTO_HAVE_QNXNTO, 1, [Have QNX Neutrino OS])
+        AC_DEFINE(MYPROJ_HAVE_QNXNTO, 1, [Have QNX Neutrino OS])
         ;;
     *aix*)
-        AC_DEFINE(ZPROTO_HAVE_AIX, 1, [Have AIX OS])
+        AC_DEFINE(MYPROJ_HAVE_AIX, 1, [Have AIX OS])
         ;;
     *hpux*)
         # Define on HP-UX to enable all library features
         CPPFLAGS="-D_POSIX_C_SOURCE=200112L"
-        AC_DEFINE(ZPROTO_HAVE_HPUX, 1, [Have HPUX OS])
+        AC_DEFINE(MYPROJ_HAVE_HPUX, 1, [Have HPUX OS])
         ;;
     *mingw32*)
-        AC_DEFINE(ZPROTO_HAVE_WINDOWS, 1, [Have Windows OS])
-        AC_DEFINE(ZPROTO_HAVE_MINGW32, 1, [Have MinGW32])
+        AC_DEFINE(MYPROJ_HAVE_WINDOWS, 1, [Have Windows OS])
+        AC_DEFINE(MYPROJ_HAVE_MINGW32, 1, [Have MinGW32])
         AC_CHECK_HEADERS(windows.h)
         ;;
     *cygwin*)
         # Define on Cygwin to enable all library features
         CPPFLAGS="-D_GNU_SOURCE $CPPFLAGS"
-        AC_DEFINE(ZPROTO_HAVE_CYGWIN, 1, [Have Cygwin])
+        AC_DEFINE(MYPROJ_HAVE_CYGWIN, 1, [Have Cygwin])
         ;;
     *)
         AC_MSG_ERROR([unsupported system: ${host_os}.])
@@ -220,13 +220,13 @@ if test "x$GCC" = "xyes"; then
     CPPFLAGS="-pedantic -Werror -Wall ${CPPFLAGS}"
 fi
 
-AM_CONDITIONAL(INSTALL_MAN, test "x$zproto_install_man" = "xyes")
-AM_CONDITIONAL(BUILD_DOC, test "x$zproto_build_doc" = "xyes")
+AM_CONDITIONAL(INSTALL_MAN, test "x$myproj_install_man" = "xyes")
+AM_CONDITIONAL(BUILD_DOC, test "x$myproj_build_doc" = "xyes")
 
 # Checks for library functions.
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(perror gettimeofday memset)
 
 # Specify output files
-AC_CONFIG_FILES([Makefile model/Makefile src/Makefile doc/Makefile src/libzproto.pc])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile src/libmyproj.pc])
 AC_OUTPUT

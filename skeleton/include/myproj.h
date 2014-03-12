@@ -1,5 +1,7 @@
 /*  =========================================================================
-    zproto_selftest - run self tests
+    myproj.h - protocol framework for ZeroMQ
+
+    Copyright (C) 2014 the Authors
 
     Permission is hereby granted, free of charge, to any person obtaining
     a copy of this software and associated documentation files (the
@@ -19,21 +21,27 @@
     CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-    =========================================================================
-*/
+    =========================================================================*/
 
-#include "../include/zproto.h"
+#ifndef __MYPROJ_H_INCLUDED__
+#define __MYPROJ_H_INCLUDED__
 
-int main (int argc, char *argv [])
-{
-    bool verbose;
-    if (argc == 2 && streq (argv [1], "-v"))
-        verbose = true;
-    else
-        verbose = false;
+//  MYPROJ version macros for compile-time API detection
 
-    printf ("Running self tests...\n");
-    zproto_example_test (verbose);
-    printf ("Tests passed OK\n");
-    return 0;
-}
+#define MYPROJ_VERSION_MAJOR 0
+#define MYPROJ_VERSION_MINOR 0
+#define MYPROJ_VERSION_PATCH 1
+
+#define MYPROJ_MAKE_VERSION(major, minor, patch) \
+    ((major) * 10000 + (minor) * 100 + (patch))
+#define MYPROJ_VERSION \
+    MYPROJ_MAKE_VERSION(MYPROJ_VERSION_MAJOR, MYPROJ_VERSION_MINOR, MYPROJ_VERSION_PATCH)
+
+#include <czmq.h>
+#if CZMQ_VERSION < 20100
+#   error "MYPROJ needs CZMQ/2.1.0 or later"
+#endif
+
+#include "myproj_msg.h"
+
+#endif

@@ -5,14 +5,14 @@
 #   Valgrind command
 VG="valgrind --tool=memcheck --leak-check=full --show-reachable=yes --suppressions=valgrind.supp"
 
-gcc -g -o zproto_selftest zproto*.c ${CFLAGS} ${LDFLAGS} -DHAVE_CONFIG_H -lczmq -lzmq -luuid -lsodium
+gcc -g -o myproj_selftest myproj*.c ${CFLAGS} ${LDFLAGS} -DHAVE_CONFIG_H -lczmq -lzmq -luuid -lsodium
 
 if [ $? -eq 0 ]; then
     if [ "$1" == "-q" ]; then
-        ./zproto_selftest
+        ./myproj_selftest
         exit
     else
-        $VG ./zproto_selftest
+        $VG ./myproj_selftest
     fi
 fi
 rm -f vgcore.*

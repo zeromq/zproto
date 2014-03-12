@@ -26,4 +26,3 @@ src/platform.h.in
 src/stamp-h1
 src/zproto_example.lo
 src/zproto_selftest
-src/platform.h.in~

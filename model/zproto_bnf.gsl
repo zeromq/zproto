@@ -1,0 +1,70 @@
+.#  zproto_bnf.gsl
+.#
+.#  Generates a BNF grammar from a protocol specification
+.#  The grammar will need manual reworking to be sensible.
+.#
+.include "library.gsl"
+.resolve_includes ()
+.set_defaults ()
+.echo "Generating $(class.name).bnf..."
+.output "$(class.name).bnf"
+The following ABNF grammar defines the $(class.title:):
+
+    $(class.name)   = *(\
+.for message
+ C:$(message.name:)\
+.   if !last ()
+ |\
+.   endif
+.endfor
+\ )
+
+.for message
+    C:$(message.name:)\
+                    = signature %d$(id)\
+.   for field
+ $(field.name)\
+.   endfor
+
+.if first()
+    signature       = %xAA %d$(signature)   ; two octets
+.endif
+.   for field
+.       if type = "number"
+    $(name)         = number-$(size)        ; $(field.?'':)
+.       elsif type = "octets"
+    $(name)         = $(size)OCTET          ; $(field.?'':)
+.       elsif type = "string"
+    $(name)         = string-$(size)        ; $(field.?'':)
+.       else
+    $(name)         = $(type)               ; $(field.?'':)
+.       endif
+.   endfor
+
+.endfor
+    ; Numbers are unsigned integers in network byte order
+    number-1        = 1OCTET
+    number-2        = 2OCTET
+    number-4        = 4OCTET
+    number-8        = 8OCTET                
+    
+    ; Strings are always length + contents
+    string-1        = number-1 *VCHAR
+    string-2        = number-2 *VCHAR
+    string-4        = number-4 *VCHAR
+    string-8        = number-8 *VCHAR       
+
+    ; A list of string values
+    strings         = count *value
+    value           = string-1
+
+    ; A list of name/value pairs
+    dictionary      = count *name-value
+    count           = number-1
+    name-value       = string-1             ; "name=value"
+
+    ; A frame is zero or more octets encoded as a ZeroMQ frame
+    frame           = *OCTET                
+
+    ; A msg is zero or more distinct frames
+    msg             = *frame

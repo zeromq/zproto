@@ -1,4 +1,4 @@
-<class name = "zproto_example" signature = "0" title = "zproto example protocol">
+<class name = "myproj_msg" signature = "0" title = "myproj example protocol">
 This is an example protocol designed to teach you how this stuff works.
 
 The class name tells the code generator what .c and .h to generate. Use
@@ -11,7 +11,7 @@ for each protocol you write, at least.
 <include filename = "license.xml" />
 
 You can define constants. These are put into the header file, prefixed by
-the class name, so e.g. #define ZPROTO_EXAMPLE_VERSION  1
+the class name, so e.g. #define MYPROJ_EXAMPLE_VERSION  1
 
 <define name = "VERSION" value = "1" />
 
@@ -23,9 +23,9 @@ every message. This is just a kind of macro.
 </header>
 
 The protocol consists of one or more 'messages', each consisting of one or
-more 'fields'. You number the messages with unique 'id's, 0 to 255. We could
-do this automatically but experience tells us it's better to do this by hand,
-so you can provide forward compatibility by defining new message ids yourself
+more 'fields'. You number the messages with unique 'id's. We could do this
+automatically but experience tells us it's better to do this by hand, so
+you can provide forward compatibility by defining new message ids yourself
 and leaving old ones as-is.
 
 A field has a type and possibly a size. zcodec insists that a field with a
@@ -55,17 +55,17 @@ Log an event.
 Note that you can add a short comment for each field, and for the message.
 Use these, it helps when reading the source code.
 
-zproto supports numbers (unsigned integers) of 1, 2, 4, and 8 bytes. If you
+myproj supports numbers (unsigned integers) of 1, 2, 4, and 8 bytes. If you
 don't specify the size, it's 1 byte by default.
 
-zproto supports strings encoded as length + data, in the proper ZeroMQ style,
+myproj supports strings encoded as length + data, in the proper ZeroMQ style,
 without trailing nulls or any of that language-specific stuff. The length
 can, again, be 1, 2, 4, or 8 bytes, and defaults to 1 byte.
 
 Strings contain UTF-8 data; that is, no zero bytes. Their encoded size is the
 number of bytes in the string (not including the size field).
 
-zproto supports lists and hashes of strings:
+myproj supports lists and hashes of strings:
 
 <message name = "STRUCTURES" id = "2">
     <field name = "aliases" type = "strings">List of strings</field>
@@ -73,10 +73,10 @@ zproto supports lists and hashes of strings:
 This message contains a list and a hash.
 </message>
 
-You should read the zproto_example.h file quite carefully to see what API
+You should read the myproj_msg.h file quite carefully to see what API
 these field types generate.
 
-zproto supports three kinds of binary data. First, you can define a raw octet
+myproj supports three kinds of binary data. First, you can define a raw octet
 string with fixed size. You can use this to encode short binary strings. Do
 not use for anything longer than e.g. 256 octets, as octet strings are not
 variable length.
