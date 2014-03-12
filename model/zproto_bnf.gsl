@@ -52,15 +52,15 @@ The following ABNF grammar defines the $(class.title:):
 
     ; A list of string values
     strings         = count *value
-    value           = string-1
+    value           = longstr
 
     ; A list of name/value pairs
-    dictionary      = count *name-value
-    count           = number-1
-    name-value      = string-1              ; "name=value"
+    dictionary      = count *( name value )
+    count           = number-4
+    name            = string                   
 
     ; A chunk has 4-octet length + binary contents
-    longstr         = number-4 *OCTET
+    chunk           = number-4 *OCTET
 
     ; A frame is zero or more octets encoded as a ZeroMQ frame
     frame           = *OCTET                

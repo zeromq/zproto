@@ -257,9 +257,6 @@ struct _$(class.name)_t {
 //  --------------------------------------------------------------------------
 //  Network data encoding macros
 
-//  Strings are encoded with 1-byte length
-#define STRING_MAX  255
-
 //  Put a block of octets to the frame
 #define PUT_OCTETS(host,size) { \\
     memcpy (self->needle, (host), size); \\
@@ -506,12 +503,12 @@ $(class.name)_recv (void *input)
 .       elsif type = "strings"
             {
                 size_t list_size;
-                GET_NUMBER1 (list_size);
+                GET_NUMBER4 (list_size);
                 self->$(name) = zlist_new ();
                 zlist_autofree (self->$(name));
                 while (list_size--) {
                     char *string;
-                    GET_STRING (string);
+                    GET_LONGSTR (string);
                     zlist_append (self->$(name), string);
                     free (string);
                 }
@@ -519,17 +516,16 @@ $(class.name)_recv (void *input)
 .       elsif type = "dictionary"
             {
                 size_t hash_size;
-                GET_NUMBER1 (hash_size);
+                GET_NUMBER4 (hash_size);
                 self->$(name) = zhash_new ();
                 zhash_autofree (self->$(name));
                 while (hash_size--) {
-                    char *string;
-                    GET_STRING (string);
-                    char *value = strchr (string, '=');
-                    if (value)
-                        *value++ = 0;
-                    zhash_insert (self->$(name), string, value);
-                    free (string);
+                    char *key, *value;
+                    GET_STRING (key);
+                    GET_LONGSTR (value);
+                    zhash_insert (self->$(name), key, value);
+                    free (key);
+                    free (value);
                 }
             }
 .       elsif type = "chunk"
@@ -574,12 +570,13 @@ $(class.name)_recv (void *input)
 }
 
 .for class.field where type = "dictionary"
-//  Count size of key=value pair
+//  Count size of key/value pair for serialization
+//  Key is encoded as string, value as longstr
 static int
 s_$(name)_count (const char *key, void *item, void *argument)
 {
     $(class.name)_t *self = ($(class.name)_t *) argument;
-    self->$(name)_bytes += strlen (key) + 1 + strlen ((char *) item) + 1;
+    self->$(name)_bytes += 1 + strlen (key) + 4 + strlen ((char *) item);
     return 0;
 }
 
@@ -588,9 +585,8 @@ static int
 s_$(name)_write (const char *key, void *item, void *argument)
 {
     $(class.name)_t *self = ($(class.name)_t *) argument;
-    char string [STRING_MAX + 1];
-    snprintf (string, STRING_MAX, "%s=%s", key, (char *) item);
-    PUT_STRING (string);
+    PUT_STRING (key);
+    PUT_LONGSTR ((char *) item);
     return 0;
 }
 
@@ -636,18 +632,18 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
                 frame_size += strlen (self->$(name));
 .       elsif type = "strings"
             //  $(name) is an array of strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->$(name)) {
                 //  Add up size of list contents
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
-                    frame_size += 1 + strlen ($(name));
+                    frame_size += 4 + strlen ($(name));
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
 .       elsif type = "dictionary"
             //  $(name) is an array of key=value strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->$(name)) {
                 self->$(name)_bytes = 0;
                 //  Add up size of dictionary contents
@@ -706,22 +702,22 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
                 PUT_NUMBER4 (0);    //  Empty string
 .       elsif type = "strings"
             if (self->$(name)) {
-                PUT_NUMBER1 (zlist_size (self->$(name)));
+                PUT_NUMBER4 (zlist_size (self->$(name)));
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
-                    PUT_STRING ($(name));
+                    PUT_LONGSTR ($(name));
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
             else
-                PUT_NUMBER1 (0);    //  Empty string array
+                PUT_NUMBER4 (0);    //  Empty string array
 .       elsif type = "dictionary"
             if (self->$(name)) {
-                PUT_NUMBER1 (zhash_size (self->$(name)));
+                PUT_NUMBER4 (zhash_size (self->$(name)));
                 zhash_foreach (self->$(name), s_$(name)_write, self);
             }
             else
-                PUT_NUMBER1 (0);    //  Empty dictionary
+                PUT_NUMBER4 (0);    //  Empty dictionary
 .       elsif type = "chunk"
             PUT_NUMBER4 (zchunk_size (self->$(name)));
             if (self->$(name)) {

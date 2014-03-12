@@ -64,9 +64,6 @@ struct _zproto_example_t {
 //  --------------------------------------------------------------------------
 //  Network data encoding macros
 
-//  Strings are encoded with 1-byte length
-#define STRING_MAX  255
-
 //  Put a block of octets to the frame
 #define PUT_OCTETS(host,size) { \
     memcpy (self->needle, (host), size); \
@@ -288,68 +285,52 @@ zproto_example_recv (void *input)
 
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
-puts ("GET sequence - number");
             GET_NUMBER2 (self->sequence);
-puts ("GET version - number");
             GET_NUMBER2 (self->version);
             if (self->version != 3)
                 goto malformed;
-puts ("GET level - number");
             GET_NUMBER1 (self->level);
-puts ("GET event - number");
             GET_NUMBER1 (self->event);
-puts ("GET node - number");
             GET_NUMBER2 (self->node);
-puts ("GET peer - number");
             GET_NUMBER2 (self->peer);
-puts ("GET time - number");
             GET_NUMBER8 (self->time);
-puts ("GET host - string");
             GET_STRING (self->host);
-puts ("GET data - longstr");
             GET_LONGSTR (self->data);
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
-puts ("GET sequence - number");
             GET_NUMBER2 (self->sequence);
-puts ("GET aliases - strings");
             {
                 size_t list_size;
-                GET_NUMBER1 (list_size);
+                GET_NUMBER4 (list_size);
                 self->aliases = zlist_new ();
                 zlist_autofree (self->aliases);
                 while (list_size--) {
                     char *string;
-                    GET_STRING (string);
+                    GET_LONGSTR (string);
                     zlist_append (self->aliases, string);
                     free (string);
                 }
             }
-puts ("GET headers - dictionary");
             {
                 size_t hash_size;
-                GET_NUMBER1 (hash_size);
+                GET_NUMBER4 (hash_size);
                 self->headers = zhash_new ();
                 zhash_autofree (self->headers);
                 while (hash_size--) {
-                    char *string;
-                    GET_STRING (string);
-                    char *value = strchr (string, '=');
-                    if (value)
-                        *value++ = 0;
-                    zhash_insert (self->headers, string, value);
-                    free (string);
+                    char *key, *value;
+                    GET_STRING (key);
+                    GET_LONGSTR (value);
+                    zhash_insert (self->headers, key, value);
+                    free (key);
+                    free (value);
                 }
             }
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
-puts ("GET sequence - number");
             GET_NUMBER2 (self->sequence);
-puts ("GET flags - octets");
             GET_OCTETS (self->flags, 4);
-puts ("GET public_key - chunk");
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
@@ -358,12 +339,10 @@ puts ("GET public_key - chunk");
                 self->public_key = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
-puts ("GET address - frame");
             //  Get next frame, leave current untouched
             if (!zsocket_rcvmore (input))
                 goto malformed;
             self->address = zframe_recv (input);
-puts ("GET content - msg");
             //  Get zero or more remaining frames,
             //  leave current frame untouched
             self->content = zmsg_new ();
@@ -387,12 +366,13 @@ puts ("GET content - msg");
         return (NULL);
 }
 
-//  Count size of key=value pair
+//  Count size of key/value pair for serialization
+//  Key is encoded as string, value as longstr
 static int
 s_headers_count (const char *key, void *item, void *argument)
 {
     zproto_example_t *self = (zproto_example_t *) argument;
-    self->headers_bytes += strlen (key) + 1 + strlen ((char *) item) + 1;
+    self->headers_bytes += 1 + strlen (key) + 4 + strlen ((char *) item);
     return 0;
 }
 
@@ -401,9 +381,8 @@ static int
 s_headers_write (const char *key, void *item, void *argument)
 {
     zproto_example_t *self = (zproto_example_t *) argument;
-    char string [STRING_MAX + 1];
-    snprintf (string, STRING_MAX, "%s=%s", key, (char *) item);
-    PUT_STRING (string);
+    PUT_STRING (key);
+    PUT_LONGSTR ((char *) item);
     return 0;
 }
 
@@ -452,17 +431,17 @@ zproto_example_send (zproto_example_t **self_p, void *output)
             //  sequence is a 2-byte integer
             frame_size += 2;
             //  aliases is an array of strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->aliases) {
                 //  Add up size of list contents
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    frame_size += 1 + strlen (aliases);
+                    frame_size += 4 + strlen (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
             //  headers is an array of key=value strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->headers) {
                 self->headers_bytes = 0;
                 //  Add up size of dictionary contents
@@ -518,21 +497,21 @@ zproto_example_send (zproto_example_t **self_p, void *output)
         case ZPROTO_EXAMPLE_STRUCTURES:
             PUT_NUMBER2 (self->sequence);
             if (self->aliases) {
-                PUT_NUMBER1 (zlist_size (self->aliases));
+                PUT_NUMBER4 (zlist_size (self->aliases));
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    PUT_STRING (aliases);
+                    PUT_LONGSTR (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
             else
-                PUT_NUMBER1 (0);    //  Empty string array
+                PUT_NUMBER4 (0);    //  Empty string array
             if (self->headers) {
-                PUT_NUMBER1 (zhash_size (self->headers));
+                PUT_NUMBER4 (zhash_size (self->headers));
                 zhash_foreach (self->headers, s_headers_write, self);
             }
             else
-                PUT_NUMBER1 (0);    //  Empty dictionary
+                PUT_NUMBER4 (0);    //  Empty dictionary
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
