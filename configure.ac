@@ -114,6 +114,15 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <czmq.h>],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_ERROR([no. Please specify libczmq installation prefix using --with-czmq])])
 
+# gsl installed
+AC_ARG_VAR(search_gsl, "")
+AC_DEFUN([AC_PROG_GSL], [AC_CHECK_PROG(search_gsl, gsl, yes)])
+AC_PROG_GSL
+if test "x$search_gsl" != "xyes" ; then
+    AC_MSG_ERROR([Please install gsl, see https://github.com/imatix/gsl])
+fi
+
+
 # Host speciffic checks
 AC_CANONICAL_HOST
 
