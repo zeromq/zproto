@@ -1,2 +1,2 @@
-gsl -q -script:codec_c zcodec_example.xml
+gsl -q -script:zproto_c zproto_example.xml
 

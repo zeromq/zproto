@@ -1,6 +1,6 @@
 MAN1 =
-MAN3 = xrap_msg.3
-MAN7 = xrap.7
+MAN3 = zproto_example.3
+MAN7 = zproto.7
 MAN_DOC = $(MAN1) $(MAN3) $(MAN7)
 
 MAN_TXT = $(MAN1:%.1=%.txt)

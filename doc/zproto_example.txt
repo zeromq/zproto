@@ -1,0 +1,263 @@
+zproto_example(3)
+=================
+
+NAME
+----
+zproto_example - zproto example protocol
+
+SYNOPSIS
+--------
+----
+//  Create a new zproto_example
+zproto_example_t *
+    zproto_example_new (int id);
+
+//  Destroy the zproto_example
+void
+    zproto_example_destroy (zproto_example_t **self_p);
+
+//  Receive and parse a zproto_example from the input
+zproto_example_t *
+    zproto_example_recv (void *input);
+
+//  Send the zproto_example to the output, and destroy it
+int
+    zproto_example_send (zproto_example_t **self_p, void *output);
+
+//  Send the LOG to the output in one step
+int
+    zproto_example_send_log (void *output,
+        uint16_t sequence,
+        byte level,
+        byte event,
+        uint16_t node,
+        uint16_t peer,
+        uint64_t time,
+        char *data);
+    
+//  Send the STRUCTURES to the output in one step
+int
+    zproto_example_send_structures (void *output,
+        uint16_t sequence,
+        zlist_t *aliases,
+        zhash_t *headers);
+    
+//  Send the BINARY to the output in one step
+int
+    zproto_example_send_binary (void *output,
+        uint16_t sequence,
+        byte *flags,
+        zframe_t *address,
+        zmsg_t *content);
+    
+//  Duplicate the zproto_example message
+zproto_example_t *
+    zproto_example_dup (zproto_example_t *self);
+
+//  Print contents of message to stdout
+void
+    zproto_example_dump (zproto_example_t *self);
+
+//  Get/set the message routing id
+zframe_t *
+    zproto_example_routing_id (zproto_example_t *self);
+void
+    zproto_example_set_routing_id (zproto_example_t *self, zframe_t *routing_id);
+
+//  Get the zproto_example id and printable command
+int
+    zproto_example_id (zproto_example_t *self);
+void
+    zproto_example_set_id (zproto_example_t *self, int id);
+char *
+    zproto_example_command (zproto_example_t *self);
+
+//  Get/set the sequence field
+uint16_t
+    zproto_example_sequence (zproto_example_t *self);
+void
+    zproto_example_set_sequence (zproto_example_t *self, uint16_t sequence);
+
+//  Get/set the level field
+byte
+    zproto_example_level (zproto_example_t *self);
+void
+    zproto_example_set_level (zproto_example_t *self, byte level);
+
+//  Get/set the event field
+byte
+    zproto_example_event (zproto_example_t *self);
+void
+    zproto_example_set_event (zproto_example_t *self, byte event);
+
+//  Get/set the node field
+uint16_t
+    zproto_example_node (zproto_example_t *self);
+void
+    zproto_example_set_node (zproto_example_t *self, uint16_t node);
+
+//  Get/set the peer field
+uint16_t
+    zproto_example_peer (zproto_example_t *self);
+void
+    zproto_example_set_peer (zproto_example_t *self, uint16_t peer);
+
+//  Get/set the time field
+uint64_t
+    zproto_example_time (zproto_example_t *self);
+void
+    zproto_example_set_time (zproto_example_t *self, uint64_t time);
+
+//  Get/set the data field
+char *
+    zproto_example_data (zproto_example_t *self);
+void
+    zproto_example_set_data (zproto_example_t *self, char *format, ...);
+
+//  Get/set the aliases field
+zlist_t *
+    zproto_example_aliases (zproto_example_t *self);
+void
+    zproto_example_set_aliases (zproto_example_t *self, zlist_t *aliases);
+
+//  Iterate through the aliases field, and append a aliases value
+char *
+    zproto_example_aliases_first (zproto_example_t *self);
+char *
+    zproto_example_aliases_next (zproto_example_t *self);
+void
+    zproto_example_aliases_append (zproto_example_t *self, char *format, ...);
+size_t
+    zproto_example_aliases_size (zproto_example_t *self);
+
+//  Get/set the headers field
+zhash_t *
+    zproto_example_headers (zproto_example_t *self);
+void
+    zproto_example_set_headers (zproto_example_t *self, zhash_t *headers);
+    
+//  Get/set a value in the headers dictionary
+char *
+    zproto_example_headers_string (zproto_example_t *self, char *key, char *default_value);
+uint64_t
+    zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t default_value);
+void
+    zproto_example_headers_insert (zproto_example_t *self, char *key, char *format, ...);
+size_t
+    zproto_example_headers_size (zproto_example_t *self);
+
+//  Get/set the flags field
+byte *
+    zproto_example_flags (zproto_example_t *self);
+void
+    zproto_example_set_flags (zproto_example_t *self, byte *flags);
+
+//  Get/set the address field
+zframe_t *
+    zproto_example_address (zproto_example_t *self);
+void
+    zproto_example_set_address (zproto_example_t *self, zframe_t *frame);
+
+//  Get/set the content field
+zmsg_t *
+    zproto_example_content (zproto_example_t *self);
+void
+    zproto_example_set_content (zproto_example_t *self, zmsg_t *msg);
+
+//  Self test of this class
+int
+    zproto_example_test (bool verbose);
+----
+
+DESCRIPTION
+-----------
+
+zproto_example - zproto example protocol
+
+
+EXAMPLE
+-------
+.From zproto_example_test method
+----
+    //  Simple create/destroy test
+    zproto_example_t *self = zproto_example_new (0);
+    assert (self);
+    zproto_example_destroy (&self);
+
+    //  Create pair of sockets we can send through
+    zctx_t *ctx = zctx_new ();
+    assert (ctx);
+
+    void *output = zsocket_new (ctx, ZMQ_DEALER);
+    assert (output);
+    zsocket_bind (output, "inproc://selftest");
+    void *input = zsocket_new (ctx, ZMQ_ROUTER);
+    assert (input);
+    zsocket_connect (input, "inproc://selftest");
+    
+    //  Encode/send/decode and verify each message type
+
+    self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
+    zproto_example_set_sequence (self, 123);
+    zproto_example_set_level (self, 123);
+    zproto_example_set_event (self, 123);
+    zproto_example_set_node (self, 123);
+    zproto_example_set_peer (self, 123);
+    zproto_example_set_time (self, 123);
+    zproto_example_set_data (self, "Life is short but Now lasts for ever");
+    zproto_example_send (&self, output);
+    
+    self = zproto_example_recv (input);
+    assert (self);
+    assert (zproto_example_sequence (self) == 123);
+    assert (zproto_example_level (self) == 123);
+    assert (zproto_example_event (self) == 123);
+    assert (zproto_example_node (self) == 123);
+    assert (zproto_example_peer (self) == 123);
+    assert (zproto_example_time (self) == 123);
+    assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
+    zproto_example_destroy (&self);
+
+    self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
+    zproto_example_set_sequence (self, 123);
+    zproto_example_aliases_append (self, "Name: %s", "Brutus");
+    zproto_example_aliases_append (self, "Age: %d", 43);
+    zproto_example_headers_insert (self, "Name", "Brutus");
+    zproto_example_headers_insert (self, "Age", "%d", 43);
+    zproto_example_send (&self, output);
+    
+    self = zproto_example_recv (input);
+    assert (self);
+    assert (zproto_example_sequence (self) == 123);
+    assert (zproto_example_aliases_size (self) == 2);
+    assert (streq (zproto_example_aliases_first (self), "Name: Brutus"));
+    assert (streq (zproto_example_aliases_next (self), "Age: 43"));
+    assert (zproto_example_headers_size (self) == 2);
+    assert (streq (zproto_example_headers_string (self, "Name", "?"), "Brutus"));
+    assert (zproto_example_headers_number (self, "Age", 0) == 43);
+    zproto_example_destroy (&self);
+
+    self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
+    zproto_example_set_sequence (self, 123);
+    byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
+    memset (flags_data, 123, ZPROTO_EXAMPLE_FLAGS_SIZE);
+    zproto_example_set_flags (self, flags_data);
+    zproto_example_set_address (self, zframe_new ("Captcha Diem", 12));
+    zproto_example_set_content (self, zmsg_new ());
+    zproto_example_send (&self, output);
+    
+    self = zproto_example_recv (input);
+    assert (self);
+    assert (zproto_example_sequence (self) == 123);
+    assert (zproto_example_flags (self) [0] == 123);
+    assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
+    assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
+    assert (zmsg_size (zproto_example_content (self)) == 0);
+    zproto_example_destroy (&self);
+
+    zctx_destroy (&ctx);
+----
+
+SEE ALSO
+--------
+linkproto:proto[7]

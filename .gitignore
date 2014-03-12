@@ -1,18 +1,28 @@
-# Object files
 *.o
-*.ko
-
-# Libraries
-*.lib
 *.a
-
-# Shared objects (inc. Windows DLLs)
-*.dll
 *.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+config.log
+config.status
+config/
+configure
+doc/Makefile
+doc/Makefile.in
+doc/zproto.7
+doc/zproto_example.3
+libtool
+src/.deps/
+src/.libs/
+src/Makefile
+src/Makefile.in
+src/core
+src/libzproto.la
+src/libzproto.pc
+src/platform.h
+src/platform.h.in
+src/stamp-h1
+src/zproto_example.lo
+src/zproto_selftest

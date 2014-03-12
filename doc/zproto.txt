@@ -1,0 +1,58 @@
+zproto(7)
+=========
+
+NAME
+----
+zproto - a protocol framework for ZeroMQ.
+
+SYNOPSIS
+--------
+
+zproto is two things. First, a code generator capable of producing fast
+and efficient binary codecs for ZeroMQ-based protocols. Second, a base
+project for your ZeroMQ C protocol clients and servers.
+
+DESCRIPTION
+-----------
+
+To use zproto, clone the repository at https://github.com/zeromq/zproto.
+
+Build and test using the usual commands:
+----
+./autogen.sh
+./configure
+make check
+----
+
+And then install the code generator:
+----
+make install
+----
+
+Next, read the model/zproto_example.xml file to learn how to write your
+own protocol specifications. The binary codec has the same name, and is
+src/zproto_example.c and include/zproto_example.h.
+
+To rebuild the codec, first build and install https://github.com/imatix/gsl.
+Then run these commands:
+----
+cd generate
+./generate
+cd ..
+make check
+----
+
+Finally, to use zproto as the base for your own projects, clone the git
+repository, then:
+----
+rm .git
+rm model
+git init .
+----
+
+And then manually change all references to 'zproto' to your own project
+prefix, both in filenames, and inside the sources. We may script this, later.
+
+SEE ALSO
+--------
+linkproto:zproto_example[3]
