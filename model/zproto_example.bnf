@@ -2,24 +2,27 @@ The following ABNF grammar defines the zproto example protocol:
 
     zproto_example  = *( C:log | C:structures | C:binary )
 
-    C:log           = signature %d1 sequence level event node peer time data
+    C:log           = signature %d1 sequence version level event node peer time host data
     signature       = %xAA %d0              ; two octets
     sequence        = number-2              ; 
+    version         = number-2              ; Version
     level           = number-1              ; Log severity level
     event           = number-1              ; Type of event
     node            = number-2              ; Sending node
     peer            = number-2              ; Refers to this peer
     time            = number-8              ; Log date/time
-    data            = string-2              ; Actual log message
+    host            = string                ; Originating hostname
+    data            = longstr               ; Actual log message
 
     C:structures    = signature %d2 sequence aliases headers
     sequence        = number-2              ; 
     aliases         = strings               ; List of strings
     headers         = dictionary            ; Other random properties
 
-    C:binary        = signature %d3 sequence flags address content
+    C:binary        = signature %d3 sequence flags public_key address content
     sequence        = number-2              ; 
     flags           = 4OCTET                ; A set of flags
+    public_key      = chunk                 ; Our public key
     address         = frame                 ; Return address as frame
     content         = msg                   ; Message to be delivered
 
@@ -27,13 +30,11 @@ The following ABNF grammar defines the zproto example protocol:
     number-1        = 1OCTET
     number-2        = 2OCTET
     number-4        = 4OCTET
-    number-8        = 8OCTET                
+    number-8        = 8OCTET
     
-    ; Strings are always length + contents
-    string-1        = number-1 *VCHAR
-    string-2        = number-2 *VCHAR
-    string-4        = number-4 *VCHAR
-    string-8        = number-8 *VCHAR       
+    ; Strings are always length + text contents
+    string          = number-1 *VCHAR
+    longstr         = number-4 *VCHAR
 
     ; A list of string values
     strings         = count *value
@@ -42,7 +43,10 @@ The following ABNF grammar defines the zproto example protocol:
     ; A list of name/value pairs
     dictionary      = count *name-value
     count           = number-1
-    name-value       = string-1             ; "name=value"
+    name-value      = string-1              ; "name=value"
+
+    ; A chunk has 4-octet length + binary contents
+    longstr         = number-4 *OCTET
 
     ; A frame is zero or more octets encoded as a ZeroMQ frame
     frame           = *OCTET                

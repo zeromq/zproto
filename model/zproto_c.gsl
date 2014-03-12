@@ -30,8 +30,6 @@
 .       elsif type = "octets"
         $(name)             $(type) [$(size)]\
                                         $(field.?'':)
-.       elsif type = "string"
-        $(name)             $(type)     $(field.?'':)
 .       else
         $(name)             $(type)     $(field.?'':)
 .       endif
@@ -91,12 +89,14 @@ int
         $(ctype) $(name)\
 .   elsif type = "octets"
         byte *$(name)\
-.   elsif type = "string"
+.   elsif type = "string" | type = "longstr"
         char *$(name)\
 .   elsif type = "strings"
         zlist_t *$(name)\
 .   elsif type = "dictionary"
         zhash_t *$(name)\
+.   elsif type = "chunk"
+        zchunk_t *$(name)\
 .   elsif type = "frame"
 .       message.has_frame = 1
         zframe_t *$(name)\
@@ -145,7 +145,7 @@ byte *
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name));
 .#
-.   elsif type = "string"
+.   elsif type = "string" | type = "longstr"
 //  Get/set the $(name) field
 char *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -186,19 +186,12 @@ void
 size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
-.   elsif type = "frame"
+.   elsif type = "chunk" | type = "frame" | type = "msg"
 //  Get/set the $(name) field
-zframe_t *
+z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zframe_t *frame);
-.#
-.   elsif type = "msg"
-//  Get/set the $(name) field
-zmsg_t *
-    $(class.name)_$(name) ($(class.name)_t *self);
-void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zmsg_t *msg);
+    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type));
 .#
 .   else
 .       echo "E: unknown type '$(type)' for field '$(name)'"
@@ -248,17 +241,15 @@ struct _$(class.name)_t {
     $(ctype) $(name);           //  $(field.?'':)
 .   elsif type = "octets"
     byte $(name) [$(size)];     //  $(field.?'':)
-.   elsif type = "string"
+.   elsif type = "string" | type = "longstr"
     char *$(name);              //  $(field.?'':)
 .   elsif type = "strings"
     zlist_t *$(name);           //  $(field.?'':)
 .   elsif type = "dictionary"
     zhash_t *$(name);           //  $(field.?'':)
     size_t $(name)_bytes;       //  Size of dictionary content
-.   elsif type = "frame"
-    zframe_t *$(name);          //  $(field.?'':)
-.   elsif type = "msg"
-    zmsg_t *$(name);            //  $(field.?'':)
+.   elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name);        //  $(field.?'':)
 .   endif
 .endfor
 };
@@ -269,32 +260,32 @@ struct _$(class.name)_t {
 //  Strings are encoded with 1-byte length
 #define STRING_MAX  255
 
-//  Put a block to the frame
+//  Put a block of octets to the frame
 #define PUT_OCTETS(host,size) { \\
     memcpy (self->needle, (host), size); \\
     self->needle += size; \\
-    }
+}
 
-//  Get a block from the frame
+//  Get a block of octets from the frame
 #define GET_OCTETS(host,size) { \\
     if (self->needle + size > self->ceiling) \\
         goto malformed; \\
     memcpy ((host), self->needle, size); \\
     self->needle += size; \\
-    }
+}
 
 //  Put a 1-byte number to the frame
 #define PUT_NUMBER1(host) { \\
     *(byte *) self->needle = (host); \\
     self->needle++; \\
-    }
+}
 
 //  Put a 2-byte number to the frame
 #define PUT_NUMBER2(host) { \\
     self->needle [0] = (byte) (((host) >> 8)  & 255); \\
     self->needle [1] = (byte) (((host))       & 255); \\
     self->needle += 2; \\
-    }
+}
 
 //  Put a 4-byte number to the frame
 #define PUT_NUMBER4(host) { \\
@@ -303,7 +294,7 @@ struct _$(class.name)_t {
     self->needle [2] = (byte) (((host) >> 8)  & 255); \\
     self->needle [3] = (byte) (((host))       & 255); \\
     self->needle += 4; \\
-    }
+}
 
 //  Put a 8-byte number to the frame
 #define PUT_NUMBER8(host) { \\
@@ -316,7 +307,7 @@ struct _$(class.name)_t {
     self->needle [6] = (byte) (((host) >> 8)  & 255); \\
     self->needle [7] = (byte) (((host))       & 255); \\
     self->needle += 8; \\
-    }
+}
 
 //  Get a 1-byte number from the frame
 #define GET_NUMBER1(host) { \\
@@ -324,7 +315,7 @@ struct _$(class.name)_t {
         goto malformed; \\
     (host) = *(byte *) self->needle; \\
     self->needle++; \\
-    }
+}
 
 //  Get a 2-byte number from the frame
 #define GET_NUMBER2(host) { \\
@@ -333,7 +324,7 @@ struct _$(class.name)_t {
     (host) = ((uint16_t) (self->needle [0]) << 8) \\
            +  (uint16_t) (self->needle [1]); \\
     self->needle += 2; \\
-    }
+}
 
 //  Get a 4-byte number from the frame
 #define GET_NUMBER4(host) { \\
@@ -344,7 +335,7 @@ struct _$(class.name)_t {
            + ((uint32_t) (self->needle [2]) << 8) \\
            +  (uint32_t) (self->needle [3]); \\
     self->needle += 4; \\
-    }
+}
 
 //  Get a 8-byte number from the frame
 #define GET_NUMBER8(host) { \\
@@ -359,18 +350,19 @@ struct _$(class.name)_t {
            + ((uint64_t) (self->needle [6]) << 8) \\
            +  (uint64_t) (self->needle [7]); \\
     self->needle += 8; \\
-    }
+}
 
 //  Put a string to the frame
 #define PUT_STRING(host) { \\
-    string_size = strlen (host); \\
+    size_t string_size = strlen (host); \\
     PUT_NUMBER1 (string_size); \\
     memcpy (self->needle, (host), string_size); \\
     self->needle += string_size; \\
-    }
+}
 
 //  Get a string from the frame
 #define GET_STRING(host) { \\
+    size_t string_size; \\
     GET_NUMBER1 (string_size); \\
     if (self->needle + string_size > (self->ceiling)) \\
         goto malformed; \\
@@ -378,7 +370,27 @@ struct _$(class.name)_t {
     memcpy ((host), self->needle, string_size); \\
     (host) [string_size] = 0; \\
     self->needle += string_size; \\
-    }
+}
+
+//  Put a long string to the frame
+#define PUT_LONGSTR(host) { \\
+    size_t string_size = strlen (host); \\
+    PUT_NUMBER4 (string_size); \\
+    memcpy (self->needle, (host), string_size); \\
+    self->needle += string_size; \\
+}
+
+//  Get a long string from the frame
+#define GET_LONGSTR(host) { \\
+    size_t string_size; \\
+    GET_NUMBER4 (string_size); \\
+    if (self->needle + string_size > (self->ceiling)) \\
+        goto malformed; \\
+    (host) = (char *) malloc (string_size + 1); \\
+    memcpy ((host), self->needle, string_size); \\
+    (host) [string_size] = 0; \\
+    self->needle += string_size; \\
+}
 
 
 //  --------------------------------------------------------------------------
@@ -406,17 +418,15 @@ $(class.name)_destroy ($(class.name)_t **self_p)
         //  Free class properties
         zframe_destroy (&self->routing_id);
 .for class.field
-.   if type = "string"
+.   if type = "string" | type = "longstr"
         free (self->$(name));
 .   elsif type = "strings"
         if (self->$(name))
             zlist_destroy (&self->$(name));
 .   elsif type = "dictionary"
         zhash_destroy (&self->$(name));
-.   elsif type = "frame"
-        zframe_destroy (&self->$(name));
-.   elsif type = "msg"
-        zmsg_destroy (&self->$(name));
+.   elsif type = "chunk" | type = "frame" | type = "msg"
+        z$(type)_destroy (&self->$(name));
 .   endif
 .endfor
 
@@ -437,7 +447,6 @@ $(class.name)_recv (void *input)
     assert (input);
     $(class.name)_t *self = $(class.name)_new (0);
     zframe_t *frame = NULL;
-    size_t string_size;
 
     //  Read valid message frame from socket; we loop over any
     //  garbage data we might receive from badly-connected peers
@@ -487,36 +496,50 @@ $(class.name)_recv (void *input)
 .       elsif type = "octets"
             GET_OCTETS (self->$(name), $(size));
 .       elsif type = "string"
-            free (self->$(name));
             GET_STRING (self->$(name));
 .           if defined (field.value)
             if (strneq (self->$(name), "$(field.value:)"))
                 goto malformed;
 .           endif
+.       elsif type = "longstr"
+            GET_LONGSTR (self->$(name));
 .       elsif type = "strings"
-            size_t list_size;
-            GET_NUMBER1 (list_size);
-            self->$(name) = zlist_new ();
-            zlist_autofree (self->$(name));
-            while (list_size--) {
-                char *string;
-                GET_STRING (string);
-                zlist_append (self->$(name), string);
-                free (string);
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->$(name) = zlist_new ();
+                zlist_autofree (self->$(name));
+                while (list_size--) {
+                    char *string;
+                    GET_STRING (string);
+                    zlist_append (self->$(name), string);
+                    free (string);
+                }
             }
 .       elsif type = "dictionary"
-            size_t hash_size;
-            GET_NUMBER1 (hash_size);
-            self->$(name) = zhash_new ();
-            zhash_autofree (self->$(name));
-            while (hash_size--) {
-                char *string;
-                GET_STRING (string);
-                char *value = strchr (string, '=');
-                if (value)
-                    *value++ = 0;
-                zhash_insert (self->$(name), string, value);
-                free (string);
+            {
+                size_t hash_size;
+                GET_NUMBER1 (hash_size);
+                self->$(name) = zhash_new ();
+                zhash_autofree (self->$(name));
+                while (hash_size--) {
+                    char *string;
+                    GET_STRING (string);
+                    char *value = strchr (string, '=');
+                    if (value)
+                        *value++ = 0;
+                    zhash_insert (self->$(name), string, value);
+                    free (string);
+                }
+            }
+.       elsif type = "chunk"
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling))
+                    goto malformed;
+                self->$(name) = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
             }
 .       elsif type = "frame"
             //  Get next frame, leave current untouched
@@ -567,7 +590,6 @@ s_$(name)_write (const char *key, void *item, void *argument)
     $(class.name)_t *self = ($(class.name)_t *) argument;
     char string [STRING_MAX + 1];
     snprintf (string, STRING_MAX, "%s=%s", key, (char *) item);
-    size_t string_size;
     PUT_STRING (string);
     return 0;
 }
@@ -607,6 +629,11 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
             if (self->$(name))
                 frame_size += strlen (self->$(name));
 .           endif
+.       elsif type = "longstr"
+            //  $(name) is a string with 4-byte length
+            frame_size += 4;
+            if (self->$(name))
+                frame_size += strlen (self->$(name));
 .       elsif type = "strings"
             //  $(name) is an array of strings
             frame_size++;       //  Size is one octet
@@ -627,6 +654,11 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
                 zhash_foreach (self->$(name), s_$(name)_count, self);
             }
             frame_size += self->$(name)_bytes;
+.       elsif type = "chunk"
+            //  $(name) is a chunk with 4-byte length
+            frame_size += 4;
+            if (self->$(name))
+                frame_size += zchunk_size (self->$(name));
 .       endif
 .   endfor
             break;
@@ -640,7 +672,6 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
     self->needle = zframe_data (frame);
-    size_t string_size;
     int frame_flags = 0;
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
@@ -667,8 +698,14 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
             else
                 PUT_NUMBER1 (0);    //  Empty string
 .           endif
+.       elsif type = "longstr"
+            if (self->$(name)) {
+                PUT_LONGSTR (self->$(name));
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty string
 .       elsif type = "strings"
-            if (self->$(name) != NULL) {
+            if (self->$(name)) {
                 PUT_NUMBER1 (zlist_size (self->$(name)));
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
@@ -679,12 +716,22 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
             else
                 PUT_NUMBER1 (0);    //  Empty string array
 .       elsif type = "dictionary"
-            if (self->$(name) != NULL) {
+            if (self->$(name)) {
                 PUT_NUMBER1 (zhash_size (self->$(name)));
                 zhash_foreach (self->$(name), s_$(name)_write, self);
             }
             else
                 PUT_NUMBER1 (0);    //  Empty dictionary
+.       elsif type = "chunk"
+            PUT_NUMBER4 (zchunk_size (self->$(name)));
+            if (self->$(name)) {
+                memcpy (self->needle,
+                        zchunk_data (self->$(name)),
+                        zchunk_size (self->$(name)));
+                self->needle += zchunk_size (self->$(name));
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
 .       endif
 .   endfor
 .   if defined (message.has_frame)
@@ -773,32 +820,28 @@ $(class.name)_send_$(name) (
     $(ctype) $(name)\
 .   elsif type = "octets"
     byte *$(name)\
-.   elsif type = "string"
+.   elsif type = "string" | type = "longstr"
     char *$(name)\
 .   elsif type = "strings"
     zlist_t *$(name)\
 .   elsif type = "dictionary"
     zhash_t *$(name)\
-.   elsif type = "frame"
-    zframe_t *$(name)\
-.   elsif type = "msg"
-    zmsg_t *$(name)\
+.   elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)\
 .   endif
 .endfor
 )
 {
     $(class.name)_t *self = $(class.name)_new ($(class.NAME)_$(NAME));
 .for field where !defined (value)
-.   if type = "number" | type = "octets" | type = "string"
+.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, $(name));
 .   elsif type = "strings"
     $(class.name)_set_$(name) (self, zlist_dup ($(name)));
 .   elsif type = "dictionary"
     $(class.name)_set_$(name) (self, zhash_dup ($(name)));
-.   elsif type = "frame"
-    $(class.name)_set_$(name) (self, zframe_dup ($(name)));
-.   elsif type = "msg"
-    $(class.name)_set_$(name) (self, zmsg_dup ($(name)));
+.   elsif type = "chunk" | type = "frame" | type = "msg"
+    $(class.name)_set_$(name) (self, z$(type)_dup ($(name)));
 .   endif
 .endfor
     return $(class.name)_send (&self, output);
@@ -827,16 +870,14 @@ $(class.name)_dup ($(class.name)_t *self)
             copy->$(name) = self->$(name);
 .       elsif type = "octets"
             memcpy (copy->$(name), self->$(name), $(size));
-.       elsif type = "string"
+.       elsif type = "string" | type = "longstr"
             copy->$(name) = self->$(name)? strdup (self->$(name)): NULL;
 .       elsif type = "strings"
             copy->$(name) = self->$(name)? zlist_dup (self->$(name)): NULL;
 .       elsif type = "dictionary"
             copy->$(name) = self->$(name)? zhash_dup (self->$(name)): NULL;
-.       elsif type = "frame"
-            copy->$(name) = self->$(name)? zframe_dup (self->$(name)): NULL;
-.       elsif type = "msg"
-            copy->$(name) = self->$(name)? zmsg_dup (self->$(name)): NULL;
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+            copy->$(name) = self->$(name)? z$(type)_dup (self->$(name)): NULL;
 .       endif
 .   endfor
             break;
@@ -885,7 +926,7 @@ $(class.name)_dump ($(class.name)_t *self)
                 printf ("%02X", self->$(name) [$(name)_index]);
             }
             printf ("\\n");
-.       elsif type = "string"
+.       elsif type = "string" | type = "longstr"
 .           if defined (field.value)
             printf ("    $(name)=$(field.value)\\n");
 .           else
@@ -908,6 +949,13 @@ $(class.name)_dump ($(class.name)_t *self)
             printf ("    $(name)={\\n");
             if (self->$(name))
                 zhash_foreach (self->$(name), s_$(name)_dump, self);
+            else
+                printf ("(NULL)\\n");
+            printf ("    }\\n");
+.       elsif type = "chunk"
+            printf ("    $(name)={\\n");
+            if (self->$(name))
+                zchunk_print (self->$(name));
             else
                 printf ("(NULL)\\n");
             printf ("    }\\n");
@@ -1023,7 +1071,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name))
     memcpy (self->$(name), $(name), $(size));
 }
 
-.   elsif type = "string"
+.   elsif type = "string" | type = "longstr"
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
@@ -1193,46 +1241,25 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
     return zhash_size (self->$(name));
 }
 
-.   elsif type = "frame"
+.   elsif type = "chunk" | type = "frame" | type = "msg"
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
-zframe_t *
+z$(type)_t *
 $(class.name)_$(name) ($(class.name)_t *self)
 {
     assert (self);
     return self->$(name);
 }
 
-//  Takes ownership of supplied frame
+//  Takes ownership of supplied $(type)
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, zframe_t *frame)
+$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type))
 {
     assert (self);
     if (self->$(name))
-        zframe_destroy (&self->$(name));
-    self->$(name) = frame;
-}
-
-.   elsif type = "msg"
-//  --------------------------------------------------------------------------
-//  Get/set the $(name) field
-
-zmsg_t *
-$(class.name)_$(name) ($(class.name)_t *self)
-{
-    assert (self);
-    return self->$(name);
-}
-
-//  Takes ownership of supplied msg
-void
-$(class.name)_set_$(name) ($(class.name)_t *self, zmsg_t *msg)
-{
-    assert (self);
-    if (self->$(name))
-        zmsg_destroy (&self->$(name));
-    self->$(name) = msg;
+        z$(type)_destroy (&self->$(name));
+    self->$(name) = $(type);
 }
 .   endif
 
@@ -1281,7 +1308,7 @@ $(class.name)_test (bool verbose)
     byte $(name)_data [$(CLASS.NAME)_$(FIELD.NAME)_SIZE];
     memset ($(name)_data, 123, $(CLASS.NAME)_$(FIELD.NAME)_SIZE);
     $(class.name)_set_$(name) (self, $(name)_data);
-.       elsif type = "string"
+.       elsif type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, "Life is short but Now lasts for ever");
 .       elsif type = "strings"
     $(class.name)_$(name)_append (self, "Name: %s", "Brutus");
@@ -1289,6 +1316,8 @@ $(class.name)_test (bool verbose)
 .       elsif type = "dictionary"
     $(class.name)_$(name)_insert (self, "Name", "Brutus");
     $(class.name)_$(name)_insert (self, "Age", "%d", 43);
+.       elsif type = "chunk"
+    $(class.name)_set_$(name) (self, zchunk_new ("Captcha Diem", 12));
 .       elsif type = "frame"
     $(class.name)_set_$(name) (self, zframe_new ("Captcha Diem", 12));
 .       elsif type = "msg"
@@ -1310,7 +1339,7 @@ $(class.name)_test (bool verbose)
 .       elsif type = "octets"
         assert ($(class.name)_$(name) (self) [0] == 123);
         assert ($(class.name)_$(name) (self) [$(CLASS.NAME)_$(FIELD.NAME)_SIZE - 1] == 123);
-.       elsif type = "string"
+.       elsif type = "string" | type = "longstr"
         assert (streq ($(class.name)_$(name) (self), "Life is short but Now lasts for ever"));
 .       elsif type = "strings"
         assert ($(class.name)_$(name)_size (self) == 2);
@@ -1320,6 +1349,8 @@ $(class.name)_test (bool verbose)
         assert ($(class.name)_$(name)_size (self) == 2);
         assert (streq ($(class.name)_$(name)_string (self, "Name", "?"), "Brutus"));
         assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);
+.       elsif type = "chunk"
+        assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "Captcha Diem", 12) == 0);
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .       elsif type = "msg"

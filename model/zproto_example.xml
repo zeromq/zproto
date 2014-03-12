@@ -43,12 +43,14 @@ to put the second lot into hash tables (the 'dictionary' type).
 OK, let's see some meat.
 
 <message name = "LOG" id = "1">
+    <field name = "version" type = "number" size = "2" value = "3">Version</field>
     <field name = "level" type = "number" size = "1">Log severity level</field>
     <field name = "event" type = "number" size = "1">Type of event</field>
     <field name = "node" type = "number" size = "2">Sending node</field>
     <field name = "peer" type = "number" size = "2">Refers to this peer</field>
     <field name = "time" type = "number" size = "8">Log date/time</field>
-    <field name = "data" type = "string" size = "2">Actual log message</field>
+    <field name = "host" type = "string">Originating hostname</field>
+    <field name = "data" type = "longstr">Actual log message</field>
 Log an event.
 </message>
 
@@ -59,11 +61,16 @@ zproto supports numbers (unsigned integers) of 1, 2, 4, and 8 bytes. If you
 don't specify the size, it's 1 byte by default.
 
 zproto supports strings encoded as length + data, in the proper ZeroMQ style,
-without trailing nulls or any of that language-specific stuff. The length
-can, again, be 1, 2, 4, or 8 bytes, and defaults to 1 byte.
+without trailing nulls or any of that language-specific stuff. The length can
+be 1 (string) or 4 (longstr). Strings (short and long) are shown to the API
+as char *.
 
 Strings contain UTF-8 data; that is, no zero bytes. Their encoded size is the
 number of bytes in the string (not including the size field).
+
+On number and string fields you can define a 'value' property. This will be
+stampted into messages as a constant, and checked on read messages. You can
+use this for e.g. version detection.
 
 zproto supports lists and hashes of strings:
 
@@ -76,22 +83,27 @@ This message contains a list and a hash.
 You should read the zproto_example.h file quite carefully to see what API
 these field types generate.
 
-zproto supports three kinds of binary data. First, you can define a raw octet
-string with fixed size. You can use this to encode short binary strings. Do
-not use for anything longer than e.g. 256 octets, as octet strings are not
-variable length.
+zproto supports several kinds of binary data:
 
-Second, you can define frames, which are sent as separate ZeroMQ frames on
-the wire. This is ideal for variable-size binary data such as images, or
-other blobs.
+* You can define a raw octet block of fixed size, which is a byte * in
+  the API. You can use this to encode short binary fields. Do not use
+  for anything longer than e.g. 256 octets.
 
-Lastly, you can define ZeroMQ messages (that is, one or more frames). This
-is useful for protocols that want to wrap entire ZeroMQ messages in other
-data. If you use a "msg" type field, it must be the last field in the
-message.
+* You can define chunks, which are zchunk_t objects in the API. Chunks
+  are encoded like longstr fields, a 4-octet length and a body.
+
+* You can define frames, which are zframe_t objects in the API. Frames
+  are sent as separate ZeroMQ frames on the wire. This is ideal for
+  variable-size binary data such as images, or other blobs.
+  
+* You can define ZeroMQ messages, which are zmsg_t objects in the API.
+  This is useful for protocols that want to wrap entire ZeroMQ messages
+  in other data. If you use a "msg" type field, it must be the last
+  field in the message.
 
 <message name = "BINARY" id = "3">
     <field name = "flags" type = "octets" size = "4">A set of flags</field>
+    <field name = "public key" type = "chunk">Our public key</field>
     <field name = "address" type = "frame">Return address as frame</field>
     <field name = "content" type = "msg">Message to be delivered</field>
 Deliver a multi-part message.
