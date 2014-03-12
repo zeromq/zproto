@@ -23,9 +23,9 @@ every message. This is just a kind of macro.
 </header>
 
 The protocol consists of one or more 'messages', each consisting of one or
-more 'fields'. You number the messages with unique 'id's. We could do this
-automatically but experience tells us it's better to do this by hand, so
-you can provide forward compatibility by defining new message ids yourself
+more 'fields'. You number the messages with unique 'id's, 0 to 255. We could
+do this automatically but experience tells us it's better to do this by hand,
+so you can provide forward compatibility by defining new message ids yourself
 and leaving old ones as-is.
 
 A field has a type and possibly a size. zcodec insists that a field with a

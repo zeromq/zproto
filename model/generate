@@ -1,2 +1,4 @@
 gsl -q -script:zproto_c zproto_example.xml
+gsl -q -script:zproto_bnf zproto_example.xml
+
 
