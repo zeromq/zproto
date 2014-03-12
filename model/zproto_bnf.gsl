@@ -5,6 +5,7 @@
 .#
 .include "library.gsl"
 .resolve_includes ()
+.set_defaults ()
 .echo "Generating $(class.name).bnf..."
 .output "$(class.name).bnf"
 The following ABNF grammar defines the $(class.title:):

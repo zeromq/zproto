@@ -22,7 +22,7 @@
     =========================================================================
 */
 
-#include "myproj.h"
+#include "../include/myproj.h"
 
 int main (int argc, char *argv [])
 {

@@ -83,6 +83,10 @@ zproto_example_t *
 int
     zproto_example_send (zproto_example_t **self_p, void *output);
 
+//  Send the zproto_example to the output, and do not destroy it
+int
+    zproto_example_send_again (zproto_example_t *self, void *output);
+
 //  Send the LOG to the output in one step
 int
     zproto_example_send_log (void *output,

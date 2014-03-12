@@ -1,5 +1,50 @@
 .#  Library functions
 .#
+.function set_defaults ()
+. for message
+.   message.name = "$(message.name:c)"
+.   for field where item() = 1
+.       for class.header
+.           for field as hfield
+.               copy hfield before field
+.           endfor
+.       endfor
+.   else
+.       for class.header
+.           for field as hfield
+.               copy hfield to message
+.           endfor
+.       endfor
+.   endfor
+.   for field
+.       field.name = "$(field.name:c)"
+.       if type = "number"
+.           field.size ?= 1
+.           if size = 1
+.               field.ctype = "byte"
+.           elsif size = 2
+.               field.ctype = "uint16_t"
+.           elsif size = 4
+.               field.ctype = "uint32_t"
+.           elsif size = 8
+.               field.ctype = "uint64_t"
+.           else
+.               echo "E: bad size $(size) for $(name)"
+.           endif
+.       elsif type = "string"
+.           field.size ?= 1
+.       endif
+.       for class.field as cfield where cfield.name = field.name
+.           if cfield.type <> field.type
+.               echo "E: field '$(name)' must have same type everywhere"
+.           endif
+.       else
+.           copy field to class
+.       endfor
+.   endfor
+. endfor
+.endfunction
+.#
 .function resolve_includes ()
     for class.include
         if defined (include.filename)
