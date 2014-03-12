@@ -33,12 +33,14 @@
 
     LOG - Log an event.
         sequence            number 2    
+        version             number 2    Version
         level               number 1    Log severity level
         event               number 1    Type of event
         node                number 2    Sending node
         peer                number 2    Refers to this peer
         time                number 8    Log date/time
-        data                string      Actual log message
+        host                string      Originating hostname
+        data                longstr     Actual log message
 
     STRUCTURES - This message contains a list and a hash.
         sequence            number 2    
@@ -48,6 +50,7 @@
     BINARY - Deliver a multi-part message.
         sequence            number 2    
         flags               octets [4]  A set of flags
+        public_key          chunk       Our public key
         address             frame       Return address as frame
         content             msg         Message to be delivered
 */
@@ -96,6 +99,7 @@ int
         uint16_t node,
         uint16_t peer,
         uint64_t time,
+        char *host,
         char *data);
     
 //  Send the STRUCTURES to the output in one step
@@ -110,6 +114,7 @@ int
     zproto_example_send_binary (void *output,
         uint16_t sequence,
         byte *flags,
+        zchunk_t *public_key,
         zframe_t *address,
         zmsg_t *content);
     
@@ -171,6 +176,12 @@ uint64_t
 void
     zproto_example_set_time (zproto_example_t *self, uint64_t time);
 
+//  Get/set the host field
+char *
+    zproto_example_host (zproto_example_t *self);
+void
+    zproto_example_set_host (zproto_example_t *self, char *format, ...);
+
 //  Get/set the data field
 char *
     zproto_example_data (zproto_example_t *self);
@@ -214,6 +225,12 @@ byte *
     zproto_example_flags (zproto_example_t *self);
 void
     zproto_example_set_flags (zproto_example_t *self, byte *flags);
+
+//  Get/set the public_key field
+zchunk_t *
+    zproto_example_public_key (zproto_example_t *self);
+void
+    zproto_example_set_public_key (zproto_example_t *self, zchunk_t *chunk);
 
 //  Get/set the address field
 zframe_t *

@@ -44,16 +44,19 @@ struct _zproto_example_t {
     byte *needle;               //  Read/write pointer for serialization
     byte *ceiling;              //  Valid upper limit for read pointer
     uint16_t sequence;          //  
+    uint16_t version;           //  Version
     byte level;                 //  Log severity level
     byte event;                 //  Type of event
     uint16_t node;              //  Sending node
     uint16_t peer;              //  Refers to this peer
     uint64_t time;              //  Log date/time
+    char *host;                 //  Originating hostname
     char *data;                 //  Actual log message
     zlist_t *aliases;           //  List of strings
     zhash_t *headers;           //  Other random properties
     size_t headers_bytes;       //  Size of dictionary content
     byte flags [4];             //  A set of flags
+    zchunk_t *public_key;       //  Our public key
     zframe_t *address;          //  Return address as frame
     zmsg_t *content;            //  Message to be delivered
 };
@@ -61,35 +64,32 @@ struct _zproto_example_t {
 //  --------------------------------------------------------------------------
 //  Network data encoding macros
 
-//  Strings are encoded with 1-byte length
-#define STRING_MAX  255
-
-//  Put a block to the frame
+//  Put a block of octets to the frame
 #define PUT_OCTETS(host,size) { \
     memcpy (self->needle, (host), size); \
     self->needle += size; \
-    }
+}
 
-//  Get a block from the frame
+//  Get a block of octets from the frame
 #define GET_OCTETS(host,size) { \
     if (self->needle + size > self->ceiling) \
         goto malformed; \
     memcpy ((host), self->needle, size); \
     self->needle += size; \
-    }
+}
 
 //  Put a 1-byte number to the frame
 #define PUT_NUMBER1(host) { \
     *(byte *) self->needle = (host); \
     self->needle++; \
-    }
+}
 
 //  Put a 2-byte number to the frame
 #define PUT_NUMBER2(host) { \
     self->needle [0] = (byte) (((host) >> 8)  & 255); \
     self->needle [1] = (byte) (((host))       & 255); \
     self->needle += 2; \
-    }
+}
 
 //  Put a 4-byte number to the frame
 #define PUT_NUMBER4(host) { \
@@ -98,7 +98,7 @@ struct _zproto_example_t {
     self->needle [2] = (byte) (((host) >> 8)  & 255); \
     self->needle [3] = (byte) (((host))       & 255); \
     self->needle += 4; \
-    }
+}
 
 //  Put a 8-byte number to the frame
 #define PUT_NUMBER8(host) { \
@@ -111,7 +111,7 @@ struct _zproto_example_t {
     self->needle [6] = (byte) (((host) >> 8)  & 255); \
     self->needle [7] = (byte) (((host))       & 255); \
     self->needle += 8; \
-    }
+}
 
 //  Get a 1-byte number from the frame
 #define GET_NUMBER1(host) { \
@@ -119,7 +119,7 @@ struct _zproto_example_t {
         goto malformed; \
     (host) = *(byte *) self->needle; \
     self->needle++; \
-    }
+}
 
 //  Get a 2-byte number from the frame
 #define GET_NUMBER2(host) { \
@@ -128,7 +128,7 @@ struct _zproto_example_t {
     (host) = ((uint16_t) (self->needle [0]) << 8) \
            +  (uint16_t) (self->needle [1]); \
     self->needle += 2; \
-    }
+}
 
 //  Get a 4-byte number from the frame
 #define GET_NUMBER4(host) { \
@@ -139,7 +139,7 @@ struct _zproto_example_t {
            + ((uint32_t) (self->needle [2]) << 8) \
            +  (uint32_t) (self->needle [3]); \
     self->needle += 4; \
-    }
+}
 
 //  Get a 8-byte number from the frame
 #define GET_NUMBER8(host) { \
@@ -154,18 +154,19 @@ struct _zproto_example_t {
            + ((uint64_t) (self->needle [6]) << 8) \
            +  (uint64_t) (self->needle [7]); \
     self->needle += 8; \
-    }
+}
 
 //  Put a string to the frame
 #define PUT_STRING(host) { \
-    string_size = strlen (host); \
+    size_t string_size = strlen (host); \
     PUT_NUMBER1 (string_size); \
     memcpy (self->needle, (host), string_size); \
     self->needle += string_size; \
-    }
+}
 
 //  Get a string from the frame
 #define GET_STRING(host) { \
+    size_t string_size; \
     GET_NUMBER1 (string_size); \
     if (self->needle + string_size > (self->ceiling)) \
         goto malformed; \
@@ -173,7 +174,27 @@ struct _zproto_example_t {
     memcpy ((host), self->needle, string_size); \
     (host) [string_size] = 0; \
     self->needle += string_size; \
-    }
+}
+
+//  Put a long string to the frame
+#define PUT_LONGSTR(host) { \
+    size_t string_size = strlen (host); \
+    PUT_NUMBER4 (string_size); \
+    memcpy (self->needle, (host), string_size); \
+    self->needle += string_size; \
+}
+
+//  Get a long string from the frame
+#define GET_LONGSTR(host) { \
+    size_t string_size; \
+    GET_NUMBER4 (string_size); \
+    if (self->needle + string_size > (self->ceiling)) \
+        goto malformed; \
+    (host) = (char *) malloc (string_size + 1); \
+    memcpy ((host), self->needle, string_size); \
+    (host) [string_size] = 0; \
+    self->needle += string_size; \
+}
 
 
 //  --------------------------------------------------------------------------
@@ -200,10 +221,12 @@ zproto_example_destroy (zproto_example_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
+        free (self->host);
         free (self->data);
         if (self->aliases)
             zlist_destroy (&self->aliases);
         zhash_destroy (&self->headers);
+        zchunk_destroy (&self->public_key);
         zframe_destroy (&self->address);
         zmsg_destroy (&self->content);
 
@@ -224,7 +247,6 @@ zproto_example_recv (void *input)
     assert (input);
     zproto_example_t *self = zproto_example_new (0);
     zframe_t *frame = NULL;
-    size_t string_size;
 
     //  Read valid message frame from socket; we loop over any
     //  garbage data we might receive from badly-connected peers
@@ -264,45 +286,59 @@ zproto_example_recv (void *input)
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             GET_NUMBER2 (self->sequence);
+            GET_NUMBER2 (self->version);
+            if (self->version != 3)
+                goto malformed;
             GET_NUMBER1 (self->level);
             GET_NUMBER1 (self->event);
             GET_NUMBER2 (self->node);
             GET_NUMBER2 (self->peer);
             GET_NUMBER8 (self->time);
-            free (self->data);
-            GET_STRING (self->data);
+            GET_STRING (self->host);
+            GET_LONGSTR (self->data);
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
             GET_NUMBER2 (self->sequence);
-            size_t list_size;
-            GET_NUMBER1 (list_size);
-            self->aliases = zlist_new ();
-            zlist_autofree (self->aliases);
-            while (list_size--) {
-                char *string;
-                GET_STRING (string);
-                zlist_append (self->aliases, string);
-                free (string);
+            {
+                size_t list_size;
+                GET_NUMBER4 (list_size);
+                self->aliases = zlist_new ();
+                zlist_autofree (self->aliases);
+                while (list_size--) {
+                    char *string;
+                    GET_LONGSTR (string);
+                    zlist_append (self->aliases, string);
+                    free (string);
+                }
             }
-            size_t hash_size;
-            GET_NUMBER1 (hash_size);
-            self->headers = zhash_new ();
-            zhash_autofree (self->headers);
-            while (hash_size--) {
-                char *string;
-                GET_STRING (string);
-                char *value = strchr (string, '=');
-                if (value)
-                    *value++ = 0;
-                zhash_insert (self->headers, string, value);
-                free (string);
+            {
+                size_t hash_size;
+                GET_NUMBER4 (hash_size);
+                self->headers = zhash_new ();
+                zhash_autofree (self->headers);
+                while (hash_size--) {
+                    char *key, *value;
+                    GET_STRING (key);
+                    GET_LONGSTR (value);
+                    zhash_insert (self->headers, key, value);
+                    free (key);
+                    free (value);
+                }
             }
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
             GET_NUMBER2 (self->sequence);
             GET_OCTETS (self->flags, 4);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling))
+                    goto malformed;
+                self->public_key = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
             //  Get next frame, leave current untouched
             if (!zsocket_rcvmore (input))
                 goto malformed;
@@ -330,12 +366,13 @@ zproto_example_recv (void *input)
         return (NULL);
 }
 
-//  Count size of key=value pair
+//  Count size of key/value pair for serialization
+//  Key is encoded as string, value as longstr
 static int
 s_headers_count (const char *key, void *item, void *argument)
 {
     zproto_example_t *self = (zproto_example_t *) argument;
-    self->headers_bytes += strlen (key) + 1 + strlen ((char *) item) + 1;
+    self->headers_bytes += 1 + strlen (key) + 4 + strlen ((char *) item);
     return 0;
 }
 
@@ -344,10 +381,8 @@ static int
 s_headers_write (const char *key, void *item, void *argument)
 {
     zproto_example_t *self = (zproto_example_t *) argument;
-    char string [STRING_MAX + 1];
-    snprintf (string, STRING_MAX, "%s=%s", key, (char *) item);
-    size_t string_size;
-    PUT_STRING (string);
+    PUT_STRING (key);
+    PUT_LONGSTR ((char *) item);
     return 0;
 }
 
@@ -370,6 +405,8 @@ zproto_example_send (zproto_example_t **self_p, void *output)
         case ZPROTO_EXAMPLE_LOG:
             //  sequence is a 2-byte integer
             frame_size += 2;
+            //  version is a 2-byte integer
+            frame_size += 2;
             //  level is a 1-byte integer
             frame_size += 1;
             //  event is a 1-byte integer
@@ -380,8 +417,12 @@ zproto_example_send (zproto_example_t **self_p, void *output)
             frame_size += 2;
             //  time is a 8-byte integer
             frame_size += 8;
-            //  data is a string with 1-byte length
+            //  host is a string with 1-byte length
             frame_size++;       //  Size is one octet
+            if (self->host)
+                frame_size += strlen (self->host);
+            //  data is a string with 4-byte length
+            frame_size += 4;
             if (self->data)
                 frame_size += strlen (self->data);
             break;
@@ -390,17 +431,17 @@ zproto_example_send (zproto_example_t **self_p, void *output)
             //  sequence is a 2-byte integer
             frame_size += 2;
             //  aliases is an array of strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->aliases) {
                 //  Add up size of list contents
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    frame_size += 1 + strlen (aliases);
+                    frame_size += 4 + strlen (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
             //  headers is an array of key=value strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->headers) {
                 self->headers_bytes = 0;
                 //  Add up size of dictionary contents
@@ -414,6 +455,10 @@ zproto_example_send (zproto_example_t **self_p, void *output)
             frame_size += 2;
             //  flags is a block of 4 bytes
             frame_size += 4;
+            //  public_key is a chunk with 4-byte length
+            frame_size += 4;
+            if (self->public_key)
+                frame_size += zchunk_size (self->public_key);
             break;
             
         default:
@@ -424,7 +469,6 @@ zproto_example_send (zproto_example_t **self_p, void *output)
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
     self->needle = zframe_data (frame);
-    size_t string_size;
     int frame_flags = 0;
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
@@ -432,41 +476,56 @@ zproto_example_send (zproto_example_t **self_p, void *output)
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             PUT_NUMBER2 (self->sequence);
+            PUT_NUMBER2 (3);
             PUT_NUMBER1 (self->level);
             PUT_NUMBER1 (self->event);
             PUT_NUMBER2 (self->node);
             PUT_NUMBER2 (self->peer);
             PUT_NUMBER8 (self->time);
-            if (self->data) {
-                PUT_STRING (self->data);
+            if (self->host) {
+                PUT_STRING (self->host);
             }
             else
                 PUT_NUMBER1 (0);    //  Empty string
+            if (self->data) {
+                PUT_LONGSTR (self->data);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty string
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
             PUT_NUMBER2 (self->sequence);
-            if (self->aliases != NULL) {
-                PUT_NUMBER1 (zlist_size (self->aliases));
+            if (self->aliases) {
+                PUT_NUMBER4 (zlist_size (self->aliases));
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    PUT_STRING (aliases);
+                    PUT_LONGSTR (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
             else
-                PUT_NUMBER1 (0);    //  Empty string array
-            if (self->headers != NULL) {
-                PUT_NUMBER1 (zhash_size (self->headers));
+                PUT_NUMBER4 (0);    //  Empty string array
+            if (self->headers) {
+                PUT_NUMBER4 (zhash_size (self->headers));
                 zhash_foreach (self->headers, s_headers_write, self);
             }
             else
-                PUT_NUMBER1 (0);    //  Empty dictionary
+                PUT_NUMBER4 (0);    //  Empty dictionary
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
             PUT_NUMBER2 (self->sequence);
             PUT_OCTETS (self->flags, 4);
+            PUT_NUMBER4 (zchunk_size (self->public_key));
+            if (self->public_key) {
+                memcpy (self->needle,
+                        zchunk_data (self->public_key),
+                        zchunk_size (self->public_key));
+                self->needle += zchunk_size (self->public_key);
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
             frame_flags = ZFRAME_MORE;
             break;
 
@@ -533,6 +592,7 @@ zproto_example_send_log (
     uint16_t node,
     uint16_t peer,
     uint64_t time,
+    char *host,
     char *data)
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
@@ -542,6 +602,7 @@ zproto_example_send_log (
     zproto_example_set_node (self, node);
     zproto_example_set_peer (self, peer);
     zproto_example_set_time (self, time);
+    zproto_example_set_host (self, host);
     zproto_example_set_data (self, data);
     return zproto_example_send (&self, output);
 }
@@ -573,12 +634,14 @@ zproto_example_send_binary (
     void *output,
     uint16_t sequence,
     byte *flags,
+    zchunk_t *public_key,
     zframe_t *address,
     zmsg_t *content)
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
     zproto_example_set_sequence (self, sequence);
     zproto_example_set_flags (self, flags);
+    zproto_example_set_public_key (self, zchunk_dup (public_key));
     zproto_example_set_address (self, zframe_dup (address));
     zproto_example_set_content (self, zmsg_dup (content));
     return zproto_example_send (&self, output);
@@ -601,11 +664,13 @@ zproto_example_dup (zproto_example_t *self)
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             copy->sequence = self->sequence;
+            copy->version = self->version;
             copy->level = self->level;
             copy->event = self->event;
             copy->node = self->node;
             copy->peer = self->peer;
             copy->time = self->time;
+            copy->host = self->host? strdup (self->host): NULL;
             copy->data = self->data? strdup (self->data): NULL;
             break;
 
@@ -618,6 +683,7 @@ zproto_example_dup (zproto_example_t *self)
         case ZPROTO_EXAMPLE_BINARY:
             copy->sequence = self->sequence;
             memcpy (copy->flags, self->flags, 4);
+            copy->public_key = self->public_key? zchunk_dup (self->public_key): NULL;
             copy->address = self->address? zframe_dup (self->address): NULL;
             copy->content = self->content? zmsg_dup (self->content): NULL;
             break;
@@ -647,11 +713,16 @@ zproto_example_dump (zproto_example_t *self)
         case ZPROTO_EXAMPLE_LOG:
             puts ("LOG:");
             printf ("    sequence=%ld\n", (long) self->sequence);
+            printf ("    version=3\n");
             printf ("    level=%ld\n", (long) self->level);
             printf ("    event=%ld\n", (long) self->event);
             printf ("    node=%ld\n", (long) self->node);
             printf ("    peer=%ld\n", (long) self->peer);
             printf ("    time=%ld\n", (long) self->time);
+            if (self->host)
+                printf ("    host='%s'\n", self->host);
+            else
+                printf ("    host=\n");
             if (self->data)
                 printf ("    data='%s'\n", self->data);
             else
@@ -689,6 +760,12 @@ zproto_example_dump (zproto_example_t *self)
                 printf ("%02X", self->flags [flags_index]);
             }
             printf ("\n");
+            printf ("    public_key={\n");
+            if (self->public_key)
+                zchunk_print (self->public_key);
+            else
+                printf ("(NULL)\n");
+            printf ("    }\n");
             printf ("    address={\n");
             if (self->address)
                 zframe_print (self->address, NULL);
@@ -868,6 +945,29 @@ zproto_example_set_time (zproto_example_t *self, uint64_t time)
 {
     assert (self);
     self->time = time;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the host field
+
+char *
+zproto_example_host (zproto_example_t *self)
+{
+    assert (self);
+    return self->host;
+}
+
+void
+zproto_example_set_host (zproto_example_t *self, char *format, ...)
+{
+    //  Format host from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->host);
+    self->host = zsys_vprintf (format, argptr);
+    va_end (argptr);
 }
 
 
@@ -1060,6 +1160,26 @@ zproto_example_set_flags (zproto_example_t *self, byte *flags)
 
 
 //  --------------------------------------------------------------------------
+//  Get/set the public_key field
+
+zchunk_t *
+zproto_example_public_key (zproto_example_t *self)
+{
+    assert (self);
+    return self->public_key;
+}
+
+//  Takes ownership of supplied chunk
+void
+zproto_example_set_public_key (zproto_example_t *self, zchunk_t *chunk)
+{
+    assert (self);
+    if (self->public_key)
+        zchunk_destroy (&self->public_key);
+    self->public_key = chunk;
+}
+
+//  --------------------------------------------------------------------------
 //  Get/set the address field
 
 zframe_t *
@@ -1078,7 +1198,6 @@ zproto_example_set_address (zproto_example_t *self, zframe_t *frame)
         zframe_destroy (&self->address);
     self->address = frame;
 }
-
 
 //  --------------------------------------------------------------------------
 //  Get/set the content field
@@ -1142,6 +1261,7 @@ zproto_example_test (bool verbose)
     zproto_example_set_node (self, 123);
     zproto_example_set_peer (self, 123);
     zproto_example_set_time (self, 123);
+    zproto_example_set_host (self, "Life is short but Now lasts for ever");
     zproto_example_set_data (self, "Life is short but Now lasts for ever");
     //  Send twice from same object
     zproto_example_send_again (self, output);
@@ -1157,6 +1277,7 @@ zproto_example_test (bool verbose)
         assert (zproto_example_node (self) == 123);
         assert (zproto_example_peer (self) == 123);
         assert (zproto_example_time (self) == 123);
+        assert (streq (zproto_example_host (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
         zproto_example_destroy (&self);
     }
@@ -1200,6 +1321,7 @@ zproto_example_test (bool verbose)
     byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
     memset (flags_data, 123, ZPROTO_EXAMPLE_FLAGS_SIZE);
     zproto_example_set_flags (self, flags_data);
+    zproto_example_set_public_key (self, zchunk_new ("Captcha Diem", 12));
     zproto_example_set_address (self, zframe_new ("Captcha Diem", 12));
     zproto_example_set_content (self, zmsg_new ());
 //    zmsg_addstr (zproto_example_content (self), "Hello, World");
@@ -1214,6 +1336,7 @@ zproto_example_test (bool verbose)
         assert (zproto_example_sequence (self) == 123);
         assert (zproto_example_flags (self) [0] == 123);
         assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
+        assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 0);
         zproto_example_destroy (&self);
