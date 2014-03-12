@@ -1,9 +1,46 @@
-zcodec
-======
+# zproto - a protocol framework for ZeroMQ
 
-# Overview
+## Man Page
 
-This is a binary codec generator.
+zproto is two things. First, a code generator capable of producing fast
+and efficient binary codecs for ZeroMQ-based protocols. Second, a base
+project for your ZeroMQ C protocol clients and servers.
+
+To use zproto, clone the repository at https://github.com/zeromq/zproto.
+
+Build and test using the usual commands:
+
+    ./autogen.sh
+    ./configure
+    make check
+
+And then install the code generator:
+
+    make install
+
+Next, read the model/zproto_example.xml file to learn how to write your
+own protocol specifications. The binary codec has the same name, and is
+src/zproto_example.c and include/zproto_example.h.
+
+To rebuild the codec, first build and install https://github.com/imatix/gsl.
+Then run these commands:
+
+    cd generate
+    ./generate
+    cd ..
+    make check
+
+Finally, to use zproto as the base for your own projects, clone the git
+repository, then:
+
+    rm .git
+    rm model
+    git init .
+
+And then manually change all references to 'zproto' to your own project
+prefix, both in filenames, and inside the sources. We may script this, later.
+
+## More Detail
 
 Goals:
 
@@ -21,8 +58,7 @@ To contribute patches back to this code, please send GitHub pull requests, addin
 
 To use:
 
-* Write your protocol as an XML file, using model/zcodec_example.xml as a starting point.
+* Write your protocol as an XML file, using model/zproto_example.xml as a starting point.
 * Generate your protocol, using model/generate as a starting point.
 * Add the generated .h and .c class to your git repository.
-* Don't modify the generated code. Fix the model, and regenerate.
-
+* Don't modify generated codecs. Change the model, and regenerate.

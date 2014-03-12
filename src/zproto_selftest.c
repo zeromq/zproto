@@ -1,5 +1,5 @@
 /*  =========================================================================
-    xrap_selftest - run self tests
+    zproto_selftest - run self tests
 
     Copyright (C) 2014 the Authors
 
@@ -22,7 +22,7 @@
     =========================================================================
 */
 
-#include "xrap.h"
+#include "zproto.h"
 
 int main (int argc, char *argv [])
 {
@@ -33,7 +33,7 @@ int main (int argc, char *argv [])
         verbose = false;
 
     printf ("Running self tests...\n");
-    xrap_msg_test (verbose);
+    zproto_example_test (verbose);
     printf ("Tests passed OK\n");
     return 0;
 }

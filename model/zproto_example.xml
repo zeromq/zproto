@@ -1,5 +1,5 @@
-<class name = "xrap_msg" signature = "5" title = "XRAP serialization over ZMTP">
-Message structures for XRAP over ZMTP, UnifyProject/draft/RFC-4.
+<class name = "proto_msg" signature = "5" title = "proto serialization over ZMTP">
+Message structures for proto over ZMTP, UnifyProject/draft/RFC-4.
 <include filename = "license.xml" />
 
 <message name = "POST" id = "1">

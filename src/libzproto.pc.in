@@ -3,9 +3,9 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: libxrap
+Name: libproto
 Description: a C implementation of UnifyProject/draft/RFC-4
 Version: @VERSION@
 Requires: libzmq libczmq libzyre
-Libs: -L${libdir} -lxrap
+Libs: -L${libdir} -lproto
 Cflags: -I${includedir}

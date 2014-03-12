@@ -71,7 +71,7 @@ pull $top_srcdir/src/$class.c\@selftest
 
 SEE ALSO
 --------
-linkxrap:xrap[7]
+linkproto:proto[7]
 END
 
 #   Now process template
