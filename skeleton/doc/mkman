@@ -71,7 +71,7 @@ pull $top_srcdir/src/$class.c\@selftest
 
 SEE ALSO
 --------
-link:zproto[7]
+link:proto[7]
 END
 
 #   Now process template
