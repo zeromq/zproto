@@ -228,5 +228,5 @@ AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(perror gettimeofday memset)
 
 # Specify output files
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile src/libzproto.pc])
+AC_CONFIG_FILES([Makefile model/Makefile src/Makefile doc/Makefile src/libzproto.pc])
 AC_OUTPUT
