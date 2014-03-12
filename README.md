@@ -34,7 +34,7 @@ Finally, to use zproto as the base for your own projects, clone the git
 repository, then:
 
     rm .git
-    rm model
+    rm model/*.gsl
     git init .
 
 And then manually change all references to 'zproto' to your own project

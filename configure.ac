@@ -6,7 +6,7 @@ AC_PREREQ(2.61)
 # the version.sh script. Hence, it should be updated there.
 # The version in git should reflect the *next* version planned.
 #
-AC_INIT([zproto],[m4_esyscmd([./version.sh zproto])],[zproto@travelping.com])
+AC_INIT([zproto],[m4_esyscmd([./version.sh zproto])],[zproto@zeromq.org])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -39,7 +39,7 @@ LTVER="2:0:1"
 AC_SUBST(LTVER)
 
 # Capture c flags
-zproto_ORIG_CFLAGS="${CFLAGS:-none}"
+ZPROTO_ORIG_CFLAGS="${CFLAGS:-none}"
 
 # Checks for programs
 AC_PROG_CC
@@ -53,13 +53,13 @@ AC_PROG_AWK
 # Code coverage
 AC_ARG_WITH(gcov, [AS_HELP_STRING([--with-gcov=yes/no],
                   [With GCC Code Coverage reporting.])],
-                  [zproto_GCOV="$withval"])
+                  [ZPROTO_GCOV="$withval"])
 
-if test "x${zproto_GCOV}" == "xyes"; then
+if test "x${ZPROTO_GCOV}" == "xyes"; then
     CFLAGS="-O0 -g -fprofile-arcs -ftest-coverage"
 
-    if test "x${zproto_ORIG_CFLAGS}" != "xnone"; then
-        CFLAGS="${CFLAGS} ${zproto_ORIG_CFLAGS}"
+    if test "x${ZPROTO_ORIG_CFLAGS}" != "xnone"; then
+        CFLAGS="${CFLAGS} ${ZPROTO_ORIG_CFLAGS}"
     fi
 fi
 
@@ -146,54 +146,54 @@ case "${host_os}" in
     *linux*)
         # Define on Linux to enable all library features
         CPPFLAGS="-D_GNU_SOURCE -DLINUX $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_LINUX, 1, [Have Linux OS])
+        AC_DEFINE(ZPROTO_HAVE_LINUX, 1, [Have Linux OS])
         ;;
     *solaris*)
         # Define on Solaris to enable all library features
         CPPFLAGS="-D_PTHREADS $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_SOLARIS, 1, [Have Solaris OS])
+        AC_DEFINE(ZPROTO_HAVE_SOLARIS, 1, [Have Solaris OS])
         CFLAGS="${CFLAGS} -lsocket -lssp"
         ;;
     *freebsd*)
         # Define on FreeBSD to enable all library features
         CPPFLAGS="-D__BSD_VISIBLE $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_FREEBSD, 1, [Have FreeBSD OS])
+        AC_DEFINE(ZPROTO_HAVE_FREEBSD, 1, [Have FreeBSD OS])
         ;;
     *darwin*)
         # Define on Darwin to enable all library features
         CPPFLAGS="-D_DARWIN_C_SOURCE $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_OSX, 1, [Have DarwinOSX OS])
+        AC_DEFINE(ZPROTO_HAVE_OSX, 1, [Have DarwinOSX OS])
         ;;
     *netbsd*)
         # Define on NetBSD to enable all library features
         CPPFLAGS="-D_NETBSD_SOURCE $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_NETBSD, 1, [Have NetBSD OS])
+        AC_DEFINE(ZPROTO_HAVE_NETBSD, 1, [Have NetBSD OS])
         ;;
     *openbsd*)
         # Define on OpenBSD to enable all library features
         CPPFLAGS="-D_BSD_SOURCE $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_OPENBSD, 1, [Have OpenBSD OS])
+        AC_DEFINE(ZPROTO_HAVE_OPENBSD, 1, [Have OpenBSD OS])
         ;;
     *nto-qnx*)
-        AC_DEFINE(zproto_HAVE_QNXNTO, 1, [Have QNX Neutrino OS])
+        AC_DEFINE(ZPROTO_HAVE_QNXNTO, 1, [Have QNX Neutrino OS])
         ;;
     *aix*)
-        AC_DEFINE(zproto_HAVE_AIX, 1, [Have AIX OS])
+        AC_DEFINE(ZPROTO_HAVE_AIX, 1, [Have AIX OS])
         ;;
     *hpux*)
         # Define on HP-UX to enable all library features
         CPPFLAGS="-D_POSIX_C_SOURCE=200112L"
-        AC_DEFINE(zproto_HAVE_HPUX, 1, [Have HPUX OS])
+        AC_DEFINE(ZPROTO_HAVE_HPUX, 1, [Have HPUX OS])
         ;;
     *mingw32*)
-        AC_DEFINE(zproto_HAVE_WINDOWS, 1, [Have Windows OS])
-        AC_DEFINE(zproto_HAVE_MINGW32, 1, [Have MinGW32])
+        AC_DEFINE(ZPROTO_HAVE_WINDOWS, 1, [Have Windows OS])
+        AC_DEFINE(ZPROTO_HAVE_MINGW32, 1, [Have MinGW32])
         AC_CHECK_HEADERS(windows.h)
         ;;
     *cygwin*)
         # Define on Cygwin to enable all library features
         CPPFLAGS="-D_GNU_SOURCE $CPPFLAGS"
-        AC_DEFINE(zproto_HAVE_CYGWIN, 1, [Have Cygwin])
+        AC_DEFINE(ZPROTO_HAVE_CYGWIN, 1, [Have Cygwin])
         ;;
     *)
         AC_MSG_ERROR([unsupported system: ${host_os}.])

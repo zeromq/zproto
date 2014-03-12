@@ -260,4 +260,4 @@ EXAMPLE
 
 SEE ALSO
 --------
-linkproto:proto[7]
+link:zproto[7]

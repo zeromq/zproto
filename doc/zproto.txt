@@ -46,7 +46,7 @@ Finally, to use zproto as the base for your own projects, clone the git
 repository, then:
 ----
 rm .git
-rm model
+rm model/*.gsl
 git init .
 ----
 
@@ -55,4 +55,4 @@ prefix, both in filenames, and inside the sources. We may script this, later.
 
 SEE ALSO
 --------
-linkproto:zproto_example[3]
+link:zproto_example[3]
