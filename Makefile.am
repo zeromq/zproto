@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I config
 
-SUBDIRS = model src doc
+SUBDIRS = src doc
 
-DIST_SUBDIRS = model src doc
+DIST_SUBDIRS = src doc
 
 EXTRA_DIST = 

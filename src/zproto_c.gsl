@@ -2,7 +2,7 @@
 .#
 .#  Generates a codec for a protocol specification
 .#
-.include "library.gsl"
+.include "zproto_lib.gsl"
 .resolve_includes ()
 .set_defaults ()
 .echo "Generating ../include/$(class.name).h..."

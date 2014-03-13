@@ -3,7 +3,7 @@
 .#  Generates a BNF grammar from a protocol specification
 .#  The grammar will need manual reworking to be sensible.
 .#
-.include "library.gsl"
+.include "zproto_lib.gsl"
 .resolve_includes ()
 .set_defaults ()
 .echo "Generating $(class.name).bnf..."
