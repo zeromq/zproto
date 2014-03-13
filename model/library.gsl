@@ -31,8 +31,6 @@
 .           else
 .               echo "E: bad size $(size) for $(name)"
 .           endif
-.       elsif type = "string"
-.           field.size ?= 1
 .       endif
 .       for class.field as cfield where cfield.name = field.name
 .           if cfield.type <> field.type
