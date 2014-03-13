@@ -78,6 +78,16 @@ zproto_example_t *
 void
     zproto_example_destroy (zproto_example_t **self_p);
 
+//  Parse a zproto_example from zmsg_t.
+//  Use when not in control of receiving the message.
+zproto_example_t *
+    zproto_example_decode (zmsg_t *msg);
+
+//  Encode a zproto_example to zmsg_t.
+//  Use when not in control of sending the message.
+zmsg_t *
+    zproto_example_encode (zproto_example_t *self);
+
 //  Receive and parse a zproto_example from the input
 zproto_example_t *
     zproto_example_recv (void *input);

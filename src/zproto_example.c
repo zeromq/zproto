@@ -238,6 +238,121 @@ zproto_example_destroy (zproto_example_t **self_p)
 
 
 //  --------------------------------------------------------------------------
+//  Parse a zproto_example from zmsg_t. Returns new object or NULL if error.
+
+zproto_example_t *
+zproto_example_decode (zmsg_t *msg)
+{
+    assert (msg);
+    zproto_example_t *self = zproto_example_new (0);
+    zframe_t *frame = NULL;
+
+    //  Read and parse command in frame
+    frame = zmsg_pop (msg);
+    if (!frame) 
+        goto empty;             //  Interrupted
+
+    //  Get and check protocol signature
+    self->needle = zframe_data (frame);
+    self->ceiling = self->needle + zframe_size (frame);
+    uint16_t signature;
+    GET_NUMBER2 (signature);
+    if (signature != (0xAAA0 | 0))
+        goto empty;             //  Invalid signature
+
+    //  Get message id and parse per message type
+    GET_NUMBER1 (self->id);
+
+    switch (self->id) {
+        case ZPROTO_EXAMPLE_LOG:
+            GET_NUMBER2 (self->sequence);
+            GET_NUMBER2 (self->version);
+            if (self->version != 3)
+                goto malformed;
+            GET_NUMBER1 (self->level);
+            GET_NUMBER1 (self->event);
+            GET_NUMBER2 (self->node);
+            GET_NUMBER2 (self->peer);
+            GET_NUMBER8 (self->time);
+            GET_STRING (self->host);
+            GET_LONGSTR (self->data);
+            break;
+
+        case ZPROTO_EXAMPLE_STRUCTURES:
+            GET_NUMBER2 (self->sequence);
+            {
+                size_t list_size;
+                GET_NUMBER4 (list_size);
+                self->aliases = zlist_new ();
+                zlist_autofree (self->aliases);
+                while (list_size--) {
+                    char *string;
+                    GET_LONGSTR (string);
+                    zlist_append (self->aliases, string);
+                    free (string);
+                }
+            }
+            {
+                size_t hash_size;
+                GET_NUMBER4 (hash_size);
+                self->headers = zhash_new ();
+                zhash_autofree (self->headers);
+                while (hash_size--) {
+                    char *key, *value;
+                    GET_STRING (key);
+                    GET_LONGSTR (value);
+                    zhash_insert (self->headers, key, value);
+                    free (key);
+                    free (value);
+                }
+            }
+            break;
+
+        case ZPROTO_EXAMPLE_BINARY:
+            GET_NUMBER2 (self->sequence);
+            GET_OCTETS (self->flags, 4);
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling))
+                    goto malformed;
+                self->public_key = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+            //  Get next frame, leave current untouched
+            zframe_t *address = zmsg_pop (msg);
+            if (!address)
+                goto malformed;
+            self->address = address;
+            //  Get zero or more remaining frames,
+            //  leave current frame untouched
+            self->content = zmsg_new ();
+            zframe_t *content_part = zmsg_pop (msg);
+            while (content_part) {
+                zmsg_add (self->content, content_part);
+                content_part = zmsg_pop (msg);
+            }
+            break;
+
+        default:
+            goto malformed;
+    }
+    //  Successful return
+    zmsg_destroy (&msg);
+    return self;
+
+    //  Error returns
+    malformed:
+        printf ("E: malformed message '%d'\n", self->id);
+    empty:
+        if (frame)
+            zframe_destroy (&frame);
+        zmsg_destroy (&msg);
+        zproto_example_destroy (&self);
+        return (NULL);
+}
+
+//  --------------------------------------------------------------------------
 //  Receive and parse a zproto_example from the socket. Returns new object or
 //  NULL if error. Will block if there's no message waiting.
 

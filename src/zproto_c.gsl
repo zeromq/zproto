@@ -64,6 +64,16 @@ $(class.name)_t *
 void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
+//  Parse a $(class.name) from zmsg_t.
+//  Use when not in control of receiving the message.
+$(class.name)_t *
+    $(class.name)_decode (zmsg_t *msg);
+
+//  Encode a $(class.name) to zmsg_t.
+//  Use when not in control of sending the message.
+zmsg_t *
+    $(class.name)_encode ($(class.name)_t *self);
+
 //  Receive and parse a $(class.name) from the input
 $(class.name)_t *
     $(class.name)_recv (void *input);
@@ -433,6 +443,127 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     }
 }
 
+
+//  --------------------------------------------------------------------------
+//  Parse a $(class.name) from zmsg_t. Returns new object or NULL if error.
+
+$(class.name)_t *
+$(class.name)_decode (zmsg_t *msg)
+{
+    assert (msg);
+    $(class.name)_t *self = $(class.name)_new (0);
+    zframe_t *frame = NULL;
+
+    //  Read and parse command in frame
+    frame = zmsg_pop (msg);
+    if (!frame) 
+        goto empty;             //  Interrupted
+
+    //  Get and check protocol signature
+    self->needle = zframe_data (frame);
+    self->ceiling = self->needle + zframe_size (frame);
+    uint16_t signature;
+    GET_NUMBER2 (signature);
+    if (signature != (0xAAA0 | $(class.signature)))
+        goto empty;             //  Invalid signature
+
+    //  Get message id and parse per message type
+    GET_NUMBER1 (self->id);
+
+    switch (self->id) {
+.for class.message
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field
+.       if type = "number"
+            GET_NUMBER$(size) (self->$(name));
+.           if defined (field.value)
+            if (self->$(name) != $(field.value:))
+                goto malformed;
+.           endif
+.       elsif type = "octets"
+            GET_OCTETS (self->$(name), $(size));
+.       elsif type = "string"
+            GET_STRING (self->$(name));
+.           if defined (field.value)
+            if (strneq (self->$(name), "$(field.value:)"))
+                goto malformed;
+.           endif
+.       elsif type = "longstr"
+            GET_LONGSTR (self->$(name));
+.       elsif type = "strings"
+            {
+                size_t list_size;
+                GET_NUMBER4 (list_size);
+                self->$(name) = zlist_new ();
+                zlist_autofree (self->$(name));
+                while (list_size--) {
+                    char *string;
+                    GET_LONGSTR (string);
+                    zlist_append (self->$(name), string);
+                    free (string);
+                }
+            }
+.       elsif type = "dictionary"
+            {
+                size_t hash_size;
+                GET_NUMBER4 (hash_size);
+                self->$(name) = zhash_new ();
+                zhash_autofree (self->$(name));
+                while (hash_size--) {
+                    char *key, *value;
+                    GET_STRING (key);
+                    GET_LONGSTR (value);
+                    zhash_insert (self->$(name), key, value);
+                    free (key);
+                    free (value);
+                }
+            }
+.       elsif type = "chunk"
+            {
+                size_t chunk_size;
+                GET_NUMBER4 (chunk_size);
+                if (self->needle + chunk_size > (self->ceiling))
+                    goto malformed;
+                self->$(name) = zchunk_new (self->needle, chunk_size);
+                self->needle += chunk_size;
+            }
+.       elsif type = "frame"
+            //  Get next frame, leave current untouched
+            zframe_t *$(name) = zmsg_pop (msg);
+            if (!$(name))
+                goto malformed;
+            self->$(name) = $(name);
+.       elsif type = "msg"
+            //  Get zero or more remaining frames,
+            //  leave current frame untouched
+            self->$(name) = zmsg_new ();
+            zframe_t *$(name)_part = zmsg_pop (msg);
+            while ($(name)_part) {
+                zmsg_add (self->$(name), $(name)_part);
+                $(name)_part = zmsg_pop (msg);
+            }
+.       endif
+.   endfor
+            break;
+
+.endfor
+        default:
+            goto malformed;
+    }
+    //  Successful return
+    zmsg_destroy (&msg);
+    return self;
+
+    //  Error returns
+    malformed:
+        printf ("E: malformed message '%d'\\n", self->id);
+    empty:
+        if (frame)
+            zframe_destroy (&frame);
+        zmsg_destroy (&msg);
+        $(class.name)_destroy (&self);
+        return (NULL);
+}
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a $(class.name) from the socket. Returns new object or
