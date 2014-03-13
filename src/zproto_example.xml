@@ -69,7 +69,7 @@ Strings contain UTF-8 data; that is, no zero bytes. Their encoded size is the
 number of bytes in the string (not including the size field).
 
 On number and string fields you can define a 'value' property. This will be
-stampted into messages as a constant, and checked on read messages. You can
+stamped into messages as a constant, and checked on read messages. You can
 use this for e.g. version detection.
 
 zproto supports lists and hashes of strings:
