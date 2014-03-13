@@ -26,8 +26,8 @@
     =========================================================================
 */
 
-#ifndef __MYPROJ_EXAMPLE_H_INCLUDED__
-#define __MYPROJ_EXAMPLE_H_INCLUDED__
+#ifndef __MYPROJ_MSG_H_INCLUDED__
+#define __MYPROJ_MSG_H_INCLUDED__
 
 /*  These are the myproj_msg messages:
 
@@ -52,12 +52,12 @@
         content             msg         Message to be delivered
 */
 
-#define MYPROJ_EXAMPLE_VERSION              1
+#define MYPROJ_MSG_VERSION                  1
 
-#define MYPROJ_EXAMPLE_LOG                  1
-#define MYPROJ_EXAMPLE_STRUCTURES           2
-#define MYPROJ_EXAMPLE_BINARY               3
-#define MYPROJ_EXAMPLE_FLAGS_SIZE           4
+#define MYPROJ_MSG_LOG                      1
+#define MYPROJ_MSG_STRUCTURES               2
+#define MYPROJ_MSG_BINARY                   3
+#define MYPROJ_MSG_FLAGS_SIZE               4
 
 #ifdef __cplusplus
 extern "C" {

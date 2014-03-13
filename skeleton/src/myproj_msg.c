@@ -262,7 +262,7 @@ myproj_msg_recv (void *input)
     GET_NUMBER1 (self->id);
 
     switch (self->id) {
-        case MYPROJ_EXAMPLE_LOG:
+        case MYPROJ_MSG_LOG:
             GET_NUMBER2 (self->sequence);
             GET_NUMBER1 (self->level);
             GET_NUMBER1 (self->event);
@@ -273,7 +273,7 @@ myproj_msg_recv (void *input)
             GET_STRING (self->data);
             break;
 
-        case MYPROJ_EXAMPLE_STRUCTURES:
+        case MYPROJ_MSG_STRUCTURES:
             GET_NUMBER2 (self->sequence);
             size_t list_size;
             GET_NUMBER1 (list_size);
@@ -300,7 +300,7 @@ myproj_msg_recv (void *input)
             }
             break;
 
-        case MYPROJ_EXAMPLE_BINARY:
+        case MYPROJ_MSG_BINARY:
             GET_NUMBER2 (self->sequence);
             GET_OCTETS (self->flags, 4);
             //  Get next frame, leave current untouched
@@ -367,7 +367,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
     myproj_msg_t *self = *self_p;
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
-        case MYPROJ_EXAMPLE_LOG:
+        case MYPROJ_MSG_LOG:
             //  sequence is a 2-byte integer
             frame_size += 2;
             //  level is a 1-byte integer
@@ -386,7 +386,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
                 frame_size += strlen (self->data);
             break;
             
-        case MYPROJ_EXAMPLE_STRUCTURES:
+        case MYPROJ_MSG_STRUCTURES:
             //  sequence is a 2-byte integer
             frame_size += 2;
             //  aliases is an array of strings
@@ -409,7 +409,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
             frame_size += self->headers_bytes;
             break;
             
-        case MYPROJ_EXAMPLE_BINARY:
+        case MYPROJ_MSG_BINARY:
             //  sequence is a 2-byte integer
             frame_size += 2;
             //  flags is a block of 4 bytes
@@ -430,7 +430,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
     PUT_NUMBER1 (self->id);
 
     switch (self->id) {
-        case MYPROJ_EXAMPLE_LOG:
+        case MYPROJ_MSG_LOG:
             PUT_NUMBER2 (self->sequence);
             PUT_NUMBER1 (self->level);
             PUT_NUMBER1 (self->event);
@@ -444,7 +444,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
                 PUT_NUMBER1 (0);    //  Empty string
             break;
 
-        case MYPROJ_EXAMPLE_STRUCTURES:
+        case MYPROJ_MSG_STRUCTURES:
             PUT_NUMBER2 (self->sequence);
             if (self->aliases != NULL) {
                 PUT_NUMBER1 (zlist_size (self->aliases));
@@ -464,7 +464,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
                 PUT_NUMBER1 (0);    //  Empty dictionary
             break;
 
-        case MYPROJ_EXAMPLE_BINARY:
+        case MYPROJ_MSG_BINARY:
             PUT_NUMBER2 (self->sequence);
             PUT_OCTETS (self->flags, 4);
             frame_flags = ZFRAME_MORE;
@@ -487,7 +487,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
         return -1;
     }
     //  Now send any frame fields, in order
-    if (self->id == MYPROJ_EXAMPLE_BINARY) {
+    if (self->id == MYPROJ_MSG_BINARY) {
         //  If address isn't set, send an empty frame
         if (!self->address)
             self->address = zframe_new (NULL, 0);
@@ -499,7 +499,7 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
         }
     }
     //  Now send the content field if set
-    if (self->id == MYPROJ_EXAMPLE_BINARY)
+    if (self->id == MYPROJ_MSG_BINARY)
         zmsg_send (&self->content, output);
         
     //  Destroy myproj_msg object
@@ -522,7 +522,7 @@ myproj_msg_send_log (
     uint64_t time,
     char *data)
 {
-    myproj_msg_t *self = myproj_msg_new (MYPROJ_EXAMPLE_LOG);
+    myproj_msg_t *self = myproj_msg_new (MYPROJ_MSG_LOG);
     myproj_msg_set_sequence (self, sequence);
     myproj_msg_set_level (self, level);
     myproj_msg_set_event (self, event);
@@ -544,7 +544,7 @@ myproj_msg_send_structures (
     zlist_t *aliases,
     zhash_t *headers)
 {
-    myproj_msg_t *self = myproj_msg_new (MYPROJ_EXAMPLE_STRUCTURES);
+    myproj_msg_t *self = myproj_msg_new (MYPROJ_MSG_STRUCTURES);
     myproj_msg_set_sequence (self, sequence);
     myproj_msg_set_aliases (self, zlist_dup (aliases));
     myproj_msg_set_headers (self, zhash_dup (headers));
@@ -563,7 +563,7 @@ myproj_msg_send_binary (
     zframe_t *address,
     zmsg_t *content)
 {
-    myproj_msg_t *self = myproj_msg_new (MYPROJ_EXAMPLE_BINARY);
+    myproj_msg_t *self = myproj_msg_new (MYPROJ_MSG_BINARY);
     myproj_msg_set_sequence (self, sequence);
     myproj_msg_set_flags (self, flags);
     myproj_msg_set_address (self, zframe_dup (address));
@@ -586,7 +586,7 @@ myproj_msg_dup (myproj_msg_t *self)
         copy->routing_id = zframe_dup (self->routing_id);
 
     switch (self->id) {
-        case MYPROJ_EXAMPLE_LOG:
+        case MYPROJ_MSG_LOG:
             copy->sequence = self->sequence;
             copy->level = self->level;
             copy->event = self->event;
@@ -596,13 +596,13 @@ myproj_msg_dup (myproj_msg_t *self)
             copy->data = strdup (self->data);
             break;
 
-        case MYPROJ_EXAMPLE_STRUCTURES:
+        case MYPROJ_MSG_STRUCTURES:
             copy->sequence = self->sequence;
             copy->aliases = zlist_dup (self->aliases);
             copy->headers = zhash_dup (self->headers);
             break;
 
-        case MYPROJ_EXAMPLE_BINARY:
+        case MYPROJ_MSG_BINARY:
             copy->sequence = self->sequence;
             memcpy (copy->flags, self->flags, 4);
             copy->address = zframe_dup (self->address);
@@ -631,7 +631,7 @@ myproj_msg_dump (myproj_msg_t *self)
 {
     assert (self);
     switch (self->id) {
-        case MYPROJ_EXAMPLE_LOG:
+        case MYPROJ_MSG_LOG:
             puts ("LOG:");
             printf ("    sequence=%ld\n", (long) self->sequence);
             printf ("    level=%ld\n", (long) self->level);
@@ -645,7 +645,7 @@ myproj_msg_dump (myproj_msg_t *self)
                 printf ("    data=\n");
             break;
             
-        case MYPROJ_EXAMPLE_STRUCTURES:
+        case MYPROJ_MSG_STRUCTURES:
             puts ("STRUCTURES:");
             printf ("    sequence=%ld\n", (long) self->sequence);
             printf ("    aliases={");
@@ -663,7 +663,7 @@ myproj_msg_dump (myproj_msg_t *self)
             printf ("    }\n");
             break;
             
-        case MYPROJ_EXAMPLE_BINARY:
+        case MYPROJ_MSG_BINARY:
             puts ("BINARY:");
             printf ("    sequence=%ld\n", (long) self->sequence);
             printf ("    flags=");
@@ -731,13 +731,13 @@ myproj_msg_command (myproj_msg_t *self)
 {
     assert (self);
     switch (self->id) {
-        case MYPROJ_EXAMPLE_LOG:
+        case MYPROJ_MSG_LOG:
             return ("LOG");
             break;
-        case MYPROJ_EXAMPLE_STRUCTURES:
+        case MYPROJ_MSG_STRUCTURES:
             return ("STRUCTURES");
             break;
-        case MYPROJ_EXAMPLE_BINARY:
+        case MYPROJ_MSG_BINARY:
             return ("BINARY");
             break;
     }
@@ -1109,7 +1109,7 @@ myproj_msg_test (bool verbose)
     
     //  Encode/send/decode and verify each message type
 
-    self = myproj_msg_new (MYPROJ_EXAMPLE_LOG);
+    self = myproj_msg_new (MYPROJ_MSG_LOG);
     myproj_msg_set_sequence (self, 123);
     myproj_msg_set_level (self, 123);
     myproj_msg_set_event (self, 123);
@@ -1130,7 +1130,7 @@ myproj_msg_test (bool verbose)
     assert (streq (myproj_msg_data (self), "Life is short but Now lasts for ever"));
     myproj_msg_destroy (&self);
 
-    self = myproj_msg_new (MYPROJ_EXAMPLE_STRUCTURES);
+    self = myproj_msg_new (MYPROJ_MSG_STRUCTURES);
     myproj_msg_set_sequence (self, 123);
     myproj_msg_aliases_append (self, "Name: %s", "Brutus");
     myproj_msg_aliases_append (self, "Age: %d", 43);
@@ -1149,10 +1149,10 @@ myproj_msg_test (bool verbose)
     assert (myproj_msg_headers_number (self, "Age", 0) == 43);
     myproj_msg_destroy (&self);
 
-    self = myproj_msg_new (MYPROJ_EXAMPLE_BINARY);
+    self = myproj_msg_new (MYPROJ_MSG_BINARY);
     myproj_msg_set_sequence (self, 123);
-    byte flags_data [MYPROJ_EXAMPLE_FLAGS_SIZE];
-    memset (flags_data, 123, MYPROJ_EXAMPLE_FLAGS_SIZE);
+    byte flags_data [MYPROJ_MSG_FLAGS_SIZE];
+    memset (flags_data, 123, MYPROJ_MSG_FLAGS_SIZE);
     myproj_msg_set_flags (self, flags_data);
     myproj_msg_set_address (self, zframe_new ("Captcha Diem", 12));
     myproj_msg_set_content (self, zmsg_new ());
@@ -1162,7 +1162,7 @@ myproj_msg_test (bool verbose)
     assert (self);
     assert (myproj_msg_sequence (self) == 123);
     assert (myproj_msg_flags (self) [0] == 123);
-    assert (myproj_msg_flags (self) [MYPROJ_EXAMPLE_FLAGS_SIZE - 1] == 123);
+    assert (myproj_msg_flags (self) [MYPROJ_MSG_FLAGS_SIZE - 1] == 123);
     assert (zframe_streq (myproj_msg_address (self), "Captcha Diem"));
     assert (zmsg_size (myproj_msg_content (self)) == 0);
     myproj_msg_destroy (&self);
