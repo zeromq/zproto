@@ -1,2 +1,0 @@
-gsl -q -script:myproj_c myproj_msg.xml
-

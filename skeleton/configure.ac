@@ -6,7 +6,7 @@ AC_PREREQ(2.61)
 # the version.sh script. Hence, it should be updated there.
 # The version in git should reflect the *next* version planned.
 #
-AC_INIT([myproj],[m4_esyscmd([./version.sh myproj])],[myproj@zeromq.org)
+AC_INIT([myproj],[m4_esyscmd([./version.sh myproj])],[myproj@zeromq.org])
 
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR(config)
@@ -228,5 +228,5 @@ AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(perror gettimeofday memset)
 
 # Specify output files
-AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile src/libmyproj.pc])
+AC_CONFIG_FILES([Makefile src/Makefile model/Makefile doc/Makefile src/libmyproj.pc])
 AC_OUTPUT

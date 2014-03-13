@@ -18,3 +18,4 @@ myproj_selftest_LDADD = libmyproj.la
 myproj_selftest_SOURCES = myproj_selftest.c
 libmyproj_la_LDFLAGS = -version-info @LTVER@
 TESTS = myproj_selftest
+
