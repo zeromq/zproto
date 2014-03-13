@@ -243,9 +243,11 @@ zproto_example_destroy (zproto_example_t **self_p)
 zproto_example_t *
 zproto_example_decode (zmsg_t *msg)
 {
-    assert (msg);
     zproto_example_t *self = zproto_example_new (0);
     zframe_t *frame = NULL;
+    //  Verify message is present
+    if (!msg)
+        goto empty;
 
     //  Read and parse command in frame
     frame = zmsg_pop (msg);
@@ -361,124 +363,55 @@ zproto_example_recv (void *input)
 {
     assert (input);
     zproto_example_t *self = zproto_example_new (0);
-    zframe_t *frame = NULL;
-
-    //  Read valid message frame from socket; we loop over any
-    //  garbage data we might receive from badly-connected peers
-    while (true) {
-        //  If we're reading from a ROUTER socket, get routing_id
-        if (zsocket_type (input) == ZMQ_ROUTER) {
-            zframe_destroy (&self->routing_id);
-            self->routing_id = zframe_recv (input);
-            if (!self->routing_id)
-                goto empty;         //  Interrupted
-            if (!zsocket_rcvmore (input))
-                goto malformed;
-        }
-        //  Read and parse command in frame
-        frame = zframe_recv (input);
-        if (!frame)
-            goto empty;             //  Interrupted
-
-        //  Get and check protocol signature
-        self->needle = zframe_data (frame);
-        self->ceiling = self->needle + zframe_size (frame);
-        uint16_t signature;
-        GET_NUMBER2 (signature);
-        if (signature == (0xAAA0 | 0))
-            break;                  //  Valid signature
-
-        //  Protocol assertion, drop message
-        while (zsocket_rcvmore (input)) {
-            zframe_destroy (&frame);
-            frame = zframe_recv (input);
-        }
-        zframe_destroy (&frame);
-    }
-    //  Get message id and parse per message type
-    GET_NUMBER1 (self->id);
-
-    switch (self->id) {
-        case ZPROTO_EXAMPLE_LOG:
-            GET_NUMBER2 (self->sequence);
-            GET_NUMBER2 (self->version);
-            if (self->version != 3)
-                goto malformed;
-            GET_NUMBER1 (self->level);
-            GET_NUMBER1 (self->event);
-            GET_NUMBER2 (self->node);
-            GET_NUMBER2 (self->peer);
-            GET_NUMBER8 (self->time);
-            GET_STRING (self->host);
-            GET_LONGSTR (self->data);
-            break;
-
-        case ZPROTO_EXAMPLE_STRUCTURES:
-            GET_NUMBER2 (self->sequence);
-            {
-                size_t list_size;
-                GET_NUMBER4 (list_size);
-                self->aliases = zlist_new ();
-                zlist_autofree (self->aliases);
-                while (list_size--) {
-                    char *string;
-                    GET_LONGSTR (string);
-                    zlist_append (self->aliases, string);
-                    free (string);
-                }
-            }
-            {
-                size_t hash_size;
-                GET_NUMBER4 (hash_size);
-                self->headers = zhash_new ();
-                zhash_autofree (self->headers);
-                while (hash_size--) {
-                    char *key, *value;
-                    GET_STRING (key);
-                    GET_LONGSTR (value);
-                    zhash_insert (self->headers, key, value);
-                    free (key);
-                    free (value);
-                }
-            }
-            break;
-
-        case ZPROTO_EXAMPLE_BINARY:
-            GET_NUMBER2 (self->sequence);
-            GET_OCTETS (self->flags, 4);
-            {
-                size_t chunk_size;
-                GET_NUMBER4 (chunk_size);
-                if (self->needle + chunk_size > (self->ceiling))
-                    goto malformed;
-                self->public_key = zchunk_new (self->needle, chunk_size);
-                self->needle += chunk_size;
-            }
-            //  Get next frame, leave current untouched
-            if (!zsocket_rcvmore (input))
-                goto malformed;
-            self->address = zframe_recv (input);
-            //  Get zero or more remaining frames,
-            //  leave current frame untouched
-            self->content = zmsg_new ();
-            while (zsocket_rcvmore (input))
-                zmsg_add (self->content, zframe_recv (input));
-            break;
-
-        default:
-            goto malformed;
-    }
-    //  Successful return
-    zframe_destroy (&frame);
-    return self;
-
-    //  Error returns
-    malformed:
-        printf ("E: malformed message '%d'\n", self->id);
-    empty:
-        zframe_destroy (&frame);
-        zproto_example_destroy (&self);
+    zmsg_t *msg = NULL;
+    //  Read message from input
+    msg = zmsg_recv (input);
+    if (!msg)
         return (NULL);
+
+    //  If we're reading from a ROUTER socket, get routing_id
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zmsg_pop (msg);
+        if (!self->routing_id)
+            return (NULL);      //  Interrupted
+        if (!zmsg_next (msg))
+            return (NULL);      //  Malformed
+    }
+
+    //  Parse zmsg to zproto_example
+    self = zproto_example_decode (msg);
+    return self;
+}
+
+//  --------------------------------------------------------------------------
+//  Receive and parse a zproto_example from the socket. Returns new object, 
+//  or NULL either if there was no input waiting, or the recv was interrupted.
+
+zproto_example_t *
+zproto_example_recv_nowait (void *input)
+{
+    assert (input);
+    zproto_example_t *self = zproto_example_new (0);
+    zmsg_t *msg = NULL;
+    //  Read message from input
+    msg = zmsg_recv_nowait (input);
+    if (!msg)
+        return (NULL);
+
+    //  If we're reading from a ROUTER socket, get routing_id
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zmsg_pop (msg);
+        if (!self->routing_id)
+            return (NULL);      //  Interrupted
+        if (!zmsg_next (msg))
+            return (NULL);      //  Malformed
+    }
+
+    //  Parse zmsg to zproto_example
+    self = zproto_example_decode (msg);
+    return self;
 }
 
 //  Count size of key/value pair for serialization
@@ -502,19 +435,17 @@ s_headers_write (const char *key, void *item, void *argument)
 }
 
 
+
 //  --------------------------------------------------------------------------
-//  Send the zproto_example to the socket, and destroy it
-//  Returns 0 if OK, else -1
+//  Encode zproto_example into zmsg and destroy it. Returns a newly created 
+//  object or NULL if error. 
 
-int
-zproto_example_send (zproto_example_t **self_p, void *output)
+zmsg_t *
+zproto_example_encode (zproto_example_t *self)
 {
-    assert (self_p);
-    assert (*self_p);
-    assert (output);
+    assert (self);
+    zmsg_t *msg = zmsg_new ();
 
-    //  Calculate size of serialized data
-    zproto_example_t *self = *self_p;
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
@@ -584,7 +515,6 @@ zproto_example_send (zproto_example_t **self_p, void *output)
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
     self->needle = zframe_data (frame);
-    int frame_flags = 0;
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
 
@@ -641,43 +571,67 @@ zproto_example_send (zproto_example_t **self_p, void *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
-            frame_flags = ZFRAME_MORE;
             break;
 
     }
-    //  If we're sending to a ROUTER, we send the routing_id first
-    if (zsocket_type (output) == ZMQ_ROUTER) {
-        assert (self->routing_id);
-        if (zframe_send (&self->routing_id, output, ZFRAME_MORE)) {
-            zframe_destroy (&frame);
-            zproto_example_destroy (self_p);
-            return -1;
-        }
-    }
     //  Now send the data frame
-    if (zframe_send (&frame, output, frame_flags)) {
-        zframe_destroy (&frame);
-        zproto_example_destroy (self_p);
-        return -1;
+    if (zmsg_append (msg, &frame)) {
+        zmsg_destroy (&msg);
+        zproto_example_destroy (&self);
+        return NULL;
     }
     //  Now send any frame fields, in order
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
         //  If address isn't set, send an empty frame
         if (!self->address)
             self->address = zframe_new (NULL, 0);
-        frame_flags = zmsg_size (self->content)? ZFRAME_MORE: 0;
-        if (zframe_send (&self->address, output, frame_flags)) {
-            zframe_destroy (&frame);
-            zproto_example_destroy (self_p);
-            return -1;
+        if (zmsg_append (msg, &self->address)) {
+            zmsg_destroy (&msg);
+            zproto_example_destroy (&self);
+            return NULL;
         }
     }
     //  Now send the content field if set
-    if (self->id == ZPROTO_EXAMPLE_BINARY)
-        zmsg_send (&self->content, output);
-        
+    if (self->id == ZPROTO_EXAMPLE_BINARY) {
+        zframe_t *content_part = zmsg_pop (self->content);
+        while (content_part) {
+            zmsg_append (msg, &content_part);
+            content_part = zmsg_pop (self->content);
+        }
+    }
     //  Destroy zproto_example object
-    zproto_example_destroy (self_p);
+    zproto_example_destroy (&self);
+    return msg;
+
+}
+
+//  --------------------------------------------------------------------------
+//  Send the zproto_example to the socket, and destroy it
+//  Returns 0 if OK, else -1
+
+int
+zproto_example_send (zproto_example_t **self_p, void *output)
+{
+    assert (self_p);
+    assert (*self_p);
+    assert (output);
+
+    zproto_example_t *self = *self_p;
+    zmsg_t *msg = NULL;
+    //  Encode zproto_example into zmsg.
+    msg = zproto_example_encode (self);
+
+    //  If we're sending to a ROUTER, we send the routing_id first
+    if (zsocket_type (output) == ZMQ_ROUTER) {
+        assert (self->routing_id);
+        if (zmsg_push (msg, self->routing_id)) {
+            return -1;
+        }
+    }
+    //  Now send the message
+    if (zmsg_send (&msg, output)) {
+        return -1;
+    }
     return 0;
 }
 
@@ -1383,7 +1337,13 @@ zproto_example_test (bool verbose)
     zproto_example_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
+        if (instance == 0) {
+            self = zproto_example_recv (input);
+        }
+        if (instance == 1) {
+            zclock_sleep (250);     // give time for message to arrive
+            self = zproto_example_recv_nowait (input);
+        }
         assert (self);
         
         assert (zproto_example_sequence (self) == 123);
@@ -1413,7 +1373,13 @@ zproto_example_test (bool verbose)
     zproto_example_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
+        if (instance == 0) {
+            self = zproto_example_recv (input);
+        }
+        if (instance == 1) {
+            zclock_sleep (250);     // give time for message to arrive
+            self = zproto_example_recv_nowait (input);
+        }
         assert (self);
         
         assert (zproto_example_sequence (self) == 123);
@@ -1445,7 +1411,13 @@ zproto_example_test (bool verbose)
     zproto_example_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
+        if (instance == 0) {
+            self = zproto_example_recv (input);
+        }
+        if (instance == 1) {
+            zclock_sleep (250);     // give time for message to arrive
+            self = zproto_example_recv_nowait (input);
+        }
         assert (self);
         
         assert (zproto_example_sequence (self) == 123);

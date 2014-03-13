@@ -64,19 +64,26 @@ $(class.name)_t *
 void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
-//  Parse a $(class.name) from zmsg_t.
+//  Parse a $(class.name) from zmsg_t. Returns new object or NULL if error.
 //  Use when not in control of receiving the message.
 $(class.name)_t *
     $(class.name)_decode (zmsg_t *msg);
 
-//  Encode a $(class.name) to zmsg_t.
+//  Encode $(class.name) into zmsg and destroy it. 
+//  Returns a newly created object or NULL if error. 
 //  Use when not in control of sending the message.
 zmsg_t *
     $(class.name)_encode ($(class.name)_t *self);
 
-//  Receive and parse a $(class.name) from the input
+//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  or NULL if error. Will block if there's no message waiting.
 $(class.name)_t *
     $(class.name)_recv (void *input);
+
+//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  or NULL either if there was no input waiting, or the recv was interrupted.
+$(class.name)_t *
+    $(class.name)_recv_nowait (void *input);
 
 //  Send the $(class.name) to the output, and destroy it
 int
@@ -450,9 +457,11 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 $(class.name)_t *
 $(class.name)_decode (zmsg_t *msg)
 {
-    assert (msg);
     $(class.name)_t *self = $(class.name)_new (0);
     zframe_t *frame = NULL;
+    //  Verify message is present
+    if (!msg)
+        goto empty;
 
     //  Read and parse command in frame
     frame = zmsg_pop (msg);
@@ -574,130 +583,55 @@ $(class.name)_recv (void *input)
 {
     assert (input);
     $(class.name)_t *self = $(class.name)_new (0);
-    zframe_t *frame = NULL;
-
-    //  Read valid message frame from socket; we loop over any
-    //  garbage data we might receive from badly-connected peers
-    while (true) {
-        //  If we're reading from a ROUTER socket, get routing_id
-        if (zsocket_type (input) == ZMQ_ROUTER) {
-            zframe_destroy (&self->routing_id);
-            self->routing_id = zframe_recv (input);
-            if (!self->routing_id)
-                goto empty;         //  Interrupted
-            if (!zsocket_rcvmore (input))
-                goto malformed;
-        }
-        //  Read and parse command in frame
-        frame = zframe_recv (input);
-        if (!frame)
-            goto empty;             //  Interrupted
-
-        //  Get and check protocol signature
-        self->needle = zframe_data (frame);
-        self->ceiling = self->needle + zframe_size (frame);
-        uint16_t signature;
-        GET_NUMBER2 (signature);
-        if (signature == (0xAAA0 | $(class.signature)))
-            break;                  //  Valid signature
-
-        //  Protocol assertion, drop message
-        while (zsocket_rcvmore (input)) {
-            zframe_destroy (&frame);
-            frame = zframe_recv (input);
-        }
-        zframe_destroy (&frame);
-    }
-    //  Get message id and parse per message type
-    GET_NUMBER1 (self->id);
-
-    switch (self->id) {
-.for class.message
-        case $(CLASS.NAME)_$(MESSAGE.NAME):
-.   for field
-.       if type = "number"
-            GET_NUMBER$(size) (self->$(name));
-.           if defined (field.value)
-            if (self->$(name) != $(field.value:))
-                goto malformed;
-.           endif
-.       elsif type = "octets"
-            GET_OCTETS (self->$(name), $(size));
-.       elsif type = "string"
-            GET_STRING (self->$(name));
-.           if defined (field.value)
-            if (strneq (self->$(name), "$(field.value:)"))
-                goto malformed;
-.           endif
-.       elsif type = "longstr"
-            GET_LONGSTR (self->$(name));
-.       elsif type = "strings"
-            {
-                size_t list_size;
-                GET_NUMBER4 (list_size);
-                self->$(name) = zlist_new ();
-                zlist_autofree (self->$(name));
-                while (list_size--) {
-                    char *string;
-                    GET_LONGSTR (string);
-                    zlist_append (self->$(name), string);
-                    free (string);
-                }
-            }
-.       elsif type = "dictionary"
-            {
-                size_t hash_size;
-                GET_NUMBER4 (hash_size);
-                self->$(name) = zhash_new ();
-                zhash_autofree (self->$(name));
-                while (hash_size--) {
-                    char *key, *value;
-                    GET_STRING (key);
-                    GET_LONGSTR (value);
-                    zhash_insert (self->$(name), key, value);
-                    free (key);
-                    free (value);
-                }
-            }
-.       elsif type = "chunk"
-            {
-                size_t chunk_size;
-                GET_NUMBER4 (chunk_size);
-                if (self->needle + chunk_size > (self->ceiling))
-                    goto malformed;
-                self->$(name) = zchunk_new (self->needle, chunk_size);
-                self->needle += chunk_size;
-            }
-.       elsif type = "frame"
-            //  Get next frame, leave current untouched
-            if (!zsocket_rcvmore (input))
-                goto malformed;
-            self->$(name) = zframe_recv (input);
-.       elsif type = "msg"
-            //  Get zero or more remaining frames,
-            //  leave current frame untouched
-            self->$(name) = zmsg_new ();
-            while (zsocket_rcvmore (input))
-                zmsg_add (self->$(name), zframe_recv (input));
-.       endif
-.   endfor
-            break;
-
-.endfor
-        default:
-            goto malformed;
-    }
-    //  Successful return
-    zframe_destroy (&frame);
-    return self;
-
-    //  Error returns
-    malformed:
-        printf ("E: malformed message '%d'\\n", self->id);
-    empty:
-        zframe_destroy (&frame);
-        $(class.name)_destroy (&self);
+    zmsg_t *msg = NULL;
+    //  Read message from input
+    msg = zmsg_recv (input);
+    if (!msg)
         return (NULL);
+
+    //  If we're reading from a ROUTER socket, get routing_id
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zmsg_pop (msg);
+        if (!self->routing_id)
+            return (NULL);      //  Interrupted
+        if (!zmsg_next (msg))
+            return (NULL);      //  Malformed
+    }
+
+    //  Parse zmsg to $(class.name)
+    self = $(class.name)_decode (msg);
+    return self;
+}
+
+//  --------------------------------------------------------------------------
+//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  or NULL either if there was no input waiting, or the recv was interrupted.
+
+$(class.name)_t *
+$(class.name)_recv_nowait (void *input)
+{
+    assert (input);
+    $(class.name)_t *self = $(class.name)_new (0);
+    zmsg_t *msg = NULL;
+    //  Read message from input
+    msg = zmsg_recv_nowait (input);
+    if (!msg)
+        return (NULL);
+
+    //  If we're reading from a ROUTER socket, get routing_id
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zmsg_pop (msg);
+        if (!self->routing_id)
+            return (NULL);      //  Interrupted
+        if (!zmsg_next (msg))
+            return (NULL);      //  Malformed
+    }
+
+    //  Parse zmsg to $(class.name)
+    self = $(class.name)_decode (msg);
+    return self;
 }
 
 .for class.field where type = "dictionary"
@@ -723,19 +657,17 @@ s_$(name)_write (const char *key, void *item, void *argument)
 
 .endfor
 
+
 //  --------------------------------------------------------------------------
-//  Send the $(class.name) to the socket, and destroy it
-//  Returns 0 if OK, else -1
+//  Encode $(class.name) into zmsg and destroy it. Returns a newly created 
+//  object or NULL if error. 
 
-int
-$(class.name)_send ($(class.name)_t **self_p, void *output)
+zmsg_t *
+$(class.name)_encode ($(class.name)_t *self)
 {
-    assert (self_p);
-    assert (*self_p);
-    assert (output);
+    assert (self);
+    zmsg_t *msg = zmsg_new ();
 
-    //  Calculate size of serialized data
-    $(class.name)_t *self = *self_p;
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
 .for class.message
@@ -799,7 +731,6 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
     self->needle = zframe_data (frame);
-    int frame_flags = 0;
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
 
@@ -861,29 +792,15 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
                 PUT_NUMBER4 (0);    //  Empty chunk
 .       endif
 .   endfor
-.   if defined (message.has_frame)
-            frame_flags = ZFRAME_MORE;
-.   elsif defined (message.has_msg)
-            frame_flags = zmsg_size (self->$(message.has_msg))? ZFRAME_MORE: 0;
-.   endif
             break;
 
 .endfor
     }
-    //  If we're sending to a ROUTER, we send the routing_id first
-    if (zsocket_type (output) == ZMQ_ROUTER) {
-        assert (self->routing_id);
-        if (zframe_send (&self->routing_id, output, ZFRAME_MORE)) {
-            zframe_destroy (&frame);
-            $(class.name)_destroy (self_p);
-            return -1;
-        }
-    }
     //  Now send the data frame
-    if (zframe_send (&frame, output, frame_flags)) {
-        zframe_destroy (&frame);
-        $(class.name)_destroy (self_p);
-        return -1;
+    if (zmsg_append (msg, &frame)) {
+        zmsg_destroy (&msg);
+        $(class.name)_destroy (&self);
+        return NULL;
     }
 .for class.message where count (field, type = "frame")
     //  Now send any frame fields, in order
@@ -892,17 +809,10 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
         //  If $(name) isn't set, send an empty frame
         if (!self->$(field.name))
             self->$(field.name) = zframe_new (NULL, 0);
-.       if item (field) = count (message.field)
-        frame_flags = 0;
-.       elsif item (field) = count (message.field) - 1 & defined (message.has_msg)
-        frame_flags = zmsg_size (self->$(message.has_msg))? ZFRAME_MORE: 0;
-.       else
-        frame_flags = ZFRAME_MORE;
-.       endif
-        if (zframe_send (&self->$(field.name), output, frame_flags)) {
-            zframe_destroy (&frame);
-            $(class.name)_destroy (self_p);
-            return -1;
+        if (zmsg_append (msg, &self->$(field.name))) {
+            zmsg_destroy (&msg);
+            $(class.name)_destroy (&self);
+            return NULL;
         }
 .   endfor
     }
@@ -910,13 +820,48 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
 .for class.message where count (field, type = "msg")
 .   for field where type = "msg"
     //  Now send the $(field.name) field if set
-    if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME))
-        zmsg_send (&self->$(field.name), output);
-        
+    if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
+        zframe_t *$(field.name)_part = zmsg_pop (self->$(field.name));
+        while ($(field.name)_part) {
+            zmsg_append (msg, &$(field.name)_part);
+            $(field.name)_part = zmsg_pop (self->$(field.name));
+        }
+    }
 .   endfor
 .endfor
     //  Destroy $(class.name) object
-    $(class.name)_destroy (self_p);
+    $(class.name)_destroy (&self);
+    return msg;
+
+}
+
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the socket, and destroy it
+//  Returns 0 if OK, else -1
+
+int
+$(class.name)_send ($(class.name)_t **self_p, void *output)
+{
+    assert (self_p);
+    assert (*self_p);
+    assert (output);
+
+    $(class.name)_t *self = *self_p;
+    zmsg_t *msg = NULL;
+    //  Encode $(class.name) into zmsg.
+    msg = $(class.name)_encode (self);
+
+    //  If we're sending to a ROUTER, we send the routing_id first
+    if (zsocket_type (output) == ZMQ_ROUTER) {
+        assert (self->routing_id);
+        if (zmsg_push (msg, self->routing_id)) {
+            return -1;
+        }
+    }
+    //  Now send the message
+    if (zmsg_send (&msg, output)) {
+        return -1;
+    }
     return 0;
 }
 
@@ -1457,7 +1402,13 @@ $(class.name)_test (bool verbose)
     $(class.name)_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = $(class.name)_recv (input);
+        if (instance == 0) {
+            self = $(class.name)_recv (input);
+        }
+        if (instance == 1) {
+            zclock_sleep (250);     // give time for message to arrive
+            self = $(class.name)_recv_nowait (input);
+        }
         assert (self);
         
 .   for field where !defined (value)
