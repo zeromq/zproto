@@ -20,6 +20,7 @@ The following ABNF grammar defines the $(class.title:):
 \ )
 
 .for message
+    ; $(string.trim (message.))
     C:$(message.name:)\
                     = signature %d$(id)\
 .   for field
