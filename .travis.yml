@@ -1,0 +1,10 @@
+# zproto
+
+language: c
+
+#   Build and check zproto
+script: ./autogen.sh && ./configure && make && make check
+
+- cd skeleton
+- ./autogen.sh && ./configure && make && make check
+ 
