@@ -2,9 +2,13 @@
 
 language: c
 
+before_script:
+- cd skeleton
+- ./autogen.sh 
+- ./configure && make check
+- cd ..
+
 #   Build and check zproto
 script: ./autogen.sh && ./configure && make && make check
 
-- cd skeleton
-- ./autogen.sh && ./configure && make && make check
  
