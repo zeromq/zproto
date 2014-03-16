@@ -19,3 +19,7 @@ myproj_selftest_SOURCES = myproj_selftest.c
 libmyproj_la_LDFLAGS = -version-info @LTVER@
 TESTS = myproj_selftest
 
+# Produce generated models; do this manually in src directory
+code:
+	gsl -q myproj_msg.xml
+

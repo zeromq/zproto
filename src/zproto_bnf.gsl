@@ -1,74 +1,74 @@
-.#  zproto_bnf.gsl
-.#
-.#  Generates a BNF grammar from a protocol specification
-.#  The grammar will need manual reworking to be sensible.
-.#
-.include "zproto_lib.gsl"
-.resolve_includes ()
-.set_defaults ()
-.echo "Generating $(class.name).bnf..."
-.output "$(class.name).bnf"
-The following ABNF grammar defines the $(class.title:):
+.template 0
+#  Generate a BNF grammar from a protocol specification
+#  The grammar may need manual reworking to be sensible
 
-.for class.grammar
-$(string.trim (grammar.):)
-.else
-    $(class.name)   = *(\
-.   for message
-    $(message.name:)\
-.       if !last ()
- |\
-.       endif
-.   endfor
-\ )
-.endfor
+function generate_bnf
+    output "$(class.name).bnf"
+    >The following ABNF grammar defines the $(class.title:):
+    >
 
-.for message
-    ; $(string.trim (message.))
-    C:$(message.name:)\
-                    = signature %d$(id)\
-.   for field
- $(field.name)\
-.   endfor
+    for class.grammar
+        >$(string.trim (grammar.):)
+    else
+        >    $(class.name)   = *(\
+        for message
+            >    $(message.name:)\
+            if !last ()
+                > |\
+            endif
+        endfor
+        >\ )
+    endfor
 
-.if first()
-    signature       = %xAA %d$(signature)   ; two octets
-.endif
-.   for field
-.       if type = "number"
-    $(name)         = number-$(size)        ; $(field.?'':)
-.       elsif type = "octets"
-    $(name)         = $(size)OCTET          ; $(field.?'':)
-.       else
-    $(name)         = $(type)               ; $(field.?'':)
-.       endif
-.   endfor
+    for message
+        >    ; $(string.trim (message.))
+        >    C:$(message.name:)\
+        >                    = signature %d$(id)\
+        for field
+            > $(field.name)\
+        endfor
+        >
 
-.endfor
-    ; Numbers are unsigned integers in network byte order
-    number-1        = 1OCTET
-    number-2        = 2OCTET
-    number-4        = 4OCTET
-    number-8        = 8OCTET
-    
-    ; Strings are always length + text contents
-    string          = number-1 *VCHAR
-    longstr         = number-4 *VCHAR
+        if first()
+            >    signature       = %xAA %d$(signature)   ; two octets
+        endif
+        for field
+            if type = "number"
+                >    $(name)         = number-$(size)        ; $(field.?'':)
+            elsif type = "octets"
+                >    $(name)         = $(size)OCTET          ; $(field.?'':)
+            else
+                >    $(name)         = $(type)               ; $(field.?'':)
+            endif
+        endfor
 
-    ; A list of string values
-    strings         = count *value
-    value           = longstr
-
-    ; A list of name/value pairs
-    dictionary      = count *( name value )
-    count           = number-4
-    name            = string                   
-
-    ; A chunk has 4-octet length + binary contents
-    chunk           = number-4 *OCTET
-
-    ; A frame is zero or more octets encoded as a ZeroMQ frame
-    frame           = *OCTET                
-
-    ; A msg is zero or more distinct frames
-    msg             = *frame
+    endfor
+    >    ; Numbers are unsigned integers in network byte order
+    >    number-1        = 1OCTET
+    >    number-2        = 2OCTET
+    >    number-4        = 4OCTET
+    >    number-8        = 8OCTET
+    >
+    >    ; Strings are always length + text contents
+    >    string          = number-1 *VCHAR
+    >    longstr         = number-4 *VCHAR
+    >
+    >    ; A list of string values
+    >    strings         = count *value
+    >    value           = longstr
+    >
+    >    ; A list of name/value pairs
+    >    dictionary      = count *( name value )
+    >    count           = number-4
+    >    name            = string
+    >
+    >    ; A chunk has 4-octet length + binary contents
+    >    chunk           = number-4 *OCTET
+    >
+    >    ; A frame is zero or more octets encoded as a ZeroMQ frame
+    >    frame           = *OCTET
+    >
+    >    ; A msg is zero or more distinct frames
+    >    msg             = *frame
+endfunction
+.endtemplate

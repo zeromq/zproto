@@ -3,15 +3,26 @@
 .#  Generates a codec for a protocol specification
 .#
 .include "zproto_lib.gsl"
+.include "zproto_bnf.gsl"
 .resolve_includes ()
 .set_defaults ()
-.echo "Generating $(class.header)/$(class.name).h..."
+.generate_bnf ()
 .output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
-    Generated codec header for $(class.name)
-    -------------------------------------------------------------------------
+    Codec header for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+    * The XML model used for this code generation: $(filename)
+    * The code generation script that built this file: $(script)
+    ************************************************************************
+    
     $(string.trim (class->license.):block                                   )
     =========================================================================
 */
@@ -225,13 +236,22 @@ int
 #endif
 
 #endif
-.echo "Generating $(class.source)/$(class.name).c..."
 .output "$(class.source)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
-    Generated codec implementation for $(class.name)
-    -------------------------------------------------------------------------
+    Codec class for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+    * The XML model used for this code generation: $(filename)
+    * The code generation script that built this file: $(script)
+    ************************************************************************
+    
     $(string.trim (class->license.):block                                   )
     =========================================================================
 */
