@@ -1,12 +1,12 @@
-.#  zproto_c.gsl
+.#  zproto_codec_c.gsl
 .#
 .#  Generates a codec for a protocol specification
 .#
 .include "zproto_lib.gsl"
 .resolve_includes ()
 .set_defaults ()
-.echo "Generating ../include/$(class.name).h..."
-.output "../include/$(class.name).h"
+.echo "Generating $(class.header)/$(class.name).h..."
+.output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
@@ -225,8 +225,8 @@ int
 #endif
 
 #endif
-.echo "Generating ../src/$(class.name).c..."
-.output "../src/$(class.name).c"
+.echo "Generating $(class.source)/$(class.name).c..."
+.output "$(class.source)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -244,7 +244,7 @@ int
 */
 
 #include <czmq.h>
-#include "../include/$(class.name).h"
+#include "$(class.header)/$(class.name).h"
 
 //  Structure of our class
 

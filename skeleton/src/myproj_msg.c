@@ -61,35 +61,32 @@ struct _myproj_msg_t {
 //  --------------------------------------------------------------------------
 //  Network data encoding macros
 
-//  Strings are encoded with 1-byte length
-#define STRING_MAX  255
-
-//  Put a block to the frame
+//  Put a block of octets to the frame
 #define PUT_OCTETS(host,size) { \
     memcpy (self->needle, (host), size); \
     self->needle += size; \
-    }
+}
 
-//  Get a block from the frame
+//  Get a block of octets from the frame
 #define GET_OCTETS(host,size) { \
     if (self->needle + size > self->ceiling) \
         goto malformed; \
     memcpy ((host), self->needle, size); \
     self->needle += size; \
-    }
+}
 
 //  Put a 1-byte number to the frame
 #define PUT_NUMBER1(host) { \
     *(byte *) self->needle = (host); \
     self->needle++; \
-    }
+}
 
 //  Put a 2-byte number to the frame
 #define PUT_NUMBER2(host) { \
     self->needle [0] = (byte) (((host) >> 8)  & 255); \
     self->needle [1] = (byte) (((host))       & 255); \
     self->needle += 2; \
-    }
+}
 
 //  Put a 4-byte number to the frame
 #define PUT_NUMBER4(host) { \
@@ -98,7 +95,7 @@ struct _myproj_msg_t {
     self->needle [2] = (byte) (((host) >> 8)  & 255); \
     self->needle [3] = (byte) (((host))       & 255); \
     self->needle += 4; \
-    }
+}
 
 //  Put a 8-byte number to the frame
 #define PUT_NUMBER8(host) { \
@@ -111,7 +108,7 @@ struct _myproj_msg_t {
     self->needle [6] = (byte) (((host) >> 8)  & 255); \
     self->needle [7] = (byte) (((host))       & 255); \
     self->needle += 8; \
-    }
+}
 
 //  Get a 1-byte number from the frame
 #define GET_NUMBER1(host) { \
@@ -119,7 +116,7 @@ struct _myproj_msg_t {
         goto malformed; \
     (host) = *(byte *) self->needle; \
     self->needle++; \
-    }
+}
 
 //  Get a 2-byte number from the frame
 #define GET_NUMBER2(host) { \
@@ -128,7 +125,7 @@ struct _myproj_msg_t {
     (host) = ((uint16_t) (self->needle [0]) << 8) \
            +  (uint16_t) (self->needle [1]); \
     self->needle += 2; \
-    }
+}
 
 //  Get a 4-byte number from the frame
 #define GET_NUMBER4(host) { \
@@ -139,7 +136,7 @@ struct _myproj_msg_t {
            + ((uint32_t) (self->needle [2]) << 8) \
            +  (uint32_t) (self->needle [3]); \
     self->needle += 4; \
-    }
+}
 
 //  Get a 8-byte number from the frame
 #define GET_NUMBER8(host) { \
@@ -154,18 +151,19 @@ struct _myproj_msg_t {
            + ((uint64_t) (self->needle [6]) << 8) \
            +  (uint64_t) (self->needle [7]); \
     self->needle += 8; \
-    }
+}
 
 //  Put a string to the frame
 #define PUT_STRING(host) { \
-    string_size = strlen (host); \
+    size_t string_size = strlen (host); \
     PUT_NUMBER1 (string_size); \
     memcpy (self->needle, (host), string_size); \
     self->needle += string_size; \
-    }
+}
 
 //  Get a string from the frame
 #define GET_STRING(host) { \
+    size_t string_size; \
     GET_NUMBER1 (string_size); \
     if (self->needle + string_size > (self->ceiling)) \
         goto malformed; \
@@ -173,7 +171,27 @@ struct _myproj_msg_t {
     memcpy ((host), self->needle, string_size); \
     (host) [string_size] = 0; \
     self->needle += string_size; \
-    }
+}
+
+//  Put a long string to the frame
+#define PUT_LONGSTR(host) { \
+    size_t string_size = strlen (host); \
+    PUT_NUMBER4 (string_size); \
+    memcpy (self->needle, (host), string_size); \
+    self->needle += string_size; \
+}
+
+//  Get a long string from the frame
+#define GET_LONGSTR(host) { \
+    size_t string_size; \
+    GET_NUMBER4 (string_size); \
+    if (self->needle + string_size > (self->ceiling)) \
+        goto malformed; \
+    (host) = (char *) malloc (string_size + 1); \
+    memcpy ((host), self->needle, string_size); \
+    (host) [string_size] = 0; \
+    self->needle += string_size; \
+}
 
 
 //  --------------------------------------------------------------------------
@@ -224,7 +242,6 @@ myproj_msg_recv (void *input)
     assert (input);
     myproj_msg_t *self = myproj_msg_new (0);
     zframe_t *frame = NULL;
-    size_t string_size;
 
     //  Read valid message frame from socket; we loop over any
     //  garbage data we might receive from badly-connected peers
@@ -269,34 +286,36 @@ myproj_msg_recv (void *input)
             GET_NUMBER2 (self->node);
             GET_NUMBER2 (self->peer);
             GET_NUMBER8 (self->time);
-            free (self->data);
             GET_STRING (self->data);
             break;
 
         case MYPROJ_MSG_STRUCTURES:
             GET_NUMBER2 (self->sequence);
-            size_t list_size;
-            GET_NUMBER1 (list_size);
-            self->aliases = zlist_new ();
-            zlist_autofree (self->aliases);
-            while (list_size--) {
-                char *string;
-                GET_STRING (string);
-                zlist_append (self->aliases, string);
-                free (string);
+            {
+                size_t list_size;
+                GET_NUMBER4 (list_size);
+                self->aliases = zlist_new ();
+                zlist_autofree (self->aliases);
+                while (list_size--) {
+                    char *string;
+                    GET_LONGSTR (string);
+                    zlist_append (self->aliases, string);
+                    free (string);
+                }
             }
-            size_t hash_size;
-            GET_NUMBER1 (hash_size);
-            self->headers = zhash_new ();
-            zhash_autofree (self->headers);
-            while (hash_size--) {
-                char *string;
-                GET_STRING (string);
-                char *value = strchr (string, '=');
-                if (value)
-                    *value++ = 0;
-                zhash_insert (self->headers, string, value);
-                free (string);
+            {
+                size_t hash_size;
+                GET_NUMBER4 (hash_size);
+                self->headers = zhash_new ();
+                zhash_autofree (self->headers);
+                while (hash_size--) {
+                    char *key, *value;
+                    GET_STRING (key);
+                    GET_LONGSTR (value);
+                    zhash_insert (self->headers, key, value);
+                    free (key);
+                    free (value);
+                }
             }
             break;
 
@@ -330,12 +349,13 @@ myproj_msg_recv (void *input)
         return (NULL);
 }
 
-//  Count size of key=value pair
+//  Count size of key/value pair for serialization
+//  Key is encoded as string, value as longstr
 static int
 s_headers_count (const char *key, void *item, void *argument)
 {
     myproj_msg_t *self = (myproj_msg_t *) argument;
-    self->headers_bytes += strlen (key) + 1 + strlen ((char *) item) + 1;
+    self->headers_bytes += 1 + strlen (key) + 4 + strlen ((char *) item);
     return 0;
 }
 
@@ -344,10 +364,8 @@ static int
 s_headers_write (const char *key, void *item, void *argument)
 {
     myproj_msg_t *self = (myproj_msg_t *) argument;
-    char string [STRING_MAX + 1];
-    snprintf (string, STRING_MAX, "%s=%s", key, (char *) item);
-    size_t string_size;
-    PUT_STRING (string);
+    PUT_STRING (key);
+    PUT_LONGSTR ((char *) item);
     return 0;
 }
 
@@ -359,9 +377,9 @@ s_headers_write (const char *key, void *item, void *argument)
 int
 myproj_msg_send (myproj_msg_t **self_p, void *output)
 {
-    assert (output);
     assert (self_p);
     assert (*self_p);
+    assert (output);
 
     //  Calculate size of serialized data
     myproj_msg_t *self = *self_p;
@@ -390,17 +408,17 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
             //  sequence is a 2-byte integer
             frame_size += 2;
             //  aliases is an array of strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->aliases) {
                 //  Add up size of list contents
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    frame_size += 1 + strlen (aliases);
+                    frame_size += 4 + strlen (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
             //  headers is an array of key=value strings
-            frame_size++;       //  Size is one octet
+            frame_size += 4;    //  Size is 4 octets
             if (self->headers) {
                 self->headers_bytes = 0;
                 //  Add up size of dictionary contents
@@ -424,7 +442,6 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
     self->needle = zframe_data (frame);
-    size_t string_size;
     int frame_flags = 0;
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
@@ -446,22 +463,22 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
 
         case MYPROJ_MSG_STRUCTURES:
             PUT_NUMBER2 (self->sequence);
-            if (self->aliases != NULL) {
-                PUT_NUMBER1 (zlist_size (self->aliases));
+            if (self->aliases) {
+                PUT_NUMBER4 (zlist_size (self->aliases));
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    PUT_STRING (aliases);
+                    PUT_LONGSTR (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
             else
-                PUT_NUMBER1 (0);    //  Empty string array
-            if (self->headers != NULL) {
-                PUT_NUMBER1 (zhash_size (self->headers));
+                PUT_NUMBER4 (0);    //  Empty string array
+            if (self->headers) {
+                PUT_NUMBER4 (zhash_size (self->headers));
                 zhash_foreach (self->headers, s_headers_write, self);
             }
             else
-                PUT_NUMBER1 (0);    //  Empty dictionary
+                PUT_NUMBER4 (0);    //  Empty dictionary
             break;
 
         case MYPROJ_MSG_BINARY:
@@ -505,6 +522,19 @@ myproj_msg_send (myproj_msg_t **self_p, void *output)
     //  Destroy myproj_msg object
     myproj_msg_destroy (self_p);
     return 0;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the myproj_msg to the output, and do not destroy it
+
+int
+myproj_msg_send_again (myproj_msg_t *self, void *output)
+{
+    assert (self);
+    assert (output);
+    self = myproj_msg_dup (self);
+    return myproj_msg_send (&self, output);
 }
 
 
@@ -593,20 +623,20 @@ myproj_msg_dup (myproj_msg_t *self)
             copy->node = self->node;
             copy->peer = self->peer;
             copy->time = self->time;
-            copy->data = strdup (self->data);
+            copy->data = self->data? strdup (self->data): NULL;
             break;
 
         case MYPROJ_MSG_STRUCTURES:
             copy->sequence = self->sequence;
-            copy->aliases = zlist_dup (self->aliases);
-            copy->headers = zhash_dup (self->headers);
+            copy->aliases = self->aliases? zlist_dup (self->aliases): NULL;
+            copy->headers = self->headers? zhash_dup (self->headers): NULL;
             break;
 
         case MYPROJ_MSG_BINARY:
             copy->sequence = self->sequence;
             memcpy (copy->flags, self->flags, 4);
-            copy->address = zframe_dup (self->address);
-            copy->content = zmsg_dup (self->content);
+            copy->address = self->address? zframe_dup (self->address): NULL;
+            copy->content = self->content? zmsg_dup (self->content): NULL;
             break;
 
     }
@@ -660,6 +690,8 @@ myproj_msg_dump (myproj_msg_t *self)
             printf ("    headers={\n");
             if (self->headers)
                 zhash_foreach (self->headers, s_headers_dump, self);
+            else
+                printf ("(NULL)\n");
             printf ("    }\n");
             break;
             
@@ -677,10 +709,14 @@ myproj_msg_dump (myproj_msg_t *self)
             printf ("    address={\n");
             if (self->address)
                 zframe_print (self->address, NULL);
+            else
+                printf ("(NULL)\n");
             printf ("    }\n");
             printf ("    content={\n");
             if (self->content)
                 zmsg_dump (self->content);
+            else
+                printf ("(NULL)\n");
             printf ("    }\n");
             break;
             
@@ -1060,7 +1096,6 @@ myproj_msg_set_address (myproj_msg_t *self, zframe_t *frame)
     self->address = frame;
 }
 
-
 //  --------------------------------------------------------------------------
 //  Get/set the content field
 
@@ -1108,8 +1143,15 @@ myproj_msg_test (bool verbose)
     zsocket_connect (input, "inproc://selftest");
     
     //  Encode/send/decode and verify each message type
-
+    int instance;
+    myproj_msg_t *copy;
     self = myproj_msg_new (MYPROJ_MSG_LOG);
+    
+    //  Check that _dup works on empty message
+    copy = myproj_msg_dup (self);
+    assert (copy);
+    myproj_msg_destroy (&copy);
+
     myproj_msg_set_sequence (self, 123);
     myproj_msg_set_level (self, 123);
     myproj_msg_set_event (self, 123);
@@ -1117,55 +1159,81 @@ myproj_msg_test (bool verbose)
     myproj_msg_set_peer (self, 123);
     myproj_msg_set_time (self, 123);
     myproj_msg_set_data (self, "Life is short but Now lasts for ever");
+    //  Send twice from same object
+    myproj_msg_send_again (self, output);
     myproj_msg_send (&self, output);
-    
-    self = myproj_msg_recv (input);
-    assert (self);
-    assert (myproj_msg_sequence (self) == 123);
-    assert (myproj_msg_level (self) == 123);
-    assert (myproj_msg_event (self) == 123);
-    assert (myproj_msg_node (self) == 123);
-    assert (myproj_msg_peer (self) == 123);
-    assert (myproj_msg_time (self) == 123);
-    assert (streq (myproj_msg_data (self), "Life is short but Now lasts for ever"));
-    myproj_msg_destroy (&self);
 
+    for (instance = 0; instance < 2; instance++) {
+        self = myproj_msg_recv (input);
+        assert (self);
+        
+        assert (myproj_msg_sequence (self) == 123);
+        assert (myproj_msg_level (self) == 123);
+        assert (myproj_msg_event (self) == 123);
+        assert (myproj_msg_node (self) == 123);
+        assert (myproj_msg_peer (self) == 123);
+        assert (myproj_msg_time (self) == 123);
+        assert (streq (myproj_msg_data (self), "Life is short but Now lasts for ever"));
+        myproj_msg_destroy (&self);
+    }
     self = myproj_msg_new (MYPROJ_MSG_STRUCTURES);
+    
+    //  Check that _dup works on empty message
+    copy = myproj_msg_dup (self);
+    assert (copy);
+    myproj_msg_destroy (&copy);
+
     myproj_msg_set_sequence (self, 123);
     myproj_msg_aliases_append (self, "Name: %s", "Brutus");
     myproj_msg_aliases_append (self, "Age: %d", 43);
     myproj_msg_headers_insert (self, "Name", "Brutus");
     myproj_msg_headers_insert (self, "Age", "%d", 43);
+    //  Send twice from same object
+    myproj_msg_send_again (self, output);
     myproj_msg_send (&self, output);
-    
-    self = myproj_msg_recv (input);
-    assert (self);
-    assert (myproj_msg_sequence (self) == 123);
-    assert (myproj_msg_aliases_size (self) == 2);
-    assert (streq (myproj_msg_aliases_first (self), "Name: Brutus"));
-    assert (streq (myproj_msg_aliases_next (self), "Age: 43"));
-    assert (myproj_msg_headers_size (self) == 2);
-    assert (streq (myproj_msg_headers_string (self, "Name", "?"), "Brutus"));
-    assert (myproj_msg_headers_number (self, "Age", 0) == 43);
-    myproj_msg_destroy (&self);
 
+    for (instance = 0; instance < 2; instance++) {
+        self = myproj_msg_recv (input);
+        assert (self);
+        
+        assert (myproj_msg_sequence (self) == 123);
+        assert (myproj_msg_aliases_size (self) == 2);
+        assert (streq (myproj_msg_aliases_first (self), "Name: Brutus"));
+        assert (streq (myproj_msg_aliases_next (self), "Age: 43"));
+        assert (myproj_msg_headers_size (self) == 2);
+        assert (streq (myproj_msg_headers_string (self, "Name", "?"), "Brutus"));
+        assert (myproj_msg_headers_number (self, "Age", 0) == 43);
+        myproj_msg_destroy (&self);
+    }
     self = myproj_msg_new (MYPROJ_MSG_BINARY);
+    
+    //  Check that _dup works on empty message
+    copy = myproj_msg_dup (self);
+    assert (copy);
+    myproj_msg_destroy (&copy);
+
     myproj_msg_set_sequence (self, 123);
     byte flags_data [MYPROJ_MSG_FLAGS_SIZE];
     memset (flags_data, 123, MYPROJ_MSG_FLAGS_SIZE);
     myproj_msg_set_flags (self, flags_data);
     myproj_msg_set_address (self, zframe_new ("Captcha Diem", 12));
     myproj_msg_set_content (self, zmsg_new ());
+//    zmsg_addstr (myproj_msg_content (self), "Hello, World");
+    //  Send twice from same object
+    myproj_msg_send_again (self, output);
     myproj_msg_send (&self, output);
-    
-    self = myproj_msg_recv (input);
-    assert (self);
-    assert (myproj_msg_sequence (self) == 123);
-    assert (myproj_msg_flags (self) [0] == 123);
-    assert (myproj_msg_flags (self) [MYPROJ_MSG_FLAGS_SIZE - 1] == 123);
-    assert (zframe_streq (myproj_msg_address (self), "Captcha Diem"));
-    assert (zmsg_size (myproj_msg_content (self)) == 0);
-    myproj_msg_destroy (&self);
+
+    for (instance = 0; instance < 2; instance++) {
+        self = myproj_msg_recv (input);
+        assert (self);
+        
+        assert (myproj_msg_sequence (self) == 123);
+        assert (myproj_msg_flags (self) [0] == 123);
+        assert (myproj_msg_flags (self) [MYPROJ_MSG_FLAGS_SIZE - 1] == 123);
+        assert (zframe_streq (myproj_msg_address (self), "Captcha Diem"));
+        assert (zmsg_size (myproj_msg_content (self)) == 0);
+        myproj_msg_destroy (&self);
+    }
 
     zctx_destroy (&ctx);
     //  @end

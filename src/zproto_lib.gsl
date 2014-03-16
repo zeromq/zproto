@@ -1,9 +1,14 @@
 .#  Library functions
 .#
 .function set_defaults ()
+. class.header ?= "."
+. class.source ?= "."
 . for message
 .   message.name = "$(message.name:c)"
-.   for field where item() = 1
+.   if !defined (message.id)
+.       message.id = item ()
+.   endif
+.   for field where item () = 1
 .       for class.header
 .           for field as hfield
 .               copy hfield before field

@@ -10,14 +10,18 @@
 .output "$(class.name).bnf"
 The following ABNF grammar defines the $(class.title:):
 
+.for class.grammar
+$(string.trim (grammar.):)
+.else
     $(class.name)   = *(\
-.for message
- C:$(message.name:)\
-.   if !last ()
+.   for message
+    $(message.name:)\
+.       if !last ()
  |\
-.   endif
-.endfor
+.       endif
+.   endfor
 \ )
+.endfor
 
 .for message
     ; $(string.trim (message.))

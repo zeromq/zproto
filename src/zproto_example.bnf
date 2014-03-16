@@ -1,6 +1,6 @@
 The following ABNF grammar defines the zproto example protocol:
 
-    zproto_example  = *( C:log | C:structures | C:binary )
+    example         = log | structures | binary
 
     ; Log an event.
     C:log           = signature %d1 sequence version level event node peer time host data
