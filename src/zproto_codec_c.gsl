@@ -10,8 +10,18 @@
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
-    Generated codec header for $(class.name)
-    -------------------------------------------------------------------------
+    Codec header for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+    * The XML model used for this code generation: $(filename)
+    * The code generation script that built this file: $(script)
+    ************************************************************************
+    
     $(string.trim (class->license.):block                                   )
     =========================================================================
 */
@@ -230,8 +240,18 @@ int
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
-    Generated codec implementation for $(class.name)
-    -------------------------------------------------------------------------
+    Codec class for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+    * The XML model used for this code generation: $(filename)
+    * The code generation script that built this file: $(script)
+    ************************************************************************
+    
     $(string.trim (class->license.):block                                   )
     =========================================================================
 */

@@ -1,8 +1,18 @@
 /*  =========================================================================
     zproto_example - zproto example protocol
     
-    Generated codec header for zproto_example
-    -------------------------------------------------------------------------
+    Codec header for zproto_example.
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+    * The XML model used for this code generation: zproto_example.xml
+    * The code generation script that built this file: zproto_codec_c
+    ************************************************************************
+    
     Copyright (C) 2014 the Authors                                         
                                                                            
     Permission is hereby granted, free of charge, to any person obtaining  

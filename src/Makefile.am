@@ -16,6 +16,7 @@ TESTS = zproto_selftest
 zprotodir = @bindir@
 zproto_DATA = zproto_codec_c.gsl zproto_bnf.gsl zproto_lib.gsl
 
-#all-local:
-#	gsl -q -script:zproto_codec_c zproto_example.xml
-#	gsl -q -script:zproto_bnf zproto_example.xml
+# Produce generated models; do this manually in src directory
+code:
+	gsl -q zproto_example.xml
+	gsl -q -script:zproto_bnf zproto_example.xml
