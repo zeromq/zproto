@@ -22,5 +22,4 @@ TESTS = myproj_selftest
 # Produce generated models; do this manually in src directory
 code:
 	gsl -q myproj_msg.xml
-	gsl -q -script:zproto_bnf myproj_msg.xml
 

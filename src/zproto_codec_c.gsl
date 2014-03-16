@@ -3,9 +3,10 @@
 .#  Generates a codec for a protocol specification
 .#
 .include "zproto_lib.gsl"
+.include "zproto_bnf.gsl"
 .resolve_includes ()
 .set_defaults ()
-.echo "Generating $(class.header)/$(class.name).h..."
+.generate_bnf ()
 .output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
@@ -235,7 +236,6 @@ int
 #endif
 
 #endif
-.echo "Generating $(class.source)/$(class.name).c..."
 .output "$(class.source)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
