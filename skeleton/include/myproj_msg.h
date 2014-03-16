@@ -83,6 +83,10 @@ myproj_msg_t *
 int
     myproj_msg_send (myproj_msg_t **self_p, void *output);
 
+//  Send the myproj_msg to the output, and do not destroy it
+int
+    myproj_msg_send_again (myproj_msg_t *self, void *output);
+
 //  Send the LOG to the output in one step
 int
     myproj_msg_send_log (void *output,

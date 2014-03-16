@@ -1,8 +1,16 @@
-<class name = "myproj_msg" signature = "0" title = "myproj example protocol">
+<class 
+    name = "myproj_msg" 
+    signature = "0" 
+    title = "myproj example protocol"
+    script = "zproto_codec_c"
+    header = "../include"
+    source = "."
+    >
 This is an example protocol designed to teach you how this stuff works.
 
 The class name tells the code generator what .c and .h to generate. Use
-the same name as you're using for this .xml file.
+the same name as you're using for this .xml file. To generate code, run
+'gsl myproj_msg.xml'.
 
 The signature is put into every protocol message and lets us filter bogus
 or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value

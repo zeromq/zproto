@@ -1,6 +1,8 @@
 .#  Library functions
 .#
 .function set_defaults ()
+. class.header ?= "."
+. class.source ?= "."
 . for message
 .   message.name = "$(message.name:c)"
 .   if !defined (message.id)
