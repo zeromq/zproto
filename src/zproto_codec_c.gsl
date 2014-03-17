@@ -1422,13 +1422,7 @@ $(class.name)_test (bool verbose)
     $(class.name)_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        if (instance == 0) {
-            self = $(class.name)_recv (input);
-        }
-        if (instance == 1) {
-            zclock_sleep (250);     // give time for message to arrive
-            self = $(class.name)_recv_nowait (input);
-        }
+        self = $(class.name)_recv (input);
         assert (self);
         
 .   for field where !defined (value)
