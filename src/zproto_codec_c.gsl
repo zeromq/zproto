@@ -75,10 +75,11 @@ $(class.name)_t *
 void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
-//  Parse a $(class.name) from zmsg_t. Returns new object or NULL if error.
-//  Use when not in control of receiving the message.
+//  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
+//  the message could not be parsed, or was NULL. If the socket type is
+//  ZMQ_ROUTER, then parses the first frame as a routing_id.
 $(class.name)_t *
-    $(class.name)_decode (zmsg_t *msg);
+    $(class.name)_decode (zmsg_t *msg, int socket_type);
 
 //  Encode $(class.name) into zmsg and destroy it. 
 //  Returns a newly created object or NULL if error. 
@@ -472,21 +473,30 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Parse a $(class.name) from zmsg_t. Returns new object or NULL if error.
+//  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
+//  the message could not be parsed, or was NULL. If the socket type is
+//  ZMQ_ROUTER, then parses the first frame as a routing_id.
 
 $(class.name)_t *
-$(class.name)_decode (zmsg_t *msg)
+$(class.name)_decode (zmsg_t *msg, int socket_type)
 {
+    if (msg == NULL)
+        return NULL;
+        
     $(class.name)_t *self = $(class.name)_new (0);
-    zframe_t *frame = NULL;
-    //  Verify message is present
-    if (!msg)
-        goto empty;
-
+    //  If message came from a router socket, first frame is routing_id
+    if (socket_type == ZMQ_ROUTER) {
+        self->routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!self->routing_id || !zmsg_next (msg)) {
+            $(class.name)_destroy (&self);
+            return (NULL);      //  Malformed or empty
+        }
+    }
     //  Read and parse command in frame
-    frame = zmsg_pop (msg);
+    zframe_t *frame = zmsg_pop (msg);
     if (!frame) 
-        goto empty;             //  Interrupted
+        goto empty;             //  Malformed or empty
 
     //  Get and check protocol signature
     self->needle = zframe_data (frame);
@@ -602,26 +612,8 @@ $(class.name)_t *
 $(class.name)_recv (void *input)
 {
     assert (input);
-    $(class.name)_t *self = $(class.name)_new (0);
-    zmsg_t *msg = NULL;
-    //  Read message from input
-    msg = zmsg_recv (input);
-    if (!msg)
-        return (NULL);
-
-    //  If we're reading from a ROUTER socket, get routing_id
-    if (zsocket_type (input) == ZMQ_ROUTER) {
-        zframe_destroy (&self->routing_id);
-        self->routing_id = zmsg_pop (msg);
-        if (!self->routing_id)
-            return (NULL);      //  Interrupted
-        if (!zmsg_next (msg))
-            return (NULL);      //  Malformed
-    }
-
-    //  Parse zmsg to $(class.name)
-    self = $(class.name)_decode (msg);
-    return self;
+    //  Receive and decode message
+    return $(class.name)_decode (zmsg_recv (input), zsocket_type (input));
 }
 
 //  --------------------------------------------------------------------------
@@ -632,26 +624,8 @@ $(class.name)_t *
 $(class.name)_recv_nowait (void *input)
 {
     assert (input);
-    $(class.name)_t *self = $(class.name)_new (0);
-    zmsg_t *msg = NULL;
-    //  Read message from input
-    msg = zmsg_recv_nowait (input);
-    if (!msg)
-        return (NULL);
-
-    //  If we're reading from a ROUTER socket, get routing_id
-    if (zsocket_type (input) == ZMQ_ROUTER) {
-        zframe_destroy (&self->routing_id);
-        self->routing_id = zmsg_pop (msg);
-        if (!self->routing_id)
-            return (NULL);      //  Interrupted
-        if (!zmsg_next (msg))
-            return (NULL);      //  Malformed
-    }
-
-    //  Parse zmsg to $(class.name)
-    self = $(class.name)_decode (msg);
-    return self;
+    //  Receive and decode message
+    return $(class.name)_decode (zmsg_recv_nowait (input), zsocket_type (input));
 }
 
 .for class.field where type = "dictionary"
@@ -1378,6 +1352,7 @@ $(class.name)_test (bool verbose)
     void *output = zsocket_new (ctx, ZMQ_DEALER);
     assert (output);
     zsocket_bind (output, "inproc://selftest");
+
     void *input = zsocket_new (ctx, ZMQ_ROUTER);
     assert (input);
     zsocket_connect (input, "inproc://selftest");
@@ -1422,14 +1397,9 @@ $(class.name)_test (bool verbose)
     $(class.name)_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        if (instance == 0) {
-            self = $(class.name)_recv (input);
-        }
-        if (instance == 1) {
-            zclock_sleep (250);     // give time for message to arrive
-            self = $(class.name)_recv_nowait (input);
-        }
+        self = $(class.name)_recv (input);
         assert (self);
+        assert ($(class.name)_routing_id (self));
         
 .   for field where !defined (value)
 .       if type = "number"

@@ -88,10 +88,11 @@ zproto_example_t *
 void
     zproto_example_destroy (zproto_example_t **self_p);
 
-//  Parse a zproto_example from zmsg_t. Returns new object or NULL if error.
-//  Use when not in control of receiving the message.
+//  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
+//  the message could not be parsed, or was NULL. If the socket type is
+//  ZMQ_ROUTER, then parses the first frame as a routing_id.
 zproto_example_t *
-    zproto_example_decode (zmsg_t *msg);
+    zproto_example_decode (zmsg_t *msg, int socket_type);
 
 //  Encode zproto_example into zmsg and destroy it. 
 //  Returns a newly created object or NULL if error. 
