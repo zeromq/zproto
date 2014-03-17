@@ -2,9 +2,13 @@
 
 ## Man Page
 
-zproto is two things. First, a code generator capable of producing fast
-and efficient binary codecs for ZeroMQ-based protocols. Second, a base
-project for your ZeroMQ C protocol clients and servers.
+zproto is several things:
+
+* A code generator capable of producing fast and efficient binary codecs for ZeroMQ-based protocols.
+
+* A code generator capable of producing full-featured protocol servers based on a high-level finite-state machine model.
+
+* A base project for your ZeroMQ C protocol clients and servers, that use these two techniques.
 
 To use zproto, clone the repository at https://github.com/zeromq/zproto.
 
@@ -14,35 +18,26 @@ Build and test using the usual commands:
     ./configure
     make check
 
-And then install the code generator:
+And then install the code generators:
 
     make install
 
-Next, read the model/zproto_example.xml file to learn how to write your
-own protocol specifications. The binary codec has the same name, and is
-src/zproto_example.c and include/zproto_example.h.
+Next, read the model/zproto_example.xml file to learn how to write your own protocol specifications. The binary codec has the same name, and is src/zproto_example.c and include/zproto_example.h.
 
-To rebuild the codec, first build and install https://github.com/imatix/gsl.
-Then run these commands:
+To rebuild the codec, first build and install https://github.com/imatix/gsl. Then run these commands:
 
-    cd generate
-    ./generate
-    cd ..
-    make check
+    cd src
+    make code check
 
-Finally, to use zproto as the base for your own projects, clone the git
-repository, then:
+Finally, to use zproto as the base for your own projects, copy the skeleton directory into a new location, and create a new git repository there:
 
-    rm .git
-    rm model/*.gsl
     git init .
 
-And then manually change all references to 'zproto' to your own project
-prefix, both in filenames, and inside the sources. We may script this, later.
+And then manually change all references to 'myproj' to your own project prefix, both in filenames, and inside the sources. We may script this, later.
 
-## More Detail
+## The Codec Generator
 
-Goals:
+Goals of the codec generator:
 
 * Very good performance on little-changing data.
 * Full flexibility on often-changing data (headers).
@@ -62,3 +57,12 @@ To use:
 * Generate your protocol, using model/generate as a starting point.
 * Add the generated .h and .c class to your git repository.
 * Don't modify generated codecs. Change the model, and regenerate.
+
+## The Server Generator
+
+The server generator is based on work done for the FileMQ project, and historical work done on the [iMatix Libero tool](http://legacy.imatix.com/html/libero/).
+
+For a worked example, see the zeromq/zbroker project, and the zpipes_server.xml model in particular.
+
+It is simple enough once you understand state machines, which can take some time. More explanations are on the way...
+
