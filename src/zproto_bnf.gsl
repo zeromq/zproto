@@ -21,6 +21,7 @@ function generate_bnf
     endfor
 
     for message
+        >
         >    ; $(string.trim (message.))
         >    C:$(message.name:)\
         >                    = signature %d$(id)\
@@ -43,6 +44,7 @@ function generate_bnf
         endfor
 
     endfor
+    >
     >    ; Numbers are unsigned integers in network byte order
     >    number-1        = 1OCTET
     >    number-2        = 2OCTET
