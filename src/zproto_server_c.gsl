@@ -664,7 +664,7 @@ s_server_control_message (s_server_t *self)
 .   for action
 .       if name = "send"
 .           if switches.animate ?= 1
-                    zclock_log ("S:    + send $(MESSAGE:C)");
+                    zclock_log ("S:    + send $(message:c)");
 .           endif
                     $(proto)_set_id (client->client.reply, $(PROTO)_$(MESSAGE:C));
 .           if switches.trace ?= 1
@@ -673,7 +673,6 @@ s_server_control_message (s_server_t *self)
 .           endif
                     $(proto)_send (&(client->client.reply), self->router);
                     client->client.reply = $(proto)_new (0);
-                    assert (client->routing_id);  //xx
                     $(proto)_set_routing_id (client->client.reply, client->routing_id);
 .       elsif name = "terminate"
 .           if switches.animate ?= 1
@@ -726,7 +725,7 @@ s_server_client_execute (s_server_t *self, s_client_t *client, int event)
 .endfor
         }
 .if switches.animate ?= 1
-        zclock_log ("S:      -------------------> %s", s_state_name [client->state]);
+        zclock_log ("S:      ----> %s", s_state_name [client->state]);
 .endif
         if (client->next_event == terminate_event) {
             //  Automatically calls s_client_destroy
