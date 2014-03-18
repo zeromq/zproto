@@ -222,7 +222,7 @@ size_t
 z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type));
+    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p);
 .#
 .   else
 .       echo "E: unknown type '$(type)' for field '$(name)'"
@@ -908,7 +908,8 @@ $(class.name)_send_$(name) (
 .   elsif type = "dictionary"
     $(class.name)_set_$(name) (self, zhash_dup ($(name)));
 .   elsif type = "chunk" | type = "frame" | type = "msg"
-    $(class.name)_set_$(name) (self, z$(type)_dup ($(name)));
+    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
 .   endif
 .endfor
     return $(class.name)_send (&self, output);
@@ -1321,12 +1322,14 @@ $(class.name)_$(name) ($(class.name)_t *self)
 
 //  Takes ownership of supplied $(type)
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type))
+$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 {
     assert (self);
+    assert ($(type)_p);
     if (self->$(name))
         z$(type)_destroy (&self->$(name));
-    self->$(name) = $(type);
+    self->$(name) = *$(type)_p;
+    *$(type)_p = NULL;
 }
 .   endif
 
@@ -1384,12 +1387,12 @@ $(class.name)_test (bool verbose)
 .       elsif type = "dictionary"
     $(class.name)_$(name)_insert (self, "Name", "Brutus");
     $(class.name)_$(name)_insert (self, "Age", "%d", 43);
-.       elsif type = "chunk"
-    $(class.name)_set_$(name) (self, zchunk_new ("Captcha Diem", 12));
-.       elsif type = "frame"
-    $(class.name)_set_$(name) (self, zframe_new ("Captcha Diem", 12));
+.       elsif type = "chunk" | type = "frame"
+    z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
+    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "msg"
-    $(class.name)_set_$(name) (self, zmsg_new ());
+    zmsg_t *$(message.name)_$(name) = zmsg_new ();
+    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
     zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
 .       endif
 .   endfor

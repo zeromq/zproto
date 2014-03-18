@@ -692,9 +692,12 @@ zproto_example_send_binary (
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
     zproto_example_set_sequence (self, sequence);
     zproto_example_set_flags (self, flags);
-    zproto_example_set_public_key (self, zchunk_dup (public_key));
-    zproto_example_set_address (self, zframe_dup (address));
-    zproto_example_set_content (self, zmsg_dup (content));
+    zchunk_t *public_key_copy = zchunk_dup (public_key);
+    zproto_example_set_public_key (self, &public_key_copy);
+    zframe_t *address_copy = zframe_dup (address);
+    zproto_example_set_address (self, &address_copy);
+    zmsg_t *content_copy = zmsg_dup (content);
+    zproto_example_set_content (self, &content_copy);
     return zproto_example_send (&self, output);
 }
 
@@ -1222,12 +1225,14 @@ zproto_example_public_key (zproto_example_t *self)
 
 //  Takes ownership of supplied chunk
 void
-zproto_example_set_public_key (zproto_example_t *self, zchunk_t *chunk)
+zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p)
 {
     assert (self);
+    assert (chunk_p);
     if (self->public_key)
         zchunk_destroy (&self->public_key);
-    self->public_key = chunk;
+    self->public_key = *chunk_p;
+    *chunk_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1242,12 +1247,14 @@ zproto_example_address (zproto_example_t *self)
 
 //  Takes ownership of supplied frame
 void
-zproto_example_set_address (zproto_example_t *self, zframe_t *frame)
+zproto_example_set_address (zproto_example_t *self, zframe_t **frame_p)
 {
     assert (self);
+    assert (frame_p);
     if (self->address)
         zframe_destroy (&self->address);
-    self->address = frame;
+    self->address = *frame_p;
+    *frame_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1262,12 +1269,14 @@ zproto_example_content (zproto_example_t *self)
 
 //  Takes ownership of supplied msg
 void
-zproto_example_set_content (zproto_example_t *self, zmsg_t *msg)
+zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p)
 {
     assert (self);
+    assert (msg_p);
     if (self->content)
         zmsg_destroy (&self->content);
-    self->content = msg;
+    self->content = *msg_p;
+    *msg_p = NULL;
 }
 
 
@@ -1375,9 +1384,12 @@ zproto_example_test (bool verbose)
     byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
     memset (flags_data, 123, ZPROTO_EXAMPLE_FLAGS_SIZE);
     zproto_example_set_flags (self, flags_data);
-    zproto_example_set_public_key (self, zchunk_new ("Captcha Diem", 12));
-    zproto_example_set_address (self, zframe_new ("Captcha Diem", 12));
-    zproto_example_set_content (self, zmsg_new ());
+    zchunk_t *public_key = zchunk_new ("Captcha Diem", 12);
+    zproto_example_set_public_key (self, &public_key);
+    zframe_t *address = zframe_new ("Captcha Diem", 12);
+    zproto_example_set_address (self, &address);
+    zmsg_t *content = zmsg_new ();
+    zproto_example_set_content (self, &content);
     zmsg_addstr (zproto_example_content (self), "Hello, World");
     //  Send twice from same object
     zproto_example_send_again (self, output);
