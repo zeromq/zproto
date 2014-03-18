@@ -671,8 +671,10 @@ zproto_example_send_structures (
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
     zproto_example_set_sequence (self, sequence);
-    zproto_example_set_aliases (self, zlist_dup (aliases));
-    zproto_example_set_headers (self, zhash_dup (headers));
+    zlist_t *aliases_copy = zlist_dup (aliases);
+    zproto_example_set_aliases (self, &aliases_copy);
+    zhash_t *headers_copy = zhash_dup (headers);
+    zproto_example_set_headers (self, &headers_copy);
     return zproto_example_send (&self, output);
 }
 
@@ -1049,7 +1051,7 @@ zproto_example_set_data (zproto_example_t *self, char *format, ...)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the aliases field
+//  Get the aliases field, without transferring ownership
 
 zlist_t *
 zproto_example_aliases (zproto_example_t *self)
@@ -1058,15 +1060,27 @@ zproto_example_aliases (zproto_example_t *self)
     return self->aliases;
 }
 
-//  Greedy function, takes ownership of aliases; if you don't want that
-//  then use zlist_dup() to pass a copy of aliases
+//  Get the aliases field and transfer ownership to caller
 
-void
-zproto_example_set_aliases (zproto_example_t *self, zlist_t *aliases)
+zlist_t *
+zproto_example_get_aliases (zproto_example_t *self)
 {
     assert (self);
+    zlist_t *aliases = self->aliases;
+    self->aliases = NULL;
+    return aliases;
+}
+
+//  Set the aliases field, transferring ownership from caller
+
+void
+zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p)
+{
+    assert (self);
+    assert (aliases_p);
     zlist_destroy (&self->aliases);
-    self->aliases = aliases;
+    self->aliases = *aliases_p;
+    *aliases_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1119,7 +1133,7 @@ zproto_example_aliases_size (zproto_example_t *self)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the headers field
+//  Get the headers field without transferring ownership
 
 zhash_t *
 zproto_example_headers (zproto_example_t *self)
@@ -1128,15 +1142,26 @@ zproto_example_headers (zproto_example_t *self)
     return self->headers;
 }
 
-//  Greedy function, takes ownership of headers; if you don't want that
-//  then use zhash_dup() to pass a copy of headers
+//  Get the headers field and transfer ownership to caller
+
+zhash_t *
+zproto_example_get_headers (zproto_example_t *self)
+{
+    zhash_t *headers = self->headers;
+    self->headers = NULL;
+    return headers;
+}
+
+//  Set the headers field, transferring ownership from caller
 
 void
-zproto_example_set_headers (zproto_example_t *self, zhash_t *headers)
+zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p)
 {
     assert (self);
+    assert (headers_p);
     zhash_destroy (&self->headers);
-    self->headers = headers;
+    self->headers = *headers_p;
+    *headers_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1214,7 +1239,7 @@ zproto_example_set_flags (zproto_example_t *self, byte *flags)
 
 
 //  --------------------------------------------------------------------------
-//  Get/set the public_key field
+//  Get the public_key field without transferring ownership
 
 zchunk_t *
 zproto_example_public_key (zproto_example_t *self)
@@ -1223,20 +1248,30 @@ zproto_example_public_key (zproto_example_t *self)
     return self->public_key;
 }
 
-//  Takes ownership of supplied chunk
+//  Get the public_key field and transfer ownership to caller
+
+zchunk_t *
+zproto_example_get_public_key (zproto_example_t *self)
+{
+    zchunk_t *public_key = self->public_key;
+    self->public_key = NULL;
+    return public_key;
+}
+
+//  Set the public_key field, transferring ownership from caller
+
 void
 zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p)
 {
     assert (self);
     assert (chunk_p);
-    if (self->public_key)
-        zchunk_destroy (&self->public_key);
+    zchunk_destroy (&self->public_key);
     self->public_key = *chunk_p;
     *chunk_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
-//  Get/set the address field
+//  Get the address field without transferring ownership
 
 zframe_t *
 zproto_example_address (zproto_example_t *self)
@@ -1245,20 +1280,30 @@ zproto_example_address (zproto_example_t *self)
     return self->address;
 }
 
-//  Takes ownership of supplied frame
+//  Get the address field and transfer ownership to caller
+
+zframe_t *
+zproto_example_get_address (zproto_example_t *self)
+{
+    zframe_t *address = self->address;
+    self->address = NULL;
+    return address;
+}
+
+//  Set the address field, transferring ownership from caller
+
 void
 zproto_example_set_address (zproto_example_t *self, zframe_t **frame_p)
 {
     assert (self);
     assert (frame_p);
-    if (self->address)
-        zframe_destroy (&self->address);
+    zframe_destroy (&self->address);
     self->address = *frame_p;
     *frame_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
-//  Get/set the content field
+//  Get the content field without transferring ownership
 
 zmsg_t *
 zproto_example_content (zproto_example_t *self)
@@ -1267,14 +1312,24 @@ zproto_example_content (zproto_example_t *self)
     return self->content;
 }
 
-//  Takes ownership of supplied msg
+//  Get the content field and transfer ownership to caller
+
+zmsg_t *
+zproto_example_get_content (zproto_example_t *self)
+{
+    zmsg_t *content = self->content;
+    self->content = NULL;
+    return content;
+}
+
+//  Set the content field, transferring ownership from caller
+
 void
 zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p)
 {
     assert (self);
     assert (msg_p);
-    if (self->content)
-        zmsg_destroy (&self->content);
+    zmsg_destroy (&self->content);
     self->content = *msg_p;
     *msg_p = NULL;
 }
@@ -1384,12 +1439,12 @@ zproto_example_test (bool verbose)
     byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
     memset (flags_data, 123, ZPROTO_EXAMPLE_FLAGS_SIZE);
     zproto_example_set_flags (self, flags_data);
-    zchunk_t *public_key = zchunk_new ("Captcha Diem", 12);
-    zproto_example_set_public_key (self, &public_key);
-    zframe_t *address = zframe_new ("Captcha Diem", 12);
-    zproto_example_set_address (self, &address);
-    zmsg_t *content = zmsg_new ();
-    zproto_example_set_content (self, &content);
+    zchunk_t *binary_public_key = zchunk_new ("Captcha Diem", 12);
+    zproto_example_set_public_key (self, &binary_public_key);
+    zframe_t *binary_address = zframe_new ("Captcha Diem", 12);
+    zproto_example_set_address (self, &binary_address);
+    zmsg_t *binary_content = zmsg_new ();
+    zproto_example_set_content (self, &binary_content);
     zmsg_addstr (zproto_example_content (self), "Hello, World");
     //  Send twice from same object
     zproto_example_send_again (self, output);

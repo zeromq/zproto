@@ -187,8 +187,12 @@ void
 //  Get/set the $(name) field
 zlist_t *
     $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+zlist_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t *$(name));
+    $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
 
 //  Iterate through the $(name) field, and append a $(name) value
 char *
@@ -204,8 +208,12 @@ size_t
 //  Get/set the $(name) field
 zhash_t *
     $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+zhash_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t *$(name));
+    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
     
 //  Get/set a value in the $(name) dictionary
 char *
@@ -218,9 +226,13 @@ size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
 .   elsif type = "chunk" | type = "frame" | type = "msg"
-//  Get/set the $(name) field
+//  Get a copy of the $(name) field
 z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+z$(type)_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p);
 .#
@@ -904,9 +916,11 @@ $(class.name)_send_$(name) (
 .   if type = "number" | type = "octets" | type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, $(name));
 .   elsif type = "strings"
-    $(class.name)_set_$(name) (self, zlist_dup ($(name)));
+    zlist_t *$(name)_copy = zlist_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
 .   elsif type = "dictionary"
-    $(class.name)_set_$(name) (self, zhash_dup ($(name)));
+    zhash_t *$(name)_copy = zhash_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
 .   elsif type = "chunk" | type = "frame" | type = "msg"
     z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
@@ -1164,7 +1178,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, char *format, ...)
 
 .   elsif type = "strings"
 //  --------------------------------------------------------------------------
-//  Get/set the $(name) field
+//  Get the $(name) field, without transferring ownership
 
 zlist_t *
 $(class.name)_$(name) ($(class.name)_t *self)
@@ -1173,15 +1187,27 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 
-//  Greedy function, takes ownership of $(name); if you don't want that
-//  then use zlist_dup() to pass a copy of $(name)
+//  Get the $(name) field and transfer ownership to caller
 
-void
-$(class.name)_set_$(name) ($(class.name)_t *self, zlist_t *$(name))
+zlist_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
 {
     assert (self);
+    zlist_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p)
+{
+    assert (self);
+    assert ($(name)_p);
     zlist_destroy (&self->$(name));
-    self->$(name) = $(name);
+    self->$(name) = *$(name)_p;
+    *$(name)_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1234,7 +1260,7 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 
 .   elsif type = "dictionary"
 //  --------------------------------------------------------------------------
-//  Get/set the $(name) field
+//  Get the $(name) field without transferring ownership
 
 zhash_t *
 $(class.name)_$(name) ($(class.name)_t *self)
@@ -1243,15 +1269,26 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 
-//  Greedy function, takes ownership of $(name); if you don't want that
-//  then use zhash_dup() to pass a copy of $(name)
+//  Get the $(name) field and transfer ownership to caller
+
+zhash_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
+{
+    zhash_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+
+//  Set the $(name) field, transferring ownership from caller
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, zhash_t *$(name))
+$(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p)
 {
     assert (self);
+    assert ($(name)_p);
     zhash_destroy (&self->$(name));
-    self->$(name) = $(name);
+    self->$(name) = *$(name)_p;
+    *$(name)_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1311,7 +1348,7 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 
 .   elsif type = "chunk" | type = "frame" | type = "msg"
 //  --------------------------------------------------------------------------
-//  Get/set the $(name) field
+//  Get the $(name) field without transferring ownership
 
 z$(type)_t *
 $(class.name)_$(name) ($(class.name)_t *self)
@@ -1320,14 +1357,24 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 
-//  Takes ownership of supplied $(type)
+//  Get the $(name) field and transfer ownership to caller
+
+z$(type)_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
+{
+    z$(type)_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
 void
 $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 {
     assert (self);
     assert ($(type)_p);
-    if (self->$(name))
-        z$(type)_destroy (&self->$(name));
+    z$(type)_destroy (&self->$(name));
     self->$(name) = *$(type)_p;
     *$(type)_p = NULL;
 }
