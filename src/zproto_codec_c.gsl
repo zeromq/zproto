@@ -781,8 +781,8 @@ $(class.name)_encode ($(class.name)_t *self, int socket_type)
             else
                 PUT_NUMBER4 (0);    //  Empty dictionary
 .       elsif type = "chunk"
-            PUT_NUMBER4 (zchunk_size (self->$(name)));
             if (self->$(name)) {
+                PUT_NUMBER4 (zchunk_size (self->$(name)));
                 memcpy (self->needle,
                         zchunk_data (self->$(name)),
                         zchunk_size (self->$(name)));
