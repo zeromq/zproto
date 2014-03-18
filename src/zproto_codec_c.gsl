@@ -77,9 +77,10 @@ void
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id.
+//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
+//  and nullifies the msg refernce.
 $(class.name)_t *
-    $(class.name)_decode (zmsg_t *msg, int socket_type);
+    $(class.name)_decode (zmsg_t **msg_p, int socket_type);
 
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
@@ -476,11 +477,14 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 //  --------------------------------------------------------------------------
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id.
+//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
+//  and nullifies the msg refernce.
 
 $(class.name)_t *
-$(class.name)_decode (zmsg_t *msg, int socket_type)
+$(class.name)_decode (zmsg_t **msg_p, int socket_type)
 {
+    assert (msg_p);
+    zmsg_t *msg = *msg_p;
     if (msg == NULL)
         return NULL;
         
@@ -591,19 +595,20 @@ $(class.name)_decode (zmsg_t *msg, int socket_type)
             goto malformed;
     }
     //  Successful return
-    zmsg_destroy (&msg);
+    zframe_destroy (&frame);
+    zmsg_destroy (msg_p);
     return self;
 
     //  Error returns
     malformed:
         printf ("E: malformed message '%d'\\n", self->id);
     empty:
-        if (frame)
-            zframe_destroy (&frame);
-        zmsg_destroy (&msg);
+        zframe_destroy (&frame);
+        zmsg_destroy (msg_p);
         $(class.name)_destroy (&self);
         return (NULL);
 }
+
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a $(class.name) from the socket. Returns new object or
@@ -613,9 +618,10 @@ $(class.name)_t *
 $(class.name)_recv (void *input)
 {
     assert (input);
-    //  Receive and decode message
-    return $(class.name)_decode (zmsg_recv (input), zsocket_type (input));
+    zmsg_t *msg = zmsg_recv (input);
+    return $(class.name)_decode (&msg, zsocket_type (input));
 }
+
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
@@ -625,11 +631,12 @@ $(class.name)_t *
 $(class.name)_recv_nowait (void *input)
 {
     assert (input);
-    //  Receive and decode message
-    return $(class.name)_decode (zmsg_recv_nowait (input), zsocket_type (input));
+    zmsg_t *msg = zmsg_recv_nowait (input);
+    return $(class.name)_decode (&msg, zsocket_type (input));
 }
-
 .for class.field where type = "dictionary"
+
+
 //  Count size of key/value pair for serialization
 //  Key is encoded as string, value as longstr
 static int
@@ -649,7 +656,6 @@ s_$(name)_write (const char *key, void *item, void *argument)
     PUT_LONGSTR ((char *) item);
     return 0;
 }
-
 .endfor
 
 
@@ -1384,7 +1390,7 @@ $(class.name)_test (bool verbose)
     $(class.name)_set_$(name) (self, zframe_new ("Captcha Diem", 12));
 .       elsif type = "msg"
     $(class.name)_set_$(name) (self, zmsg_new ());
-//    zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
+    zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
 .       endif
 .   endfor
     //  Send twice from same object
@@ -1417,7 +1423,7 @@ $(class.name)_test (bool verbose)
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .       elsif type = "msg"
-        assert (zmsg_size ($(class.name)_$(name) (self)) == 0);
+        assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       endif
 .   endfor
         $(class.name)_destroy (&self);

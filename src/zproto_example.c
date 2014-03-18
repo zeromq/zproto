@@ -250,11 +250,14 @@ zproto_example_destroy (zproto_example_t **self_p)
 //  --------------------------------------------------------------------------
 //  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id.
+//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
+//  and nullifies the msg refernce.
 
 zproto_example_t *
-zproto_example_decode (zmsg_t *msg, int socket_type)
+zproto_example_decode (zmsg_t **msg_p, int socket_type)
 {
+    assert (msg_p);
+    zmsg_t *msg = *msg_p;
     if (msg == NULL)
         return NULL;
         
@@ -359,19 +362,20 @@ zproto_example_decode (zmsg_t *msg, int socket_type)
             goto malformed;
     }
     //  Successful return
-    zmsg_destroy (&msg);
+    zframe_destroy (&frame);
+    zmsg_destroy (msg_p);
     return self;
 
     //  Error returns
     malformed:
         printf ("E: malformed message '%d'\n", self->id);
     empty:
-        if (frame)
-            zframe_destroy (&frame);
-        zmsg_destroy (&msg);
+        zframe_destroy (&frame);
+        zmsg_destroy (msg_p);
         zproto_example_destroy (&self);
         return (NULL);
 }
+
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a zproto_example from the socket. Returns new object or
@@ -381,9 +385,10 @@ zproto_example_t *
 zproto_example_recv (void *input)
 {
     assert (input);
-    //  Receive and decode message
-    return zproto_example_decode (zmsg_recv (input), zsocket_type (input));
+    zmsg_t *msg = zmsg_recv (input);
+    return zproto_example_decode (&msg, zsocket_type (input));
 }
+
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a zproto_example from the socket. Returns new object, 
@@ -393,9 +398,10 @@ zproto_example_t *
 zproto_example_recv_nowait (void *input)
 {
     assert (input);
-    //  Receive and decode message
-    return zproto_example_decode (zmsg_recv_nowait (input), zsocket_type (input));
+    zmsg_t *msg = zmsg_recv_nowait (input);
+    return zproto_example_decode (&msg, zsocket_type (input));
 }
+
 
 //  Count size of key/value pair for serialization
 //  Key is encoded as string, value as longstr
@@ -416,7 +422,6 @@ s_headers_write (const char *key, void *item, void *argument)
     PUT_LONGSTR ((char *) item);
     return 0;
 }
-
 
 
 //  Encode zproto_example into zmsg and destroy it. Returns a newly created
@@ -550,8 +555,8 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
         case ZPROTO_EXAMPLE_BINARY:
             PUT_NUMBER2 (self->sequence);
             PUT_OCTETS (self->flags, 4);
-            PUT_NUMBER4 (zchunk_size (self->public_key));
             if (self->public_key) {
+                PUT_NUMBER4 (zchunk_size (self->public_key));
                 memcpy (self->needle,
                         zchunk_data (self->public_key),
                         zchunk_size (self->public_key));
@@ -1373,7 +1378,7 @@ zproto_example_test (bool verbose)
     zproto_example_set_public_key (self, zchunk_new ("Captcha Diem", 12));
     zproto_example_set_address (self, zframe_new ("Captcha Diem", 12));
     zproto_example_set_content (self, zmsg_new ());
-//    zmsg_addstr (zproto_example_content (self), "Hello, World");
+    zmsg_addstr (zproto_example_content (self), "Hello, World");
     //  Send twice from same object
     zproto_example_send_again (self, output);
     zproto_example_send (&self, output);
@@ -1388,7 +1393,7 @@ zproto_example_test (bool verbose)
         assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
-        assert (zmsg_size (zproto_example_content (self)) == 0);
+        assert (zmsg_size (zproto_example_content (self)) == 1);
         zproto_example_destroy (&self);
     }
 
