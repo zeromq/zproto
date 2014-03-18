@@ -419,16 +419,21 @@ s_headers_write (const char *key, void *item, void *argument)
 
 
 
-//  --------------------------------------------------------------------------
-//  Encode zproto_example into zmsg and destroy it. Returns a newly created 
-//  object or NULL if error. 
+//  Encode zproto_example into zmsg and destroy it. Returns a newly created
+//  object or NULL if error. Use when not in control of sending the message.
+//  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
+//  first frame of the resulting message.
 
 zmsg_t *
-zproto_example_encode (zproto_example_t *self)
+zproto_example_encode (zproto_example_t *self, int socket_type)
 {
     assert (self);
     zmsg_t *msg = zmsg_new ();
 
+    //  If we're sending to a ROUTER, send the routing_id first
+    if (socket_type == ZMQ_ROUTER)
+        zmsg_prepend (msg, &self->routing_id);
+        
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
@@ -600,22 +605,11 @@ zproto_example_send (zproto_example_t **self_p, void *output)
     assert (output);
 
     zproto_example_t *self = *self_p;
-    zmsg_t *msg = NULL;
-    //  Encode zproto_example into zmsg.
-    msg = zproto_example_encode (self);
-
-    //  If we're sending to a ROUTER, we send the routing_id first
-    if (zsocket_type (output) == ZMQ_ROUTER) {
-        assert (self->routing_id);
-        if (zmsg_push (msg, self->routing_id)) {
-            return -1;
-        }
-    }
-    //  Now send the message
-    if (zmsg_send (&msg, output)) {
-        return -1;
-    }
-    return 0;
+    zmsg_t *msg = zproto_example_encode (self, zsocket_type (output));
+    if (msg && zmsg_send (&msg, output) == 0)
+        return 0;
+    else
+        return -1;              //  Failed to encode, or send
 }
 
 

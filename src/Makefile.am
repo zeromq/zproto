@@ -14,7 +14,11 @@ TESTS = zproto_selftest
 
 # Install scripts into /usr/local/bin
 zprotodir = @bindir@
-zproto_DATA = zproto_codec_c.gsl zproto_bnf.gsl zproto_lib.gsl
+zproto_DATA = \
+	zproto_codec_c.gsl \
+	zproto_server_c.gsl \
+	zproto_bnf.gsl \
+	zproto_lib.gsl
 
 # Produce generated models; do this manually in src directory
 code:
