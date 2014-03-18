@@ -90,9 +90,10 @@ void
 
 //  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id.
+//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
+//  and nullifies the msg refernce.
 zproto_example_t *
-    zproto_example_decode (zmsg_t *msg, int socket_type);
+    zproto_example_decode (zmsg_t **msg_p, int socket_type);
 
 //  Encode zproto_example into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
@@ -220,8 +221,12 @@ void
 //  Get/set the aliases field
 zlist_t *
     zproto_example_aliases (zproto_example_t *self);
+//  Get the aliases field and transfer ownership to caller
+zlist_t *
+    zproto_example_get_aliases (zproto_example_t *self);
+//  Set the aliases field, transferring ownership from caller
 void
-    zproto_example_set_aliases (zproto_example_t *self, zlist_t *aliases);
+    zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p);
 
 //  Iterate through the aliases field, and append a aliases value
 char *
@@ -236,8 +241,12 @@ size_t
 //  Get/set the headers field
 zhash_t *
     zproto_example_headers (zproto_example_t *self);
+//  Get the headers field and transfer ownership to caller
+zhash_t *
+    zproto_example_get_headers (zproto_example_t *self);
+//  Set the headers field, transferring ownership from caller
 void
-    zproto_example_set_headers (zproto_example_t *self, zhash_t *headers);
+    zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p);
     
 //  Get/set a value in the headers dictionary
 char *
@@ -255,23 +264,35 @@ byte *
 void
     zproto_example_set_flags (zproto_example_t *self, byte *flags);
 
-//  Get/set the public_key field
+//  Get a copy of the public_key field
 zchunk_t *
     zproto_example_public_key (zproto_example_t *self);
+//  Get the public_key field and transfer ownership to caller
+zchunk_t *
+    zproto_example_get_public_key (zproto_example_t *self);
+//  Set the public_key field, transferring ownership from caller
 void
-    zproto_example_set_public_key (zproto_example_t *self, zchunk_t *chunk);
+    zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p);
 
-//  Get/set the address field
+//  Get a copy of the address field
 zframe_t *
     zproto_example_address (zproto_example_t *self);
+//  Get the address field and transfer ownership to caller
+zframe_t *
+    zproto_example_get_address (zproto_example_t *self);
+//  Set the address field, transferring ownership from caller
 void
-    zproto_example_set_address (zproto_example_t *self, zframe_t *frame);
+    zproto_example_set_address (zproto_example_t *self, zframe_t **frame_p);
 
-//  Get/set the content field
+//  Get a copy of the content field
 zmsg_t *
     zproto_example_content (zproto_example_t *self);
+//  Get the content field and transfer ownership to caller
+zmsg_t *
+    zproto_example_get_content (zproto_example_t *self);
+//  Set the content field, transferring ownership from caller
 void
-    zproto_example_set_content (zproto_example_t *self, zmsg_t *msg);
+    zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p);
 
 //  Self test of this class
 int

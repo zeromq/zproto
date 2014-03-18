@@ -77,9 +77,10 @@ void
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id.
+//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
+//  and nullifies the msg refernce.
 $(class.name)_t *
-    $(class.name)_decode (zmsg_t *msg, int socket_type);
+    $(class.name)_decode (zmsg_t **msg_p, int socket_type);
 
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
@@ -186,8 +187,12 @@ void
 //  Get/set the $(name) field
 zlist_t *
     $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+zlist_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t *$(name));
+    $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
 
 //  Iterate through the $(name) field, and append a $(name) value
 char *
@@ -203,8 +208,12 @@ size_t
 //  Get/set the $(name) field
 zhash_t *
     $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+zhash_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t *$(name));
+    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
     
 //  Get/set a value in the $(name) dictionary
 char *
@@ -217,11 +226,15 @@ size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
 .   elsif type = "chunk" | type = "frame" | type = "msg"
-//  Get/set the $(name) field
+//  Get a copy of the $(name) field
 z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+z$(type)_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type));
+    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p);
 .#
 .   else
 .       echo "E: unknown type '$(type)' for field '$(name)'"
@@ -476,11 +489,14 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 //  --------------------------------------------------------------------------
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id.
+//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
+//  and nullifies the msg refernce.
 
 $(class.name)_t *
-$(class.name)_decode (zmsg_t *msg, int socket_type)
+$(class.name)_decode (zmsg_t **msg_p, int socket_type)
 {
+    assert (msg_p);
+    zmsg_t *msg = *msg_p;
     if (msg == NULL)
         return NULL;
         
@@ -591,19 +607,20 @@ $(class.name)_decode (zmsg_t *msg, int socket_type)
             goto malformed;
     }
     //  Successful return
-    zmsg_destroy (&msg);
+    zframe_destroy (&frame);
+    zmsg_destroy (msg_p);
     return self;
 
     //  Error returns
     malformed:
         printf ("E: malformed message '%d'\\n", self->id);
     empty:
-        if (frame)
-            zframe_destroy (&frame);
-        zmsg_destroy (&msg);
+        zframe_destroy (&frame);
+        zmsg_destroy (msg_p);
         $(class.name)_destroy (&self);
         return (NULL);
 }
+
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a $(class.name) from the socket. Returns new object or
@@ -613,9 +630,10 @@ $(class.name)_t *
 $(class.name)_recv (void *input)
 {
     assert (input);
-    //  Receive and decode message
-    return $(class.name)_decode (zmsg_recv (input), zsocket_type (input));
+    zmsg_t *msg = zmsg_recv (input);
+    return $(class.name)_decode (&msg, zsocket_type (input));
 }
+
 
 //  --------------------------------------------------------------------------
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
@@ -625,11 +643,12 @@ $(class.name)_t *
 $(class.name)_recv_nowait (void *input)
 {
     assert (input);
-    //  Receive and decode message
-    return $(class.name)_decode (zmsg_recv_nowait (input), zsocket_type (input));
+    zmsg_t *msg = zmsg_recv_nowait (input);
+    return $(class.name)_decode (&msg, zsocket_type (input));
 }
-
 .for class.field where type = "dictionary"
+
+
 //  Count size of key/value pair for serialization
 //  Key is encoded as string, value as longstr
 static int
@@ -649,7 +668,6 @@ s_$(name)_write (const char *key, void *item, void *argument)
     PUT_LONGSTR ((char *) item);
     return 0;
 }
-
 .endfor
 
 
@@ -781,8 +799,8 @@ $(class.name)_encode ($(class.name)_t *self, int socket_type)
             else
                 PUT_NUMBER4 (0);    //  Empty dictionary
 .       elsif type = "chunk"
-            PUT_NUMBER4 (zchunk_size (self->$(name)));
             if (self->$(name)) {
+                PUT_NUMBER4 (zchunk_size (self->$(name)));
                 memcpy (self->needle,
                         zchunk_data (self->$(name)),
                         zchunk_size (self->$(name)));
@@ -898,11 +916,14 @@ $(class.name)_send_$(name) (
 .   if type = "number" | type = "octets" | type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, $(name));
 .   elsif type = "strings"
-    $(class.name)_set_$(name) (self, zlist_dup ($(name)));
+    zlist_t *$(name)_copy = zlist_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
 .   elsif type = "dictionary"
-    $(class.name)_set_$(name) (self, zhash_dup ($(name)));
+    zhash_t *$(name)_copy = zhash_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
 .   elsif type = "chunk" | type = "frame" | type = "msg"
-    $(class.name)_set_$(name) (self, z$(type)_dup ($(name)));
+    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
 .   endif
 .endfor
     return $(class.name)_send (&self, output);
@@ -1157,7 +1178,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, char *format, ...)
 
 .   elsif type = "strings"
 //  --------------------------------------------------------------------------
-//  Get/set the $(name) field
+//  Get the $(name) field, without transferring ownership
 
 zlist_t *
 $(class.name)_$(name) ($(class.name)_t *self)
@@ -1166,15 +1187,27 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 
-//  Greedy function, takes ownership of $(name); if you don't want that
-//  then use zlist_dup() to pass a copy of $(name)
+//  Get the $(name) field and transfer ownership to caller
 
-void
-$(class.name)_set_$(name) ($(class.name)_t *self, zlist_t *$(name))
+zlist_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
 {
     assert (self);
+    zlist_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p)
+{
+    assert (self);
+    assert ($(name)_p);
     zlist_destroy (&self->$(name));
-    self->$(name) = $(name);
+    self->$(name) = *$(name)_p;
+    *$(name)_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1227,7 +1260,7 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 
 .   elsif type = "dictionary"
 //  --------------------------------------------------------------------------
-//  Get/set the $(name) field
+//  Get the $(name) field without transferring ownership
 
 zhash_t *
 $(class.name)_$(name) ($(class.name)_t *self)
@@ -1236,15 +1269,26 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 
-//  Greedy function, takes ownership of $(name); if you don't want that
-//  then use zhash_dup() to pass a copy of $(name)
+//  Get the $(name) field and transfer ownership to caller
+
+zhash_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
+{
+    zhash_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+
+//  Set the $(name) field, transferring ownership from caller
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, zhash_t *$(name))
+$(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p)
 {
     assert (self);
+    assert ($(name)_p);
     zhash_destroy (&self->$(name));
-    self->$(name) = $(name);
+    self->$(name) = *$(name)_p;
+    *$(name)_p = NULL;
 }
 
 //  --------------------------------------------------------------------------
@@ -1304,7 +1348,7 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 
 .   elsif type = "chunk" | type = "frame" | type = "msg"
 //  --------------------------------------------------------------------------
-//  Get/set the $(name) field
+//  Get the $(name) field without transferring ownership
 
 z$(type)_t *
 $(class.name)_$(name) ($(class.name)_t *self)
@@ -1313,14 +1357,26 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 
-//  Takes ownership of supplied $(type)
+//  Get the $(name) field and transfer ownership to caller
+
+z$(type)_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
+{
+    z$(type)_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type))
+$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 {
     assert (self);
-    if (self->$(name))
-        z$(type)_destroy (&self->$(name));
-    self->$(name) = $(type);
+    assert ($(type)_p);
+    z$(type)_destroy (&self->$(name));
+    self->$(name) = *$(type)_p;
+    *$(type)_p = NULL;
 }
 .   endif
 
@@ -1378,13 +1434,13 @@ $(class.name)_test (bool verbose)
 .       elsif type = "dictionary"
     $(class.name)_$(name)_insert (self, "Name", "Brutus");
     $(class.name)_$(name)_insert (self, "Age", "%d", 43);
-.       elsif type = "chunk"
-    $(class.name)_set_$(name) (self, zchunk_new ("Captcha Diem", 12));
-.       elsif type = "frame"
-    $(class.name)_set_$(name) (self, zframe_new ("Captcha Diem", 12));
+.       elsif type = "chunk" | type = "frame"
+    z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
+    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "msg"
-    $(class.name)_set_$(name) (self, zmsg_new ());
-//    zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
+    zmsg_t *$(message.name)_$(name) = zmsg_new ();
+    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
+    zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
 .       endif
 .   endfor
     //  Send twice from same object
@@ -1417,7 +1473,7 @@ $(class.name)_test (bool verbose)
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .       elsif type = "msg"
-        assert (zmsg_size ($(class.name)_$(name) (self)) == 0);
+        assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       endif
 .   endfor
         $(class.name)_destroy (&self);
