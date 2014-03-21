@@ -289,7 +289,9 @@ struct _$(class.name)_t {
     byte *needle;               //  Read/write pointer for serialization
     byte *ceiling;              //  Valid upper limit for read pointer
 .for class.field
-.   if type = "number"
+.   if repeat = "yes"
+    zlist_t *$(name);           //  $(field.?'':)
+.   elsif type = "number"
     $(ctype) $(name);           //  $(field.?'':)
 .   elsif type = "octets"
     byte $(name) [$(size)];     //  $(field.?'':)
@@ -497,6 +499,7 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
 {
     assert (msg_p);
     zmsg_t *msg = *msg_p;
+    size_t list_size;
     if (msg == NULL)
         return NULL;
         
@@ -530,7 +533,39 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
 .   for field
-.       if type = "number"
+.       if repeat = "yes"
+            {
+                GET_NUMBER4 (list_size);
+                self->$(name) = zlist_new ();
+                while (list_size--) {
+.               if type = "number"
+                    $(ctype) *number = malloc (sizeof ($(ctype)));
+                    GET_NUMBER$(size) (*number);
+                    zlist_append (self->$(name), number);
+.               elsif type = "string"
+                    zlist_autofree (self->$(name));
+                    char *string;
+                    GET_STRING (string);
+                    zlist_append (self->$(name), string);
+                    free (string);
+.               elsif type = "longstr"
+                    zlist_autofree (self->$(name));
+                    char *string;
+                    GET_LONGSTR (self->$(name));
+                    zlist_append (self->$(name), string);
+                    free (string);
+.               elsif type = "chunk"
+                    size_t chunk_size;
+                    GET_NUMBER4 (chunk_size);
+                    if (self->needle + chunk_size > (self->ceiling))
+                        goto malformed;
+                    zchunk_t *chunk = zchunk_new (self->needle, chunk_size);
+                    zlist_append (self->$(name), chunk);
+                    self->needle += chunk_size;
+.               endif              
+                }
+            } 
+.       elsif type = "number"
             GET_NUMBER$(size) (self->$(name));
 .           if defined (field.value)
             if (self->$(name) != $(field.value:))
@@ -546,19 +581,6 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
 .           endif
 .       elsif type = "longstr"
             GET_LONGSTR (self->$(name));
-.       elsif type = "strings"
-            {
-                size_t list_size;
-                GET_NUMBER4 (list_size);
-                self->$(name) = zlist_new ();
-                zlist_autofree (self->$(name));
-                while (list_size--) {
-                    char *string;
-                    GET_LONGSTR (string);
-                    zlist_append (self->$(name), string);
-                    free (string);
-                }
-            }
 .       elsif type = "dictionary"
             {
                 size_t hash_size;

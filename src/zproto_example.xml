@@ -85,6 +85,12 @@ On number and string fields you can define a 'value' property. This will be
 stamped into messages as a constant, and checked on read messages. You can
 use this for e.g. version detection.
 
+<message name = "lists" id = "5">
+    <field name = "times" type = "number" size = "8" repeat = "n">Log date/time</field>
+    <field name = "hosts" type = "string" repeat = "n">Originating hostname</field>
+This message conaints lists
+</message>
+
 zproto supports lists and hashes of strings:
 
 <message name = "structures" id = "2">
