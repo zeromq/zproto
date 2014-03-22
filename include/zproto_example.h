@@ -129,8 +129,8 @@ int
         uint16_t node,
         uint16_t peer,
         uint64_t time,
-        char *host,
-        char *data);
+        const char *host,
+        const char *data);
     
 //  Send the STRUCTURES to the output in one step
 int
@@ -167,7 +167,7 @@ int
     zproto_example_id (zproto_example_t *self);
 void
     zproto_example_set_id (zproto_example_t *self, int id);
-char *
+const char *
     zproto_example_command (zproto_example_t *self);
 
 //  Get/set the sequence field
@@ -207,16 +207,16 @@ void
     zproto_example_set_time (zproto_example_t *self, uint64_t time);
 
 //  Get/set the host field
-char *
+const char *
     zproto_example_host (zproto_example_t *self);
 void
-    zproto_example_set_host (zproto_example_t *self, char *format, ...);
+    zproto_example_set_host (zproto_example_t *self, const char *format, ...);
 
 //  Get/set the data field
-char *
+const char *
     zproto_example_data (zproto_example_t *self);
 void
-    zproto_example_set_data (zproto_example_t *self, char *format, ...);
+    zproto_example_set_data (zproto_example_t *self, const char *format, ...);
 
 //  Get/set the aliases field
 zlist_t *
@@ -229,12 +229,12 @@ void
     zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p);
 
 //  Iterate through the aliases field, and append a aliases value
-char *
+const char *
     zproto_example_aliases_first (zproto_example_t *self);
-char *
+const char *
     zproto_example_aliases_next (zproto_example_t *self);
 void
-    zproto_example_aliases_append (zproto_example_t *self, char *format, ...);
+    zproto_example_aliases_append (zproto_example_t *self, const char *format, ...);
 size_t
     zproto_example_aliases_size (zproto_example_t *self);
 
@@ -249,12 +249,15 @@ void
     zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p);
     
 //  Get/set a value in the headers dictionary
-char *
-    zproto_example_headers_string (zproto_example_t *self, char *key, char *default_value);
+const char *
+    zproto_example_headers_string (zproto_example_t *self,
+        const char *key, const char *default_value);
 uint64_t
-    zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t default_value);
+    zproto_example_headers_number (zproto_example_t *self,
+        const char *key, uint64_t default_value);
 void
-    zproto_example_headers_insert (zproto_example_t *self, char *key, char *format, ...);
+    zproto_example_headers_insert (zproto_example_t *self,
+        const char *key, const char *format, ...);
 size_t
     zproto_example_headers_size (zproto_example_t *self);
 

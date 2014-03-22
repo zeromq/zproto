@@ -643,8 +643,8 @@ zproto_example_send_log (
     uint16_t node,
     uint16_t peer,
     uint64_t time,
-    char *host,
-    char *data)
+    const char *host,
+    const char *data)
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
     zproto_example_set_sequence (self, sequence);
@@ -878,7 +878,7 @@ zproto_example_set_id (zproto_example_t *self, int id)
 //  --------------------------------------------------------------------------
 //  Return a printable command string
 
-char *
+const char *
 zproto_example_command (zproto_example_t *self)
 {
     assert (self);
@@ -1007,7 +1007,7 @@ zproto_example_set_time (zproto_example_t *self, uint64_t time)
 //  --------------------------------------------------------------------------
 //  Get/set the host field
 
-char *
+const char *
 zproto_example_host (zproto_example_t *self)
 {
     assert (self);
@@ -1015,7 +1015,7 @@ zproto_example_host (zproto_example_t *self)
 }
 
 void
-zproto_example_set_host (zproto_example_t *self, char *format, ...)
+zproto_example_set_host (zproto_example_t *self, const char *format, ...)
 {
     //  Format host from provided arguments
     assert (self);
@@ -1030,7 +1030,7 @@ zproto_example_set_host (zproto_example_t *self, char *format, ...)
 //  --------------------------------------------------------------------------
 //  Get/set the data field
 
-char *
+const char *
 zproto_example_data (zproto_example_t *self)
 {
     assert (self);
@@ -1038,7 +1038,7 @@ zproto_example_data (zproto_example_t *self)
 }
 
 void
-zproto_example_set_data (zproto_example_t *self, char *format, ...)
+zproto_example_set_data (zproto_example_t *self, const char *format, ...)
 {
     //  Format data from provided arguments
     assert (self);
@@ -1086,7 +1086,7 @@ zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p)
 //  --------------------------------------------------------------------------
 //  Iterate through the aliases field, and append a aliases value
 
-char *
+const char *
 zproto_example_aliases_first (zproto_example_t *self)
 {
     assert (self);
@@ -1096,7 +1096,7 @@ zproto_example_aliases_first (zproto_example_t *self)
         return NULL;
 }
 
-char *
+const char *
 zproto_example_aliases_next (zproto_example_t *self)
 {
     assert (self);
@@ -1107,7 +1107,7 @@ zproto_example_aliases_next (zproto_example_t *self)
 }
 
 void
-zproto_example_aliases_append (zproto_example_t *self, char *format, ...)
+zproto_example_aliases_append (zproto_example_t *self, const char *format, ...)
 {
     //  Format into newly allocated string
     assert (self);
@@ -1167,13 +1167,13 @@ zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p)
 //  --------------------------------------------------------------------------
 //  Get/set a value in the headers dictionary
 
-char *
-zproto_example_headers_string (zproto_example_t *self, char *key, char *default_value)
+const char *
+zproto_example_headers_string (zproto_example_t *self, const char *key, const char *default_value)
 {
     assert (self);
-    char *value = NULL;
+    const char *value = NULL;
     if (self->headers)
-        value = (char *) (zhash_lookup (self->headers, key));
+        value = (const char *) (zhash_lookup (self->headers, key));
     if (!value)
         value = default_value;
 
@@ -1181,7 +1181,7 @@ zproto_example_headers_string (zproto_example_t *self, char *key, char *default_
 }
 
 uint64_t
-zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t default_value)
+zproto_example_headers_number (zproto_example_t *self, const char *key, uint64_t default_value)
 {
     assert (self);
     uint64_t value = default_value;
@@ -1195,7 +1195,7 @@ zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t defau
 }
 
 void
-zproto_example_headers_insert (zproto_example_t *self, char *key, char *format, ...)
+zproto_example_headers_insert (zproto_example_t *self, const char *key, const char *format, ...)
 {
     //  Format into newly allocated string
     assert (self);
