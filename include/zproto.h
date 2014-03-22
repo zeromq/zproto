@@ -38,8 +38,8 @@
     ZPROTO_MAKE_VERSION(ZPROTO_VERSION_MAJOR, ZPROTO_VERSION_MINOR, ZPROTO_VERSION_PATCH)
 
 #include <czmq.h>
-#if CZMQ_VERSION < 20100
-#   error "ZPROTO needs CZMQ/2.1.0 or later"
+#if CZMQ_VERSION < 20200
+#   error "ZPROTO needs CZMQ/2.2.0 or later"
 #endif
 
 #include "zproto_example.h"
