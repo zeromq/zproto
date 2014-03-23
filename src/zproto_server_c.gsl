@@ -133,9 +133,9 @@ void
 void
     $(class.name)_setoption ($(class.name)_t *self, const char *path, const char *value);
 
-//  Binds the server to a specified endpoint
+//  Binds the server to an endpoint, formatted as printf string
 long
-    $(class.name)_bind ($(class.name)_t *self, const char *endpoint);
+    $(class.name)_bind ($(class.name)_t *self, const char *format, ...);
 
 .for class.method
 //  $(string.trim (method.):left)
@@ -255,18 +255,27 @@ $(class.name)_setoption ($(class.name)_t *self, const char *path, const char *va
 
 
 //  --------------------------------------------------------------------------
-//  Binds the server to a specified endpoint
+//  Binds the server to an endpoint, formatted as printf string
 
 long
-$(class.name)_bind ($(class.name)_t *self, const char *endpoint)
+$(class.name)_bind ($(class.name)_t *self, const char *format, ...)
 {
     assert (self);
-    assert (endpoint);
+    assert (format);
+    
+    //  Format endpoint from provided arguments
+    va_list argptr;
+    va_start (argptr, format);
+    char *endpoint = zsys_vprintf (format, argptr);
+    va_end (argptr);
+
+    //  Send BIND command to server task
     zstr_sendm (self->pipe, "BIND");
     zstr_sendf (self->pipe, endpoint);
     char *reply = zstr_recv (self->pipe);
     long reply_value = atol (reply);
     free (reply);
+    free (endpoint);
     return reply_value;
 }
 .for class.method
