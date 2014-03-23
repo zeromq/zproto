@@ -617,14 +617,11 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
                 goto malformed;
             self->$(name) = $(name);
 .       elsif type = "msg"
-            //  Get zero or more remaining frames,
-            //  leave current frame untouched
+            //  Get zero or more remaining frames, leaving current
+            //  frame untouched
             self->$(name) = zmsg_new ();
-            zframe_t *$(name)_part = zmsg_pop (msg);
-            while ($(name)_part) {
-                zmsg_add (self->$(name), $(name)_part);
-                $(name)_part = zmsg_pop (msg);
-            }
+            while (zmsg_size (msg))
+                zmsg_add (self->$(name), zmsg_pop (msg));
 .       endif
 .   endfor
             break;
