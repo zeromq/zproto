@@ -63,6 +63,17 @@
         public_key          chunk       Our public key
         address             frame       Return address as frame
         content             msg         Message to be delivered
+
+    TYPES - Demonstrate custom-defined types
+        sequence            number 2    
+        client_forename     string      Given name
+        client_surname      string      Family name
+        client_mobile       string      Mobile phone number
+        client_email        string      Email address
+        supplier_forename   string      Given name
+        supplier_surname    string      Family name
+        supplier_mobile     string      Mobile phone number
+        supplier_email      string      Email address
 */
 
 #define ZPROTO_EXAMPLE_VERSION              1
@@ -70,6 +81,7 @@
 #define ZPROTO_EXAMPLE_LOG                  1
 #define ZPROTO_EXAMPLE_STRUCTURES           2
 #define ZPROTO_EXAMPLE_BINARY               3
+#define ZPROTO_EXAMPLE_TYPES                4
 #define ZPROTO_EXAMPLE_FLAGS_SIZE           4
 
 #ifdef __cplusplus
@@ -147,6 +159,19 @@ int
         zchunk_t *public_key,
         zframe_t *address,
         zmsg_t *content);
+    
+//  Send the TYPES to the output in one step
+int
+    zproto_example_send_types (void *output,
+        uint16_t sequence,
+        const char *client_forename,
+        const char *client_surname,
+        const char *client_mobile,
+        const char *client_email,
+        const char *supplier_forename,
+        const char *supplier_surname,
+        const char *supplier_mobile,
+        const char *supplier_email);
     
 //  Duplicate the zproto_example message
 zproto_example_t *
@@ -296,6 +321,54 @@ zmsg_t *
 //  Set the content field, transferring ownership from caller
 void
     zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p);
+
+//  Get/set the client_forename field
+const char *
+    zproto_example_client_forename (zproto_example_t *self);
+void
+    zproto_example_set_client_forename (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the client_surname field
+const char *
+    zproto_example_client_surname (zproto_example_t *self);
+void
+    zproto_example_set_client_surname (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the client_mobile field
+const char *
+    zproto_example_client_mobile (zproto_example_t *self);
+void
+    zproto_example_set_client_mobile (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the client_email field
+const char *
+    zproto_example_client_email (zproto_example_t *self);
+void
+    zproto_example_set_client_email (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the supplier_forename field
+const char *
+    zproto_example_supplier_forename (zproto_example_t *self);
+void
+    zproto_example_set_supplier_forename (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the supplier_surname field
+const char *
+    zproto_example_supplier_surname (zproto_example_t *self);
+void
+    zproto_example_set_supplier_surname (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the supplier_mobile field
+const char *
+    zproto_example_supplier_mobile (zproto_example_t *self);
+void
+    zproto_example_set_supplier_mobile (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the supplier_email field
+const char *
+    zproto_example_supplier_email (zproto_example_t *self);
+void
+    zproto_example_set_supplier_email (zproto_example_t *self, const char *format, ...);
 
 //  Self test of this class
 int
