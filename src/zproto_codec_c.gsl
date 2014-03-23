@@ -1,12 +1,14 @@
-.#  zproto_codec_c.gsl
-.#
-.#  Generates a codec for a protocol specification
-.#
-.include "zproto_lib.gsl"
-.include "zproto_bnf.gsl"
-.resolve_includes ()
-.set_defaults ()
-.generate_bnf ()
+.template 0
+#   zproto_codec_c.gsl
+#
+#   Generates a codec for a protocol specification
+#
+include "zproto_lib.gsl"
+include "zproto_bnf.gsl"
+resolve_includes ()
+generate_bnf ()
+set_defaults ()
+.endtemplate
 .output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)

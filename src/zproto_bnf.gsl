@@ -22,14 +22,13 @@ function generate_bnf
 
     for message
         >
-        >    ; $(string.trim (message.))
+        >    ; $(string.trim (message.?''):)
         >    C:$(message.name:)\
         >                    = signature %d$(id)\
         for field
             > $(field.name)\
         endfor
         >
-
         if first()
             >    signature       = %xAA %d$(signature)   ; two octets
         endif
@@ -42,6 +41,27 @@ function generate_bnf
             else
                 >    $(name)         = $(type)               ; $(field.?'':)
                 class.use_$(type) = 1
+            endif
+        endfor
+        for class.type where !defined (type.expressed)
+            if defined (class.use_$(name))
+                >    $(name)         =\
+                for field
+                    > $(field.name)\
+                endfor
+                >
+                for field
+                    if field.type = "number"
+                        >    $(name)         = number-$(size)        ; $(field.?'':)
+                        class.use_number_$(size) = 1
+                    elsif field.type = "octets"
+                        >    $(name)         = $(size)OCTET          ; $(field.?'':)
+                    else
+                        >    $(name)         = $(field.type)         ; $(field.?'':)
+                        class.use_$(field.type) = 1
+                    endif
+                endfor
+                type.expressed = 1
             endif
         endfor
 
@@ -82,6 +102,16 @@ function generate_bnf
     >    msg             = *frame
     endif
     >
+    >    ; Strings are always length + text contents
+    if defined (class.use_string)
+    >    string          = number-1 *VCHAR
+         class.use_number_1 = 1
+    endif
+    if defined (class.use_longstr)
+    >    longstr         = number-4 *VCHAR
+         class.use_number_4 = 1
+    endif
+    >
     >    ; Numbers are unsigned integers in network byte order
     if defined (class.use_number_1)
     >    number-1        = 1OCTET
@@ -94,14 +124,6 @@ function generate_bnf
     endif
     if defined (class.use_number_8)
     >    number-8        = 8OCTET
-    endif
-    >
-    >    ; Strings are always length + text contents
-    if defined (class.use_string)
-    >    string          = number-1 *VCHAR
-    endif
-    if defined (class.use_longstr)
-    >    longstr         = number-4 *VCHAR
     endif
 endfunction
 .endtemplate
