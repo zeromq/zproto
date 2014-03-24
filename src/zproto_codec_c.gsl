@@ -642,6 +642,19 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
                     GET_STRING (self->$(name) [self->$(name)_index]);
 .               elsif type = "longstr"
                     GET_LONGSTR (self->$(name) [self->$(name)_index]);
+.              elsif type = "strings"
+                    {
+                        size_t list_size;
+                        GET_NUMBER4 (list_size);
+                        self->$(name) [self->$(name)_index] = zlist_new ();
+                        zlist_autofree (self->$(name) [self->$(name)_index]);
+                        while (list_size--) {
+                            char *string;
+                            GET_LONGSTR (string);
+                            zlist_append (self->$(name) [self->$(name)_index], string);
+                            free (string);
+                        }
+                    }
 .               elsif type = "dictionary"
                     {
                         size_t hash_size;
@@ -688,6 +701,19 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
 .           endif
 .       elsif type = "longstr"
             GET_LONGSTR (self->$(name));
+.       elsif type = "strings"
+            {
+                size_t list_size;
+                GET_NUMBER4 (list_size);
+                self->$(name) = zlist_new ();
+                zlist_autofree (self->$(name));
+                while (list_size--) {
+                    char *string;
+                    GET_LONGSTR (string);
+                    zlist_append (self->$(name), string);
+                    free (string);
+                }
+            }
 .       elsif type = "dictionary"
             {
                 size_t hash_size;
