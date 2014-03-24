@@ -135,43 +135,43 @@ int
 //  Send the LOG to the output in one step
 int
     zproto_example_send_log (void *output,
-        uint16_t sequence,
-        byte level,
-        byte event,
-        uint16_t node,
-        uint16_t peer,
-        uint64_t time,
-        const char *host,
-        const char *data);
+    uint16_t sequence,
+    byte level,
+    byte event,
+    uint16_t node,
+    uint16_t peer,
+    uint64_t time,
+    const char *host,
+    const char *data);
     
 //  Send the STRUCTURES to the output in one step
 int
     zproto_example_send_structures (void *output,
-        uint16_t sequence,
-        zlist_t *aliases,
-        zhash_t *headers);
+    uint16_t sequence,
+    zlist_t *aliases,
+    zhash_t *headers);
     
 //  Send the BINARY to the output in one step
 int
     zproto_example_send_binary (void *output,
-        uint16_t sequence,
-        byte *flags,
-        zchunk_t *public_key,
-        zframe_t *address,
-        zmsg_t *content);
+    uint16_t sequence,
+    byte *flags,
+    zchunk_t *public_key,
+    zframe_t *address,
+    zmsg_t *content);
     
 //  Send the TYPES to the output in one step
 int
     zproto_example_send_types (void *output,
-        uint16_t sequence,
-        const char *client_forename,
-        const char *client_surname,
-        const char *client_mobile,
-        const char *client_email,
-        const char *supplier_forename,
-        const char *supplier_surname,
-        const char *supplier_mobile,
-        const char *supplier_email);
+    uint16_t sequence,
+    const char *client_forename,
+    const char *client_surname,
+    const char *client_mobile,
+    const char *client_email,
+    const char *supplier_forename,
+    const char *supplier_surname,
+    const char *supplier_mobile,
+    const char *supplier_email);
     
 //  Duplicate the zproto_example message
 zproto_example_t *

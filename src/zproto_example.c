@@ -49,34 +49,34 @@
 //  Structure of our class
 
 struct _zproto_example_t {
-    zframe_t *routing_id;       //  Routing_id from ROUTER, if any
-    int id;                     //  zproto_example message ID
-    byte *needle;               //  Read/write pointer for serialization
-    byte *ceiling;              //  Valid upper limit for read pointer
-    uint16_t sequence;          //  
-    uint16_t version;           //  Version
-    byte level;                 //  Log severity level
-    byte event;                 //  Type of event
-    uint16_t node;              //  Sending node
-    uint16_t peer;              //  Refers to this peer
-    uint64_t time;              //  Log date/time
-    char *host;                 //  Originating hostname
-    char *data;                 //  Actual log message
-    zlist_t *aliases;           //  List of strings
-    zhash_t *headers;           //  Other random properties
-    size_t headers_bytes;       //  Size of dictionary content
-    byte flags [4];             //  A set of flags
-    zchunk_t *public_key;       //  Our public key
-    zframe_t *address;          //  Return address as frame
-    zmsg_t *content;            //  Message to be delivered
-    char *client_forename;      //  Given name
-    char *client_surname;       //  Family name
-    char *client_mobile;        //  Mobile phone number
-    char *client_email;         //  Email address
-    char *supplier_forename;    //  Given name
-    char *supplier_surname;     //  Family name
-    char *supplier_mobile;      //  Mobile phone number
-    char *supplier_email;       //  Email address
+    zframe_t *routing_id;               //  Routing_id from ROUTER, if any
+    int id;                             //  zproto_example message ID
+    byte *needle;                       //  Read/write pointer for serialization
+    byte *ceiling;                      //  Valid upper limit for read pointer
+    uint16_t sequence;                  //  
+    uint16_t version;                   //  Version
+    byte level;                         //  Log severity level
+    byte event;                         //  Type of event
+    uint16_t node;                      //  Sending node
+    uint16_t peer;                      //  Refers to this peer
+    uint64_t time;                      //  Log date/time
+    char *host;                         //  Originating hostname
+    char *data;                         //  Actual log message
+    zlist_t *aliases;                   //  List of strings
+    zhash_t *headers;                   //  Other random properties
+    size_t headers_bytes;               //  Size of dictionary content
+    byte flags [4];                     //  A set of flags
+    zchunk_t *public_key;               //  Our public key
+    zframe_t *address;                  //  Return address as frame
+    zmsg_t *content;                    //  Message to be delivered
+    char *client_forename;              //  Given name
+    char *client_surname;               //  Family name
+    char *client_mobile;                //  Mobile phone number
+    char *client_email;                 //  Email address
+    char *supplier_forename;            //  Given name
+    char *supplier_surname;             //  Family name
+    char *supplier_mobile;              //  Mobile phone number
+    char *supplier_email;               //  Email address
 };
 
 //  --------------------------------------------------------------------------
@@ -364,14 +364,11 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
             if (!address)
                 goto malformed;
             self->address = address;
-            //  Get zero or more remaining frames,
-            //  leave current frame untouched
+            //  Get zero or more remaining frames, leaving current
+            //  frame untouched
             self->content = zmsg_new ();
-            zframe_t *content_part = zmsg_pop (msg);
-            while (content_part) {
-                zmsg_add (self->content, content_part);
-                content_part = zmsg_pop (msg);
-            }
+            while (zmsg_size (msg))
+                zmsg_add (self->content, zmsg_pop (msg));
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -780,7 +777,7 @@ zproto_example_send_structures (
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
     zproto_example_set_sequence (self, sequence);
-    zlist_t *aliases_copy = zlist_dup (aliases);
+        zlist_t *aliases_copy = zlist_dup (aliases);
     zproto_example_set_aliases (self, &aliases_copy);
     zhash_t *headers_copy = zhash_dup (headers);
     zproto_example_set_headers (self, &headers_copy);
@@ -959,14 +956,14 @@ zproto_example_dump (zproto_example_t *self)
         case ZPROTO_EXAMPLE_BINARY:
             puts ("BINARY:");
             printf ("    sequence=%ld\n", (long) self->sequence);
-            printf ("    flags=");
+            printf ("    flags=[");
             int flags_index;
             for (flags_index = 0; flags_index < 4; flags_index++) {
                 if (flags_index && (flags_index % 4 == 0))
                     printf ("-");
                 printf ("%02X", self->flags [flags_index]);
             }
-            printf ("\n");
+        printf ("\n");
             printf ("    public_key={\n");
             if (self->public_key)
                 zchunk_print (self->public_key);
@@ -1090,7 +1087,7 @@ zproto_example_command (zproto_example_t *self)
 //  --------------------------------------------------------------------------
 //  Get/set the sequence field
 
-uint16_t
+uint16_t 
 zproto_example_sequence (zproto_example_t *self)
 {
     assert (self);
@@ -1108,7 +1105,7 @@ zproto_example_set_sequence (zproto_example_t *self, uint16_t sequence)
 //  --------------------------------------------------------------------------
 //  Get/set the level field
 
-byte
+byte 
 zproto_example_level (zproto_example_t *self)
 {
     assert (self);
@@ -1126,7 +1123,7 @@ zproto_example_set_level (zproto_example_t *self, byte level)
 //  --------------------------------------------------------------------------
 //  Get/set the event field
 
-byte
+byte 
 zproto_example_event (zproto_example_t *self)
 {
     assert (self);
@@ -1144,7 +1141,7 @@ zproto_example_set_event (zproto_example_t *self, byte event)
 //  --------------------------------------------------------------------------
 //  Get/set the node field
 
-uint16_t
+uint16_t 
 zproto_example_node (zproto_example_t *self)
 {
     assert (self);
@@ -1162,7 +1159,7 @@ zproto_example_set_node (zproto_example_t *self, uint16_t node)
 //  --------------------------------------------------------------------------
 //  Get/set the peer field
 
-uint16_t
+uint16_t 
 zproto_example_peer (zproto_example_t *self)
 {
     assert (self);
@@ -1180,7 +1177,7 @@ zproto_example_set_peer (zproto_example_t *self, uint16_t peer)
 //  --------------------------------------------------------------------------
 //  Get/set the time field
 
-uint64_t
+uint64_t 
 zproto_example_time (zproto_example_t *self)
 {
     assert (self);
@@ -1414,7 +1411,7 @@ zproto_example_headers_size (zproto_example_t *self)
 //  --------------------------------------------------------------------------
 //  Get/set the flags field
 
-byte *
+byte * 
 zproto_example_flags (zproto_example_t *self)
 {
     assert (self);
@@ -1461,6 +1458,7 @@ zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p)
     *chunk_p = NULL;
 }
 
+
 //  --------------------------------------------------------------------------
 //  Get the address field without transferring ownership
 
@@ -1493,6 +1491,7 @@ zproto_example_set_address (zproto_example_t *self, zframe_t **frame_p)
     *frame_p = NULL;
 }
 
+
 //  --------------------------------------------------------------------------
 //  Get the content field without transferring ownership
 
@@ -1524,6 +1523,7 @@ zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p)
     self->content = *msg_p;
     *msg_p = NULL;
 }
+
 
 //  --------------------------------------------------------------------------
 //  Get/set the client_forename field
