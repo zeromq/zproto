@@ -122,4 +122,24 @@ zproto supports several kinds of binary data:
 Deliver a multi-part message.
 </message>
 
+As well as the built-in types, you can define your own types, by composing
+them from other fields:
+
+<message name = "types" id = "4">
+    <field name = "client" type = "person">Client contact</field>
+    <field name = "supplier" type = "person">Supplier contact</field>
+Demonstrate custom-defined types
+</message>
+
+Here is the custom type. In the BNF, this will express as a separate term,
+as you'd expect. In the C API, this will be expressed as atomic properties
+prefixed with the original field name, e.g. client_forename, supplier_email.
+
+<type name = "person">
+    <field name = "forename" type = "string">Given name</field>
+    <field name = "surname" type = "string">Family name</field>
+    <field name = "mobile" type = "string">Mobile phone number</field>
+    <field name = "email" type = "string">Email address</field>
+</type>
+
 </class>

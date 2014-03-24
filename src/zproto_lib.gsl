@@ -4,6 +4,8 @@
 function set_defaults ()
     class.header ?= "."
     class.source ?= "."
+    resolve_types ()
+    
     for message
         message.name = "$(message.name:c)"
         if !defined (message.id)
@@ -44,6 +46,24 @@ function set_defaults ()
                 endif
             else
                 copy field to class
+            endfor
+        endfor
+    endfor
+endfunction
+
+function resolve_types ()
+    for class.message
+        for field as original_field
+            for class.type where type.name = original_field.type
+                for type.field as type_field
+                    new field before original_field
+                        field.name = original_field.name + " " + type_field.name
+                        field.type = type_field.type
+                        field.size = type_field.size? 0
+                        field. = type_field.?''
+                    endnew
+                endfor
+                delete original_field
             endfor
         endfor
     endfor

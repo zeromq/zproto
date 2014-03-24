@@ -3,9 +3,8 @@ The following ABNF grammar defines the zproto example protocol:
     example         = log | structures | binary
 
     ; Log an event.
-    C:log           = signature %d1 sequence version level event node peer time host data
+    C:log           = signature %d1 version level event node peer time host data
     signature       = %xAA %d0              ; two octets
-    sequence        = number-2              ; 
     version         = number-2              ; Version
     level           = number-1              ; Log severity level
     event           = number-1              ; Type of event
@@ -16,37 +15,37 @@ The following ABNF grammar defines the zproto example protocol:
     data            = longstr               ; Actual log message
 
     ; This message contains a list and a hash.
-    C:structures    = signature %d2 sequence aliases headers
-    sequence        = number-2              ; 
+    C:structures    = signature %d2 aliases headers
     aliases         = strings               ; List of strings
     headers         = dictionary            ; Other random properties
 
     ; Deliver a multi-part message.
-    C:binary        = signature %d3 sequence flags public_key address content
-    sequence        = number-2              ; 
+    C:binary        = signature %d3 flags public key address content
     flags           = 4OCTET                ; A set of flags
-    public_key      = chunk                 ; Our public key
+    public key      = chunk                 ; Our public key
     address         = frame                 ; Return address as frame
     content         = msg                   ; Message to be delivered
 
-    ; Numbers are unsigned integers in network byte order
-    number-1        = 1OCTET
-    number-2        = 2OCTET
-    number-4        = 4OCTET
-    number-8        = 8OCTET
-
-    ; Strings are always length + text contents
-    string          = number-1 *VCHAR
-    longstr         = number-4 *VCHAR
+    ; Demonstrate custom-defined types
+    C:types         = signature %d4 client supplier
+    client          = person                ; Client contact
+    supplier        = person                ; Supplier contact
+    person          = forename surname mobile email
+    forename        = string                ; Given name
+    surname         = string                ; Family name
+    mobile          = string                ; Mobile phone number
+    email           = string                ; Email address
 
     ; A list of string values
-    strings         = count *value
-    value           = longstr
+    strings         = strings-count *strings-value
+    strings-count   = number-4
+    strings-value   = longstr
 
     ; A list of name/value pairs
-    dictionary      = count *( name value )
-    count           = number-4
-    name            = string
+    dictionary      = dict-count *( dict-name dict-value )
+    dict-count      = number-4
+    dict-value      = longstr
+    dict-name       = string
 
     ; A chunk has 4-octet length + binary contents
     chunk           = number-4 *OCTET
@@ -56,3 +55,13 @@ The following ABNF grammar defines the zproto example protocol:
 
     ; A msg is zero or more distinct frames
     msg             = *frame
+
+    ; Strings are always length + text contents
+    string          = number-1 *VCHAR
+    longstr         = number-4 *VCHAR
+
+    ; Numbers are unsigned integers in network byte order
+    number-1        = 1OCTET
+    number-2        = 2OCTET
+    number-4        = 4OCTET
+    number-8        = 8OCTET

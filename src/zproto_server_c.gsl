@@ -50,8 +50,16 @@ endfor
 #  Collect all events and actions at class level
 for class.state
     state.comma = last()?? ""? ","
-    for event where count (class.event, name = -1.name) = 0
-        copy event to class
+    for event
+        #   Flag state as external if it has protocol events
+        if count (proto.message, message.name = event.name)
+            event.external = 1
+            state.external = 1
+        endif
+        #   Copy event to class if not yet defined there
+        if count (class.event, name = -1.name) = 0
+            copy event to class
+        endif
         for action where count (class.action, name = -1.name) = 0
             copy action to class
         endfor
@@ -125,9 +133,9 @@ void
 void
     $(class.name)_setoption ($(class.name)_t *self, const char *path, const char *value);
 
-//  Binds the server to a specified endpoint
+//  Binds the server to an endpoint, formatted as printf string
 long
-    $(class.name)_bind ($(class.name)_t *self, const char *endpoint);
+    $(class.name)_bind ($(class.name)_t *self, const char *format, ...);
 
 .for class.method
 //  $(string.trim (method.):left)
@@ -247,18 +255,27 @@ $(class.name)_setoption ($(class.name)_t *self, const char *path, const char *va
 
 
 //  --------------------------------------------------------------------------
-//  Binds the server to a specified endpoint
+//  Binds the server to an endpoint, formatted as printf string
 
 long
-$(class.name)_bind ($(class.name)_t *self, const char *endpoint)
+$(class.name)_bind ($(class.name)_t *self, const char *format, ...)
 {
     assert (self);
-    assert (endpoint);
+    assert (format);
+    
+    //  Format endpoint from provided arguments
+    va_list argptr;
+    va_start (argptr, format);
+    char *endpoint = zsys_vprintf (format, argptr);
+    va_end (argptr);
+
+    //  Send BIND command to server task
     zstr_sendm (self->pipe, "BIND");
     zstr_sendf (self->pipe, endpoint);
     char *reply = zstr_recv (self->pipe);
     long reply_value = atol (reply);
     free (reply);
+    free (endpoint);
     return reply_value;
 }
 .for class.method
@@ -345,7 +362,11 @@ static char *
 s_event_name [] = {
     "",
 .for class.event
+.   if defined (event.external)
+    "$(NAME)"$(comma)
+.   else
     "$(name:)"$(comma)
+.   endif
 .endfor
 };
  
@@ -364,7 +385,8 @@ typedef struct {
     int port;                   //  Server port bound to
     zhash_t *clients;           //  Clients we're connected to
     zconfig_t *config;          //  Configuration tree
-    size_t heartbeat;           //  Default client heartbeat interval
+    uint client_id;             //  Client ID counter
+    size_t timeout;             //  Default client expiry timeout
     size_t monitor;             //  Server monitor interval in msec
     int64_t monitor_at;         //  Next monitor at this time
     bool terminated;            //  Server is shutting down
@@ -378,14 +400,19 @@ typedef struct {
 
 typedef struct {
     client_t client;            //  Application-level client context
-    char *hashkey;              //  Key into clients hash
+    char *hashkey;              //  Key into server->clients hash
     zframe_t *routing_id;       //  Routing_id back to client
+    uint client_id;             //  Client ID value
     state_t state;              //  Current state
     event_t event;              //  Current event
     event_t next_event;         //  The next event
-    size_t heartbeat;           //  Actual heartbeat interval
-    int64_t heartbeat_at;       //  Next heartbeat at this time
+    event_t exception;          //  Exception event, if any
+    bool external_state;        //  Is client in external state?
+    zlist_t *requests;          //  Else, requests are queued here
+    int64_t wakeup_at;          //  Wake up at this time
+    event_t wakeup_event;       //  Wake up with this event
     int64_t expires_at;         //  Expires at this time
+    size_t timeout;             //  Actual connection timeout
 } s_client_t;
 
 static void
@@ -402,12 +429,58 @@ static $(ctype)
 //  state; otherwise the state machine will wait for a message on the
 //  router socket and treat that as the event.
 
-#define set_next_event(self,event) { \
-    ((s_client_t *) (self))->next_event = event; \
+static void
+set_next_event (client_t *self, event_t event)
+{
+    if (self)
+        ((s_client_t *) self)->next_event = event;
 }
 
-#define set_heartbeat(self,heartbeat) { \
-    ((s_client_t *) (self))->heartbeat = heartbeat; \
+//  Raise an exception with 'event', halting any actions in progress.
+//  Continues execution of actions defined for the exception event.
+
+static void
+raise_exception (client_t *self, event_t event)
+{
+    if (self)
+        ((s_client_t *) self)->exception = (event);
+}
+
+//  Set wakeup alarm after 'delay' msecs. The next state should
+//  handle the wakeup event. The alarm is cancelled on any other
+//  event.
+
+static void
+set_wakeup_event (client_t *self, size_t delay, event_t event)
+{
+    if (self) {
+        ((s_client_t *) self)->wakeup_at = zclock_time () + (delay);
+        ((s_client_t *) self)->wakeup_event = (event);
+    }
+}
+
+//  Execute 'event' on specified client. Use this to send events to
+//  other clients. Cancels any wakeup alarm on that client.
+
+static void
+send_event (client_t *self, event_t event)
+{
+    if (self) {
+        ((s_client_t *) self)->wakeup_at = 0;
+        s_server_client_execute ((s_server_t *) self->server,
+                                 (s_client_t *) self, event);
+    }
+}
+
+
+//  Pedantic compilers don't like unused functions
+static void
+s_satisfy_pedantic_compilers (void)
+{
+    set_next_event (NULL, 0);
+    raise_exception (NULL, 0);
+    set_wakeup_event (NULL, 0, 0);
+    send_event (NULL, 0);
 }
 
 
@@ -415,7 +488,7 @@ static $(ctype)
 //  Client methods
 
 static s_client_t *
-s_client_new (zframe_t *routing_id)
+s_client_new (s_server_t *server, zframe_t *routing_id)
 {
     s_client_t *self = (s_client_t *) zmalloc (sizeof (s_client_t));
     assert (self);
@@ -423,13 +496,18 @@ s_client_new (zframe_t *routing_id)
     
 .for class.state where item () = 1
     self->state = $(name:c)_state;
+    self->external_state = $(external);
 .endfor
     self->hashkey = zframe_strhex (routing_id);
     self->routing_id = zframe_dup (routing_id);
+    self->requests = zlist_new ();
+    self->client_id = ++(server->client_id);
     
+    self->client.server = (server_t *) server;
     self->client.reply = $(proto)_new (0);
     $(proto)_set_routing_id (self->client.reply, self->routing_id);
-    client_alloc (&self->client);
+    client_initialize (&self->client);
+
     return self;
 }
 
@@ -441,8 +519,16 @@ s_client_destroy (s_client_t **self_p)
         s_client_t *self = *self_p;
         $(proto)_destroy (&self->client.request);
         $(proto)_destroy (&self->client.reply);
-        client_free (&self->client);
+
+        //  Clear out pending requests, if any
+        $(proto)_t *request = ($(proto)_t *) zlist_first (self->requests);
+        while (request) {
+            $(proto)_destroy (&request);
+            request = ($(proto)_t *) zlist_next (self->requests);
+        }
+        zlist_destroy (&self->requests);
         zframe_destroy (&self->routing_id);
+        client_terminate (&self->client);
         free (self->hashkey);
         free (self);
         *self_p = NULL;
@@ -463,31 +549,63 @@ s_client_tickless (const char *key, void *client, void *argument)
 {
     s_client_t *self = (s_client_t *) client;
     uint64_t *tickless = (uint64_t *) argument;
-    if (*tickless > self->heartbeat_at)
-        *tickless = self->heartbeat_at;
+    if (self->expires_at
+    &&  *tickless > self->expires_at)
+        *tickless = self->expires_at;
+    if (self->wakeup_at
+    &&  *tickless > self->wakeup_at)
+        *tickless = self->wakeup_at;
     return 0;
 }
 
-//  Client hash function that checks if client is alive
+//  Client hash function to execute timers, if any.
+//  This method might be replaced with a sorted list of timers;
+//  to be tested & tuned with 10K clients; could be a utility
+//  class in CZMQ
+
 static int
-s_client_ping (const char *key, void *client, void *argument)
+s_client_timer (const char *key, void *client, void *argument)
 {
     s_client_t *self = (s_client_t *) client;
-    //  Expire client if it's not answered us in a while
-    if (zclock_time () >= self->expires_at && self->expires_at) {
-        //  In case dialog doesn't handle expired_event by destroying
-        //  client, set expires_at to zero to prevent busy looping
-        self->expires_at = 0;
+    
+    //  Expire client after timeout seconds of silence
+    if (self->expires_at
+    &&  self->expires_at <= zclock_time ()) {
+.   if count (class.event, name = "expired")
         s_server_client_execute ((s_server_t *) argument, self, expired_event);
+.   endif
+        //  In case dialog doesn't handle expiry by destroying 
+        //  client, cancel all timers to prevent busy-looping
+        self->expires_at = 0;
+        self->wakeup_at = 0;
     }
     else
-    //  Check whether to send heartbeat to client
-    if (zclock_time () >= self->heartbeat_at) {
-        s_server_client_execute ((s_server_t *) argument, self, heartbeat_event);
-        self->heartbeat_at = zclock_time () + self->heartbeat;
+    if (self->wakeup_at
+    &&  self->wakeup_at <= zclock_time ()) {
+        s_server_client_execute ((s_server_t *) argument, self, self->wakeup_event);
+        self->wakeup_at = 0;    //  Cancel wakeup timer
     }
     return 0;
 }
+
+//  Accept request, return corresponding event
+
+static event_t
+s_client_accept (s_client_t *client, $(proto)_t *request)
+{
+    $(proto)_destroy (&client->client.request);
+    client->client.request = request;
+    switch ($(proto)_id (request)) {
+.   for proto.message where count (class.event, event.name = message.name) = 1
+        case $(PROTO)_$(NAME:C):
+            return $(name:c)_event;
+            break;
+.   endfor
+    }
+    //  If we had invalid $(proto)_t, terminate the client
+    return terminate_event;
+}
+
 
 //  Server methods
 
@@ -495,10 +613,12 @@ static void
 s_server_config_self (s_server_t *self)
 {
     //  Get standard server configuration
+    //  Default client timeout is 60 seconds, if state machine defines
+    //  an expired event; otherwise there is no timeout.
+    self->timeout = atoi (
+        zconfig_resolve (self->config, "server/timeout", "60")) * 1000;
     self->monitor = atoi (
         zconfig_resolve (self->config, "server/monitor", "1")) * 1000;
-    self->heartbeat = atoi (
-        zconfig_resolve (self->config, "server/heartbeat", "1")) * 1000;
     self->monitor_at = zclock_time () + self->monitor;
 }
 
@@ -508,7 +628,7 @@ s_server_new (zctx_t *ctx, void *pipe)
     s_server_t *self = (s_server_t *) zmalloc (sizeof (s_server_t));
     assert (self);
     assert ((s_server_t *) &self->server == self);
-    server_alloc (&self->server);
+    server_initialize (&self->server);
     
     self->ctx = ctx;
     self->pipe = pipe;
@@ -516,6 +636,8 @@ s_server_new (zctx_t *ctx, void *pipe)
     self->clients = zhash_new ();
     self->config = zconfig_new ("root", NULL);
     s_server_config_self (self);
+
+    s_satisfy_pedantic_compilers ();
     return self;
 }
 
@@ -525,7 +647,7 @@ s_server_destroy (s_server_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_server_t *self = *self_p;
-        server_free (&self->server);
+        server_terminate (&self->server);
         zsocket_destroy (self->ctx, self->router);
         zconfig_destroy (&self->config);
         zhash_destroy (&self->clients);
@@ -662,36 +784,54 @@ s_server_control_message (s_server_t *self)
 
 .macro output_event_body
 .   for action
+                    if (!client->exception) {
 .       if name = "send"
+                        //  send $(message:c)
 .           if switches.animate ?= 1
-                    zclock_log ("S:    + send $(message:c)");
+                        zclock_log ("%6d:         $ $(name) $(message:c)", client->client_id);
 .           endif
-                    $(proto)_set_id (client->client.reply, $(PROTO)_$(MESSAGE:C));
+                        $(proto)_set_id (client->client.reply, $(PROTO)_$(MESSAGE:C));
 .           if switches.trace ?= 1
-                    zclock_log ("Send message to client");
-                    $(proto)_dump (client->client.reply);
+                        zclock_log ("%6d: Send message to client", client->client_id);
+                        $(proto)_dump (client->client.reply);
 .           endif
-                    $(proto)_send (&(client->client.reply), self->router);
-                    client->client.reply = $(proto)_new (0);
-                    $(proto)_set_routing_id (client->client.reply, client->routing_id);
+                        $(proto)_send (&(client->client.reply), self->router);
+                        client->client.reply = $(proto)_new (0);
+                        $(proto)_set_routing_id (client->client.reply, client->routing_id);
 .       elsif name = "terminate"
+                        //  terminate
 .           if switches.animate ?= 1
-                    zclock_log ("S:    + $(name)");
+                        zclock_log ("%6d:         $ $(name)", client->client_id);
 .           endif
-                    client->next_event = terminate_event;
+                        client->next_event = terminate_event;
 .       else
+                        //  $(name)
 .           if switches.animate ?= 1
-                    zclock_log ("S:    + $(name)");
+                        zclock_log ("%6d:         $ $(name)", client->client_id);
 .           endif
-                    $(name:c) (&client->client);
+                        $(name:c) (&client->client);
 .       endif
+                    }
 .   endfor
 .   if defined (event.next)
-                    client->state = $(next:c)_state;
+                    if (!client->exception) {
+                        client->state = $(next:c)_state;
+.       for class.state where name = next
+.           if defined (state.external)
+                        client->external_state = true;
+                        $(proto)_t *request = ($(proto)_t *) zlist_pop (client->requests);
+                        if (request)
+                            client->next_event = s_client_accept (client, request);
+.           else
+                        client->external_state = false;
+.           endif
+.       endfor
+                    }
 .   endif
 .endmacro
 
-//  Execute state machine as long as we have next events
+//  Execute state machine as long as we have events
+
 static void
 s_server_client_execute (s_server_t *self, s_client_t *client, int event)
 {
@@ -699,9 +839,12 @@ s_server_client_execute (s_server_t *self, s_client_t *client, int event)
     while (client->next_event) {
         client->event = client->next_event;
         client->next_event = (event_t) 0;
+        client->exception = (event_t) 0;
 .if switches.animate ?= 1
-        zclock_log ("S: %s:", s_state_name [client->state]);
-        zclock_log ("S: (%s)", s_event_name [client->event]);
+        zclock_log ("%6d: %s:",
+            client->client_id, s_state_name [client->state]);
+        zclock_log ("%6d:     %s",
+            client->client_id, s_event_name [client->event]);
 .endif
         switch (client->state) {
 .for class.state
@@ -719,14 +862,30 @@ s_server_client_execute (s_server_t *self, s_client_t *client, int event)
                     //  Process all other events
 .       output_event_body ()
                 }
+.   else
+                else
+                    zclock_log ("%6d: W: unhandled event %s in %s",
+                        client->client_id,
+                        s_event_name [client->event],
+                        s_state_name [client->state]);
 .   endfor
                 break;
 
 .endfor
         }
+        if (client->exception) {
 .if switches.animate ?= 1
-        zclock_log ("S:      ----> %s", s_state_name [client->state]);
+            zclock_log ("%6d:         ! %s",
+                client->client_id, s_event_name [client->exception]);
 .endif
+            client->next_event = client->exception;
+        }
+        else {
+.if switches.animate ?= 1
+            zclock_log ("%6d:         > %s",
+                client->client_id, s_state_name [client->state]);
+.endif
+        }
         if (client->next_event == terminate_event) {
             //  Automatically calls s_client_destroy
             zhash_delete (self->clients, client->hashkey);
@@ -735,6 +894,8 @@ s_server_client_execute (s_server_t *self, s_client_t *client, int event)
     }
 }
 
+//  Handle a message (a protocol request) from the client
+
 static void
 s_server_client_message (s_server_t *self)
 {
@@ -742,38 +903,28 @@ s_server_client_message (s_server_t *self)
     if (!request)
         return;         //  Interrupted; do nothing
 
-.if switches.trace ?= 1
-    zclock_log ("Client message:");
-    $(proto)_dump (request);
-.endif
     char *hashkey = zframe_strhex ($(proto)_routing_id (request));
     s_client_t *client = (s_client_t *) zhash_lookup (self->clients, hashkey);
     if (client == NULL) {
-        client = s_client_new ($(proto)_routing_id (request));
-        //  Set default client heartbeat
-        client->heartbeat = self->heartbeat;
-        client->client.server = &self->server;
+        client = s_client_new (self, $(proto)_routing_id (request));
         zhash_insert (self->clients, hashkey, client);
         zhash_freefn (self->clients, hashkey, s_client_free);
     }
     free (hashkey);
-    if (client->client.request)
-        $(proto)_destroy (&client->client.request);
-    client->client.request = request;
+.if switches.trace ?= 1
+    zclock_log ("%6d: Client message", client->client_id);
+    $(proto)_dump (request);
+.endif
 
-    //  Any input from client counts as heartbeat
-    client->heartbeat_at = zclock_time () + client->heartbeat;
     //  Any input from client counts as activity
-    client->expires_at = zclock_time () + client->heartbeat * 3;
+    client->expires_at = zclock_time () + self->timeout;
 
-    //  Process messages that may come from client
-    switch ($(proto)_id (request)) {
-.   for proto.message where count (class.event, event.name = message.name) = 1
-        case $(PROTO)_$(NAME:C):
-            s_server_client_execute (self, client, $(name:c)_event);
-            break;
-.   endfor
-    }
+    //  Send message to state machine if we're in an external state
+    if (client->external_state)
+        s_server_client_execute (self, client, s_client_accept (client, request));
+    else
+        //  Otherwise queue request for later
+        zlist_push (client->requests, request);
 }
 
 //  Finally here's the server thread itself, which polls its two
@@ -794,7 +945,7 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
     };
     self->monitor_at = zclock_time () + self->monitor;
     while (!self->terminated && !zctx_interrupted) {
-        //  Calculate tickless timer, up to interval seconds
+        //  Calculate tickless timer, up to monitor time
         uint64_t tickless = zclock_time () + self->monitor;
         zhash_foreach (self->clients, s_client_tickless, &tickless);
 
@@ -811,8 +962,8 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
         if (items [1].revents & ZMQ_POLLIN)
             s_server_client_message (self);
 
-        //  Send heartbeats to idle clients as needed
-        zhash_foreach (self->clients, s_client_ping, self);
+        //  Execute client timer events
+        zhash_foreach (self->clients, s_client_timer, self);
         
         //  If clock went past timeout, then monitor server
         if (zclock_time () >= self->monitor_at) {
@@ -849,20 +1000,24 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
 #include "../include/$(class.name).h"
 
 //  ---------------------------------------------------------------------
+//  Forward declarations for the two main classes we use here
+
+typedef struct _server_t server_t;
+typedef struct _client_t client_t;
+
 //  This structure defines the context for each running server. Store
 //  whatever properties and structures you need for the server.
-//  
 
-typedef struct {
+struct _server_t {
     //  Add any properties you need here
     int filler;             //  Structure can't be empty (pedantic)
-} server_t;
+};
 
 //  Allocate properties and structures for a new server instance.
 //  Return 0 if OK, or -1 if there was an error.
 
 static int
-server_alloc (server_t *self)
+server_initialize (server_t *self)
 {
     //  Construct properties here
     return 0;
@@ -871,7 +1026,7 @@ server_alloc (server_t *self)
 //  Free properties and structures for a server instance
 
 static void
-server_free (server_t *self)
+server_terminate (server_t *self)
 {
     //  Destroy properties here
 }
@@ -881,19 +1036,19 @@ server_free (server_t *self)
 //  This structure defines the state for each client connection. It will
 //  be passed to each action in the 'self' argument.
 
-typedef struct {
+struct _client_t {
     //  These properties must always be present in the client_t
     server_t *server;           //  Reference to parent server
     $(proto)_t *request;        //  Last received request
     $(proto)_t *reply;          //  Reply to send out, if any
     //  These properties are specific for this application
-} client_t;
+};
 
 //  Allocate properties and structures for a new client connection
 //  Return 0 if OK, or -1 if there was an error.
 
 static int
-client_alloc (client_t *self)
+client_initialize (client_t *self)
 {
     //  Construct properties here
     return 0;
@@ -902,7 +1057,7 @@ client_alloc (client_t *self)
 //  Free properties and structures for a client connection
 
 static void
-client_free (client_t *self)
+client_terminate (client_t *self)
 {
     //  Destroy properties here
 }

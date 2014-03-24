@@ -1,12 +1,14 @@
-.#  zproto_codec_c.gsl
-.#
-.#  Generates a codec for a protocol specification
-.#
-.include "zproto_lib.gsl"
-.include "zproto_bnf.gsl"
-.resolve_includes ()
-.set_defaults ()
-.generate_bnf ()
+.template 0
+#   zproto_codec_c.gsl
+#
+#   Generates a codec for a protocol specification
+#
+include "zproto_lib.gsl"
+include "zproto_bnf.gsl"
+resolve_includes ()
+generate_bnf ()
+set_defaults ()
+.endtemplate
 .output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
@@ -121,7 +123,7 @@ int
 .   elsif type = "octets"
         byte *$(name)\
 .   elsif type = "string" | type = "longstr"
-        char *$(name)\
+        const char *$(name)\
 .   elsif type = "strings"
         zlist_t *$(name)\
 .   elsif type = "dictionary"
@@ -158,7 +160,7 @@ int
     $(class.name)_id ($(class.name)_t *self);
 void
     $(class.name)_set_id ($(class.name)_t *self, int id);
-char *
+const char *
     $(class.name)_command ($(class.name)_t *self);
 
 .for class.field where !defined (value)
@@ -178,10 +180,10 @@ void
 .#
 .   elsif type = "string" | type = "longstr"
 //  Get/set the $(name) field
-char *
+const char *
     $(class.name)_$(name) ($(class.name)_t *self);
 void
-    $(class.name)_set_$(name) ($(class.name)_t *self, char *format, ...);
+    $(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...);
 .#
 .   elsif type = "strings"
 //  Get/set the $(name) field
@@ -195,12 +197,12 @@ void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
 
 //  Iterate through the $(name) field, and append a $(name) value
-char *
+const char *
     $(class.name)_$(name)_first ($(class.name)_t *self);
-char *
+const char *
     $(class.name)_$(name)_next ($(class.name)_t *self);
 void
-    $(class.name)_$(name)_append ($(class.name)_t *self, char *format, ...);
+    $(class.name)_$(name)_append ($(class.name)_t *self, const char *format, ...);
 size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
@@ -216,12 +218,15 @@ void
     $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
     
 //  Get/set a value in the $(name) dictionary
-char *
-    $(class.name)_$(name)_string ($(class.name)_t *self, char *key, char *default_value);
+const char *
+    $(class.name)_$(name)_string ($(class.name)_t *self,
+        const char *key, const char *default_value);
 uint64_t
-    $(class.name)_$(name)_number ($(class.name)_t *self, char *key, uint64_t default_value);
+    $(class.name)_$(name)_number ($(class.name)_t *self,
+        const char *key, uint64_t default_value);
 void
-    $(class.name)_$(name)_insert ($(class.name)_t *self, char *key, char *format, ...);
+    $(class.name)_$(name)_insert ($(class.name)_t *self,
+        const char *key, const char *format, ...);
 size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
@@ -590,14 +595,11 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
                 goto malformed;
             self->$(name) = $(name);
 .       elsif type = "msg"
-            //  Get zero or more remaining frames,
-            //  leave current frame untouched
+            //  Get zero or more remaining frames, leaving current
+            //  frame untouched
             self->$(name) = zmsg_new ();
-            zframe_t *$(name)_part = zmsg_pop (msg);
-            while ($(name)_part) {
-                zmsg_add (self->$(name), $(name)_part);
-                $(name)_part = zmsg_pop (msg);
-            }
+            while (zmsg_size (msg))
+                zmsg_add (self->$(name), zmsg_pop (msg));
 .       endif
 .   endfor
             break;
@@ -900,7 +902,7 @@ $(class.name)_send_$(name) (
 .   elsif type = "octets"
     byte *$(name)\
 .   elsif type = "string" | type = "longstr"
-    char *$(name)\
+    const char *$(name)\
 .   elsif type = "strings"
     zlist_t *$(name)\
 .   elsif type = "dictionary"
@@ -1102,7 +1104,7 @@ $(class.name)_set_id ($(class.name)_t *self, int id)
 //  --------------------------------------------------------------------------
 //  Return a printable command string
 
-char *
+const char *
 $(class.name)_command ($(class.name)_t *self)
 {
     assert (self);
@@ -1157,7 +1159,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name))
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
-char *
+const char *
 $(class.name)_$(name) ($(class.name)_t *self)
 {
     assert (self);
@@ -1165,7 +1167,7 @@ $(class.name)_$(name) ($(class.name)_t *self)
 }
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, char *format, ...)
+$(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...)
 {
     //  Format $(name) from provided arguments
     assert (self);
@@ -1213,7 +1215,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p)
 //  --------------------------------------------------------------------------
 //  Iterate through the $(name) field, and append a $(name) value
 
-char *
+const char *
 $(class.name)_$(name)_first ($(class.name)_t *self)
 {
     assert (self);
@@ -1223,7 +1225,7 @@ $(class.name)_$(name)_first ($(class.name)_t *self)
         return NULL;
 }
 
-char *
+const char *
 $(class.name)_$(name)_next ($(class.name)_t *self)
 {
     assert (self);
@@ -1234,7 +1236,7 @@ $(class.name)_$(name)_next ($(class.name)_t *self)
 }
 
 void
-$(class.name)_$(name)_append ($(class.name)_t *self, char *format, ...)
+$(class.name)_$(name)_append ($(class.name)_t *self, const char *format, ...)
 {
     //  Format into newly allocated string
     assert (self);
@@ -1294,13 +1296,13 @@ $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p)
 //  --------------------------------------------------------------------------
 //  Get/set a value in the $(name) dictionary
 
-char *
-$(class.name)_$(name)_string ($(class.name)_t *self, char *key, char *default_value)
+const char *
+$(class.name)_$(name)_string ($(class.name)_t *self, const char *key, const char *default_value)
 {
     assert (self);
-    char *value = NULL;
+    const char *value = NULL;
     if (self->$(name))
-        value = (char *) (zhash_lookup (self->$(name), key));
+        value = (const char *) (zhash_lookup (self->$(name), key));
     if (!value)
         value = default_value;
 
@@ -1308,7 +1310,7 @@ $(class.name)_$(name)_string ($(class.name)_t *self, char *key, char *default_va
 }
 
 uint64_t
-$(class.name)_$(name)_number ($(class.name)_t *self, char *key, uint64_t default_value)
+$(class.name)_$(name)_number ($(class.name)_t *self, const char *key, uint64_t default_value)
 {
     assert (self);
     uint64_t value = default_value;
@@ -1322,7 +1324,7 @@ $(class.name)_$(name)_number ($(class.name)_t *self, char *key, uint64_t default
 }
 
 void
-$(class.name)_$(name)_insert ($(class.name)_t *self, char *key, char *format, ...)
+$(class.name)_$(name)_insert ($(class.name)_t *self, const char *key, const char *format, ...)
 {
     //  Format into newly allocated string
     assert (self);

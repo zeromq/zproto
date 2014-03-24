@@ -69,6 +69,14 @@ struct _zproto_example_t {
     zchunk_t *public_key;       //  Our public key
     zframe_t *address;          //  Return address as frame
     zmsg_t *content;            //  Message to be delivered
+    char *client_forename;      //  Given name
+    char *client_surname;       //  Family name
+    char *client_mobile;        //  Mobile phone number
+    char *client_email;         //  Email address
+    char *supplier_forename;    //  Given name
+    char *supplier_surname;     //  Family name
+    char *supplier_mobile;      //  Mobile phone number
+    char *supplier_email;       //  Email address
 };
 
 //  --------------------------------------------------------------------------
@@ -239,6 +247,14 @@ zproto_example_destroy (zproto_example_t **self_p)
         zchunk_destroy (&self->public_key);
         zframe_destroy (&self->address);
         zmsg_destroy (&self->content);
+        free (self->client_forename);
+        free (self->client_surname);
+        free (self->client_mobile);
+        free (self->client_email);
+        free (self->supplier_forename);
+        free (self->supplier_surname);
+        free (self->supplier_mobile);
+        free (self->supplier_email);
 
         //  Free object itself
         free (self);
@@ -356,6 +372,18 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
                 zmsg_add (self->content, content_part);
                 content_part = zmsg_pop (msg);
             }
+            break;
+
+        case ZPROTO_EXAMPLE_TYPES:
+            GET_NUMBER2 (self->sequence);
+            GET_STRING (self->client_forename);
+            GET_STRING (self->client_surname);
+            GET_STRING (self->client_mobile);
+            GET_STRING (self->client_email);
+            GET_STRING (self->supplier_forename);
+            GET_STRING (self->supplier_surname);
+            GET_STRING (self->supplier_mobile);
+            GET_STRING (self->supplier_email);
             break;
 
         default:
@@ -500,6 +528,43 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
                 frame_size += zchunk_size (self->public_key);
             break;
             
+        case ZPROTO_EXAMPLE_TYPES:
+            //  sequence is a 2-byte integer
+            frame_size += 2;
+            //  client_forename is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->client_forename)
+                frame_size += strlen (self->client_forename);
+            //  client_surname is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->client_surname)
+                frame_size += strlen (self->client_surname);
+            //  client_mobile is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->client_mobile)
+                frame_size += strlen (self->client_mobile);
+            //  client_email is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->client_email)
+                frame_size += strlen (self->client_email);
+            //  supplier_forename is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->supplier_forename)
+                frame_size += strlen (self->supplier_forename);
+            //  supplier_surname is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->supplier_surname)
+                frame_size += strlen (self->supplier_surname);
+            //  supplier_mobile is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->supplier_mobile)
+                frame_size += strlen (self->supplier_mobile);
+            //  supplier_email is a string with 1-byte length
+            frame_size++;       //  Size is one octet
+            if (self->supplier_email)
+                frame_size += strlen (self->supplier_email);
+            break;
+            
         default:
             printf ("E: bad message type '%d', not sent\n", self->id);
             //  No recovery, this is a fatal application error
@@ -564,6 +629,50 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+            break;
+
+        case ZPROTO_EXAMPLE_TYPES:
+            PUT_NUMBER2 (self->sequence);
+            if (self->client_forename) {
+                PUT_STRING (self->client_forename);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->client_surname) {
+                PUT_STRING (self->client_surname);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->client_mobile) {
+                PUT_STRING (self->client_mobile);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->client_email) {
+                PUT_STRING (self->client_email);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->supplier_forename) {
+                PUT_STRING (self->supplier_forename);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->supplier_surname) {
+                PUT_STRING (self->supplier_surname);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->supplier_mobile) {
+                PUT_STRING (self->supplier_mobile);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
+            if (self->supplier_email) {
+                PUT_STRING (self->supplier_email);
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
             break;
 
     }
@@ -643,8 +752,8 @@ zproto_example_send_log (
     uint16_t node,
     uint16_t peer,
     uint64_t time,
-    char *host,
-    char *data)
+    const char *host,
+    const char *data)
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
     zproto_example_set_sequence (self, sequence);
@@ -705,6 +814,36 @@ zproto_example_send_binary (
 
 
 //  --------------------------------------------------------------------------
+//  Send the TYPES to the socket in one step
+
+int
+zproto_example_send_types (
+    void *output,
+    uint16_t sequence,
+    const char *client_forename,
+    const char *client_surname,
+    const char *client_mobile,
+    const char *client_email,
+    const char *supplier_forename,
+    const char *supplier_surname,
+    const char *supplier_mobile,
+    const char *supplier_email)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_TYPES);
+    zproto_example_set_sequence (self, sequence);
+    zproto_example_set_client_forename (self, client_forename);
+    zproto_example_set_client_surname (self, client_surname);
+    zproto_example_set_client_mobile (self, client_mobile);
+    zproto_example_set_client_email (self, client_email);
+    zproto_example_set_supplier_forename (self, supplier_forename);
+    zproto_example_set_supplier_surname (self, supplier_surname);
+    zproto_example_set_supplier_mobile (self, supplier_mobile);
+    zproto_example_set_supplier_email (self, supplier_email);
+    return zproto_example_send (&self, output);
+}
+
+
+//  --------------------------------------------------------------------------
 //  Duplicate the zproto_example message
 
 zproto_example_t *
@@ -742,6 +881,18 @@ zproto_example_dup (zproto_example_t *self)
             copy->public_key = self->public_key? zchunk_dup (self->public_key): NULL;
             copy->address = self->address? zframe_dup (self->address): NULL;
             copy->content = self->content? zmsg_dup (self->content): NULL;
+            break;
+
+        case ZPROTO_EXAMPLE_TYPES:
+            copy->sequence = self->sequence;
+            copy->client_forename = self->client_forename? strdup (self->client_forename): NULL;
+            copy->client_surname = self->client_surname? strdup (self->client_surname): NULL;
+            copy->client_mobile = self->client_mobile? strdup (self->client_mobile): NULL;
+            copy->client_email = self->client_email? strdup (self->client_email): NULL;
+            copy->supplier_forename = self->supplier_forename? strdup (self->supplier_forename): NULL;
+            copy->supplier_surname = self->supplier_surname? strdup (self->supplier_surname): NULL;
+            copy->supplier_mobile = self->supplier_mobile? strdup (self->supplier_mobile): NULL;
+            copy->supplier_email = self->supplier_email? strdup (self->supplier_email): NULL;
             break;
 
     }
@@ -836,6 +987,43 @@ zproto_example_dump (zproto_example_t *self)
             printf ("    }\n");
             break;
             
+        case ZPROTO_EXAMPLE_TYPES:
+            puts ("TYPES:");
+            printf ("    sequence=%ld\n", (long) self->sequence);
+            if (self->client_forename)
+                printf ("    client_forename='%s'\n", self->client_forename);
+            else
+                printf ("    client_forename=\n");
+            if (self->client_surname)
+                printf ("    client_surname='%s'\n", self->client_surname);
+            else
+                printf ("    client_surname=\n");
+            if (self->client_mobile)
+                printf ("    client_mobile='%s'\n", self->client_mobile);
+            else
+                printf ("    client_mobile=\n");
+            if (self->client_email)
+                printf ("    client_email='%s'\n", self->client_email);
+            else
+                printf ("    client_email=\n");
+            if (self->supplier_forename)
+                printf ("    supplier_forename='%s'\n", self->supplier_forename);
+            else
+                printf ("    supplier_forename=\n");
+            if (self->supplier_surname)
+                printf ("    supplier_surname='%s'\n", self->supplier_surname);
+            else
+                printf ("    supplier_surname=\n");
+            if (self->supplier_mobile)
+                printf ("    supplier_mobile='%s'\n", self->supplier_mobile);
+            else
+                printf ("    supplier_mobile=\n");
+            if (self->supplier_email)
+                printf ("    supplier_email='%s'\n", self->supplier_email);
+            else
+                printf ("    supplier_email=\n");
+            break;
+            
     }
 }
 
@@ -878,7 +1066,7 @@ zproto_example_set_id (zproto_example_t *self, int id)
 //  --------------------------------------------------------------------------
 //  Return a printable command string
 
-char *
+const char *
 zproto_example_command (zproto_example_t *self)
 {
     assert (self);
@@ -891,6 +1079,9 @@ zproto_example_command (zproto_example_t *self)
             break;
         case ZPROTO_EXAMPLE_BINARY:
             return ("BINARY");
+            break;
+        case ZPROTO_EXAMPLE_TYPES:
+            return ("TYPES");
             break;
     }
     return "?";
@@ -1007,7 +1198,7 @@ zproto_example_set_time (zproto_example_t *self, uint64_t time)
 //  --------------------------------------------------------------------------
 //  Get/set the host field
 
-char *
+const char *
 zproto_example_host (zproto_example_t *self)
 {
     assert (self);
@@ -1015,7 +1206,7 @@ zproto_example_host (zproto_example_t *self)
 }
 
 void
-zproto_example_set_host (zproto_example_t *self, char *format, ...)
+zproto_example_set_host (zproto_example_t *self, const char *format, ...)
 {
     //  Format host from provided arguments
     assert (self);
@@ -1030,7 +1221,7 @@ zproto_example_set_host (zproto_example_t *self, char *format, ...)
 //  --------------------------------------------------------------------------
 //  Get/set the data field
 
-char *
+const char *
 zproto_example_data (zproto_example_t *self)
 {
     assert (self);
@@ -1038,7 +1229,7 @@ zproto_example_data (zproto_example_t *self)
 }
 
 void
-zproto_example_set_data (zproto_example_t *self, char *format, ...)
+zproto_example_set_data (zproto_example_t *self, const char *format, ...)
 {
     //  Format data from provided arguments
     assert (self);
@@ -1086,7 +1277,7 @@ zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p)
 //  --------------------------------------------------------------------------
 //  Iterate through the aliases field, and append a aliases value
 
-char *
+const char *
 zproto_example_aliases_first (zproto_example_t *self)
 {
     assert (self);
@@ -1096,7 +1287,7 @@ zproto_example_aliases_first (zproto_example_t *self)
         return NULL;
 }
 
-char *
+const char *
 zproto_example_aliases_next (zproto_example_t *self)
 {
     assert (self);
@@ -1107,7 +1298,7 @@ zproto_example_aliases_next (zproto_example_t *self)
 }
 
 void
-zproto_example_aliases_append (zproto_example_t *self, char *format, ...)
+zproto_example_aliases_append (zproto_example_t *self, const char *format, ...)
 {
     //  Format into newly allocated string
     assert (self);
@@ -1167,13 +1358,13 @@ zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p)
 //  --------------------------------------------------------------------------
 //  Get/set a value in the headers dictionary
 
-char *
-zproto_example_headers_string (zproto_example_t *self, char *key, char *default_value)
+const char *
+zproto_example_headers_string (zproto_example_t *self, const char *key, const char *default_value)
 {
     assert (self);
-    char *value = NULL;
+    const char *value = NULL;
     if (self->headers)
-        value = (char *) (zhash_lookup (self->headers, key));
+        value = (const char *) (zhash_lookup (self->headers, key));
     if (!value)
         value = default_value;
 
@@ -1181,7 +1372,7 @@ zproto_example_headers_string (zproto_example_t *self, char *key, char *default_
 }
 
 uint64_t
-zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t default_value)
+zproto_example_headers_number (zproto_example_t *self, const char *key, uint64_t default_value)
 {
     assert (self);
     uint64_t value = default_value;
@@ -1195,7 +1386,7 @@ zproto_example_headers_number (zproto_example_t *self, char *key, uint64_t defau
 }
 
 void
-zproto_example_headers_insert (zproto_example_t *self, char *key, char *format, ...)
+zproto_example_headers_insert (zproto_example_t *self, const char *key, const char *format, ...)
 {
     //  Format into newly allocated string
     assert (self);
@@ -1334,6 +1525,190 @@ zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p)
     *msg_p = NULL;
 }
 
+//  --------------------------------------------------------------------------
+//  Get/set the client_forename field
+
+const char *
+zproto_example_client_forename (zproto_example_t *self)
+{
+    assert (self);
+    return self->client_forename;
+}
+
+void
+zproto_example_set_client_forename (zproto_example_t *self, const char *format, ...)
+{
+    //  Format client_forename from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->client_forename);
+    self->client_forename = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the client_surname field
+
+const char *
+zproto_example_client_surname (zproto_example_t *self)
+{
+    assert (self);
+    return self->client_surname;
+}
+
+void
+zproto_example_set_client_surname (zproto_example_t *self, const char *format, ...)
+{
+    //  Format client_surname from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->client_surname);
+    self->client_surname = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the client_mobile field
+
+const char *
+zproto_example_client_mobile (zproto_example_t *self)
+{
+    assert (self);
+    return self->client_mobile;
+}
+
+void
+zproto_example_set_client_mobile (zproto_example_t *self, const char *format, ...)
+{
+    //  Format client_mobile from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->client_mobile);
+    self->client_mobile = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the client_email field
+
+const char *
+zproto_example_client_email (zproto_example_t *self)
+{
+    assert (self);
+    return self->client_email;
+}
+
+void
+zproto_example_set_client_email (zproto_example_t *self, const char *format, ...)
+{
+    //  Format client_email from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->client_email);
+    self->client_email = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the supplier_forename field
+
+const char *
+zproto_example_supplier_forename (zproto_example_t *self)
+{
+    assert (self);
+    return self->supplier_forename;
+}
+
+void
+zproto_example_set_supplier_forename (zproto_example_t *self, const char *format, ...)
+{
+    //  Format supplier_forename from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->supplier_forename);
+    self->supplier_forename = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the supplier_surname field
+
+const char *
+zproto_example_supplier_surname (zproto_example_t *self)
+{
+    assert (self);
+    return self->supplier_surname;
+}
+
+void
+zproto_example_set_supplier_surname (zproto_example_t *self, const char *format, ...)
+{
+    //  Format supplier_surname from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->supplier_surname);
+    self->supplier_surname = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the supplier_mobile field
+
+const char *
+zproto_example_supplier_mobile (zproto_example_t *self)
+{
+    assert (self);
+    return self->supplier_mobile;
+}
+
+void
+zproto_example_set_supplier_mobile (zproto_example_t *self, const char *format, ...)
+{
+    //  Format supplier_mobile from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->supplier_mobile);
+    self->supplier_mobile = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the supplier_email field
+
+const char *
+zproto_example_supplier_email (zproto_example_t *self)
+{
+    assert (self);
+    return self->supplier_email;
+}
+
+void
+zproto_example_set_supplier_email (zproto_example_t *self, const char *format, ...)
+{
+    //  Format supplier_email from provided arguments
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->supplier_email);
+    self->supplier_email = zsys_vprintf (format, argptr);
+    va_end (argptr);
+}
+
+
 
 //  --------------------------------------------------------------------------
 //  Selftest
@@ -1461,6 +1836,42 @@ zproto_example_test (bool verbose)
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
+        zproto_example_destroy (&self);
+    }
+    self = zproto_example_new (ZPROTO_EXAMPLE_TYPES);
+    
+    //  Check that _dup works on empty message
+    copy = zproto_example_dup (self);
+    assert (copy);
+    zproto_example_destroy (&copy);
+
+    zproto_example_set_sequence (self, 123);
+    zproto_example_set_client_forename (self, "Life is short but Now lasts for ever");
+    zproto_example_set_client_surname (self, "Life is short but Now lasts for ever");
+    zproto_example_set_client_mobile (self, "Life is short but Now lasts for ever");
+    zproto_example_set_client_email (self, "Life is short but Now lasts for ever");
+    zproto_example_set_supplier_forename (self, "Life is short but Now lasts for ever");
+    zproto_example_set_supplier_surname (self, "Life is short but Now lasts for ever");
+    zproto_example_set_supplier_mobile (self, "Life is short but Now lasts for ever");
+    zproto_example_set_supplier_email (self, "Life is short but Now lasts for ever");
+    //  Send twice from same object
+    zproto_example_send_again (self, output);
+    zproto_example_send (&self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        self = zproto_example_recv (input);
+        assert (self);
+        assert (zproto_example_routing_id (self));
+        
+        assert (zproto_example_sequence (self) == 123);
+        assert (streq (zproto_example_client_forename (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_client_surname (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_client_mobile (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_client_email (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_supplier_forename (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_supplier_surname (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_supplier_mobile (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_supplier_email (self), "Life is short but Now lasts for ever"));
         zproto_example_destroy (&self);
     }
 

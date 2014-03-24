@@ -22,55 +22,108 @@ function generate_bnf
 
     for message
         >
-        >    ; $(string.trim (message.))
+        >    ; $(string.trim (message.?''):)
         >    C:$(message.name:)\
         >                    = signature %d$(id)\
         for field
             > $(field.name)\
         endfor
         >
-
         if first()
             >    signature       = %xAA %d$(signature)   ; two octets
         endif
         for field
             if type = "number"
                 >    $(name)         = number-$(size)        ; $(field.?'':)
+                class.use_number_$(size) = 1
             elsif type = "octets"
                 >    $(name)         = $(size)OCTET          ; $(field.?'':)
             else
                 >    $(name)         = $(type)               ; $(field.?'':)
+                class.use_$(type) = 1
+            endif
+        endfor
+        for class.type where !defined (type.expressed)
+            if defined (class.use_$(name))
+                >    $(name)         =\
+                for field
+                    > $(field.name)\
+                endfor
+                >
+                for field
+                    if field.type = "number"
+                        >    $(name)         = number-$(size)        ; $(field.?'':)
+                        class.use_number_$(size) = 1
+                    elsif field.type = "octets"
+                        >    $(name)         = $(size)OCTET          ; $(field.?'':)
+                    else
+                        >    $(name)         = $(field.type)         ; $(field.?'':)
+                        class.use_$(field.type) = 1
+                    endif
+                endfor
+                type.expressed = 1
             endif
         endfor
 
     endfor
-    >
-    >    ; Numbers are unsigned integers in network byte order
-    >    number-1        = 1OCTET
-    >    number-2        = 2OCTET
-    >    number-4        = 4OCTET
-    >    number-8        = 8OCTET
-    >
-    >    ; Strings are always length + text contents
-    >    string          = number-1 *VCHAR
-    >    longstr         = number-4 *VCHAR
+    if defined (class.use_strings)
     >
     >    ; A list of string values
-    >    strings         = count *value
-    >    value           = longstr
+    >    strings         = strings-count *strings-value
+    >    strings-count   = number-4
+    >    strings-value   = longstr
+        class.use_number_4 = 1
+        class.use_longstr = 1
+    endif
+    if defined (class.use_dictionary)
     >
     >    ; A list of name/value pairs
-    >    dictionary      = count *( name value )
-    >    count           = number-4
-    >    name            = string
+    >    dictionary      = dict-count *( dict-name dict-value )
+    >    dict-count      = number-4
+    >    dict-value      = longstr
+    >    dict-name       = string
+        class.use_number_4 = 1
+        class.use_string = 1
+    endif
+    if defined (class.use_chunk)
     >
     >    ; A chunk has 4-octet length + binary contents
     >    chunk           = number-4 *OCTET
+        class.use_number_4 = 1
+    endif
+    if defined (class.use_frame)
     >
     >    ; A frame is zero or more octets encoded as a ZeroMQ frame
     >    frame           = *OCTET
+    endif
+    if defined (class.use_msg)
     >
     >    ; A msg is zero or more distinct frames
     >    msg             = *frame
+    endif
+    >
+    >    ; Strings are always length + text contents
+    if defined (class.use_string)
+    >    string          = number-1 *VCHAR
+         class.use_number_1 = 1
+    endif
+    if defined (class.use_longstr)
+    >    longstr         = number-4 *VCHAR
+         class.use_number_4 = 1
+    endif
+    >
+    >    ; Numbers are unsigned integers in network byte order
+    if defined (class.use_number_1)
+    >    number-1        = 1OCTET
+    endif
+    if defined (class.use_number_2)
+    >    number-2        = 2OCTET
+    endif
+    if defined (class.use_number_4)
+    >    number-4        = 4OCTET
+    endif
+    if defined (class.use_number_8)
+    >    number-8        = 8OCTET
+    endif
 endfunction
 .endtemplate
