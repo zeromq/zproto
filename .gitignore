@@ -27,3 +27,6 @@ src/stamp-h1
 src/zproto_example.lo
 src/zproto_selftest
 src/platform.h.in~
+src/test-suite.log
+src/zproto_selftest.log
+src/zproto_selftest.trs

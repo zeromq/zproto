@@ -21,6 +21,10 @@ function generate_bnf
     endfor
 
     for message
+        message.name = "$(message.name:c)"
+        if !defined (message.id)
+            message.id = item ()
+        endif
         >
         >    ; $(string.trim (message.?''):)
         >    C:$(message.name:)\

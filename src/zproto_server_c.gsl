@@ -271,7 +271,7 @@ $(class.name)_bind ($(class.name)_t *self, const char *format, ...)
 
     //  Send BIND command to server task
     zstr_sendm (self->pipe, "BIND");
-    zstr_sendf (self->pipe, endpoint);
+    zstr_send (self->pipe, endpoint);
     char *reply = zstr_recv (self->pipe);
     long reply_value = atol (reply);
     free (reply);
