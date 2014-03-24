@@ -118,24 +118,42 @@ int
 .       echo "E: 'msg' field must be last in the message"
 .   endif
 ,
-.   if type = "number"
-        $(ctype) $(name)\
-.   elsif type = "octets"
-        byte *$(name)\
-.   elsif type = "string" | type = "longstr"
-        const char *$(name)\
-.   elsif type = "strings"
-        zlist_t *$(name)\
-.   elsif type = "dictionary"
-        zhash_t *$(name)\
-.   elsif type = "chunk"
-        zchunk_t *$(name)\
-.   elsif type = "frame"
+.   if repeat <> ""
+.       if type = "number"
+    $(ctype) $(name) $(repeat), byte $(name)_size\
+.       elsif type = "octets"
+    byte **$(name), byte $(name)_size\
+.       elsif type = "string" | type = "longstr"
+    const char **$(name), byte $(name)_size\
+.       elsif type = "strings"
+    zlist_t **$(name), byte $(name)_size\
+.       elsif type = "dictionary"
+    zhash_t **$(name), byte $(name)_size\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t **$(name), byte $(name)_size\
+.       endif
+.   else
+.       if type = "number"
+    $(ctype) $(name)\
+.       elsif type = "octets"
+    byte *$(name)\
+.       elsif type = "string" | type = "longstr"
+    const char *$(name)\
+.       elsif type = "strings"
+    zlist_t *$(name)\
+.       elsif type = "dictionary"
+    zhash_t *$(name)\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)\
+.       elsif type = "chunk"
+    zchunk_t *$(name)\
+.       elsif type = "frame"
 .       message.has_frame = 1
-        zframe_t *$(name)\
-.   elsif type = "msg"
-        zmsg_t *$(name)\
+    zframe_t *$(name)\
+.       elsif type = "msg"
+    zmsg_t *$(name)\
 .       message.has_msg = name
+.       endif
 .   endif
 .endfor
 );
@@ -164,28 +182,78 @@ const char *
     $(class.name)_command ($(class.name)_t *self);
 
 .for class.field where !defined (value)
-.   if type = "number"
+.   if repeat <> ""
+.       if type = "number"
+//  Get/set the $(name) field
+$(ctype)
+    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
+void
+    $(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name) $(repeat), byte size);
+.#
+.       elsif type = "octets"
+//  Get/set the $(name) field
+byte *
+    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
+void
+    $(class.name)_set_$(name) ($(class.name)_t *self, byte **$(name), byte size);
+.#
+.       elsif type = "string" | type = "longstr"
+//  Get/set the $(name) field
+const char *
+    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
+void
+    $(class.name)_set_$(name) ($(class.name)_t *self, const char **, byte size);
+.#
+.       elsif type = "strings"
+//  Get/set the $(name) field
+zlist_t *
+    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
+//  Get the $(name) field and transfer ownership to caller
+void
+    $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name), byte size);
+.#
+.       elsif type = "dictionary"
+//  Get/set the $(name) field
+zhash_t *
+    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
+//  Get the $(name) field and transfer ownership to caller
+void
+    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name), byte size);
+.#
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+//  Get a copy of the $(name) field
+z$(type)_t *
+    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
+//  Set the $(name) field, transferring ownership from caller
+void
+    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type), byte size);
+.#
+.       else
+.           echo "E: unknown type '$(type)' for field '$(name)'"
+.       endif
+.   else
+.       if type = "number"
 //  Get/set the $(name) field
 $(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name));
 .#
-.   elsif type = "octets"
+.       elsif type = "octets"
 //  Get/set the $(name) field
 byte *
     $(class.name)_$(name) ($(class.name)_t *self);
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name));
 .#
-.   elsif type = "string" | type = "longstr"
+.       elsif type = "string" | type = "longstr"
 //  Get/set the $(name) field
 const char *
     $(class.name)_$(name) ($(class.name)_t *self);
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...);
 .#
-.   elsif type = "strings"
+.       elsif type = "strings"
 //  Get/set the $(name) field
 zlist_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -206,7 +274,7 @@ void
 size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
-.   elsif type = "dictionary"
+.       elsif type = "dictionary"
 //  Get/set the $(name) field
 zhash_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -230,7 +298,7 @@ void
 size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
-.   elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "msg"
 //  Get a copy of the $(name) field
 z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -241,9 +309,10 @@ z$(type)_t *
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p);
 .#
-.   else
-.       echo "E: unknown type '$(type)' for field '$(name)'"
-.   endif
+.       else
+.           echo "E: unknown type '$(type)' for field '$(name)'"
+.       endif
+.endif
 
 .endfor
 //  Self test of this class
@@ -474,16 +543,37 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
+        int i;
 .for class.field
-.   if type = "string" | type = "longstr"
+.   if repeat <> ""
+.       if type = "string" | type = "longstr"
+        if (self->$(name)) {
+            for (i = 0; i < self->$(name)_index; i++) 
+                free (self->$(name) [i]);
+        }
+.       elsif type = "strings"
+        if (self->$(name)) {
+            for (i = 0; i < self->$(name)_index; i++)
+                zlist_destroy (&self->$(name) [i]);
+        }
+.       elsif type = "dictionary"
+        for (i = 0; i < self->$(name)_index; i++)
+            zhash_destroy (&self->$(name) [i]);
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+        for (i = 0; i < self->$(name)_index; i++)
+            z$(type)_destroy (&self->$(name) [i]);
+.       endif
+.   else
+.       if type = "string" | type = "longstr"
         free (self->$(name));
-.   elsif type = "strings"
+.       elsif type = "strings"
         if (self->$(name))
             zlist_destroy (&self->$(name));
-.   elsif type = "dictionary"
+.       elsif type = "dictionary"
         zhash_destroy (&self->$(name));
-.   elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "msg"
         z$(type)_destroy (&self->$(name));
+.       endif
 .   endif
 .endfor
 
@@ -731,7 +821,8 @@ $(class.name)_encode ($(class.name)_t *self, int socket_type)
             //  Array with 1-byte length
             frame_size += 1;
             {
-                for (int i = 0; i < self->$(name)_index; i++) {
+                int i;
+                for (i = 0; i < self->$(name)_index; i++) {
 .           if type = "number"
                     //  $(name) is a $(size)-byte integer
                     frame_size += $(size);
@@ -844,7 +935,8 @@ $(class.name)_encode ($(class.name)_t *self, int socket_type)
 .       if repeat <> ""
             {
                 PUT_NUMBER1 (self->$(name)_index + 1);
-                for (int i = 0; i < self->$(name)_index; i++) {
+                int i;
+                for (i = 0; i < self->$(name)_index; i++) {
 .           if type = "number"
                     PUT_NUMBER$(size) (self->$(name) [i]);
 .           elsif type = "octets"
@@ -1031,35 +1123,66 @@ $(class.name)_send_$(name) (
     void *output\
 .for field where !defined (value)
 ,
-.   if type = "number"
-    $(ctype) $(name) $(repeat)\
-.   elsif type = "octets"
-    byte *$(name) $(repeat)\
-.   elsif type = "string" | type = "longstr"
-    const char *$(name) $(repeat)\
-.   elsif type = "strings"
-    zlist_t *$(name) $(repeat)\
-.   elsif type = "dictionary"
-    zhash_t *$(name) $(repeat)\
-.   elsif type = "chunk" | type = "frame" | type = "msg"
-    z$(type)_t *$(name) $(repeat)\
+.   if field.repeat <> ""
+.       if type = "number"
+    $(ctype) $(name) $(repeat), byte $(name)_size\
+.       elsif type = "octets"
+    byte **$(name), byte $(name)_size\
+.       elsif type = "string" | type = "longstr"
+    const char **$(name), byte $(name)_size\
+.       elsif type = "strings"
+    zlist_t **$(name), byte $(name)_size\
+.       elsif type = "dictionary"
+    zhash_t **$(name), byte $(name)_size\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t **$(name), byte $(name)_size\
+.       endif
+.   else
+.       if type = "number"
+    $(ctype) $(name)\
+.       elsif type = "octets"
+    byte *$(name)\
+.       elsif type = "string" | type = "longstr"
+    const char *$(name)\
+.       elsif type = "strings"
+    zlist_t *$(name)\
+.       elsif type = "dictionary"
+    zhash_t *$(name)\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)\
+.       endif
 .   endif
 .endfor
 )
 {
     $(class.name)_t *self = $(class.name)_new ($(class.NAME)_$(NAME));
 .for field where !defined (value)
-.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
-    $(class.name)_set_$(name) (self, $(name));
-.   elsif type = "strings"
+.   if repeat <> ""
+.       if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    $(class.name)_set_$(name) (self, $(name), $(name)_size);
+.       elsif type = "strings"
     zlist_t *$(name)_copy = zlist_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
+.       elsif type = "dictionary"
+    zhash_t *$(name)_copy = zhash_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
+.       endif
+.   else
+.       if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    $(class.name)_set_$(name) (self, $(name));
+.       elsif type = "strings"
+        zlist_t *$(name)_copy = zlist_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
-.   elsif type = "dictionary"
+.       elsif type = "dictionary"
     zhash_t *$(name)_copy = zhash_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
-.   elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "msg"
     z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
+.       endif
 .   endif
 .endfor
     return $(class.name)_send (&self, output);
@@ -1080,12 +1203,13 @@ $(class.name)_dup ($(class.name)_t *self)
     if (self->routing_id)
         copy->routing_id = zframe_dup (self->routing_id);
 
+    int i;
     switch (self->id) {
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
 .   for field
 .       if repeat <> ""
-            for (int i = 0; i < self->$(name)_index; i++) {
+            for (i = 0; i < self->$(name)_index; i++) {
 .           if type = "number"
                 copy->$(name) [i] = self->$(name) [i];
 .           elsif type = "octets"
@@ -1140,6 +1264,7 @@ void
 $(class.name)_dump ($(class.name)_t *self)
 {
     assert (self);
+    int i;
     switch (self->id) {
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
@@ -1150,8 +1275,8 @@ $(class.name)_dump ($(class.name)_t *self)
             printf ("    $(name)=$(field.value)\\n");
 .           elsif repeat <> ""
             printf ("   $(name)=[");
-            for (int i = 0; i < self->$(name)_index; i++) {
-                printf ("$ld", (long) self->$(name));
+            for (i = 0; i < self->$(name)_index; i++) {
+                printf ("%ld", (long) self->$(name));
                 if (i < self->$(name)_index - 1)
                     printf (",");
             }
@@ -1162,7 +1287,7 @@ $(class.name)_dump ($(class.name)_t *self)
 .       elsif type = "octets"
             printf ("    $(name)=[");
 .           if repeat <> ""
-            for (int i = 0; i < self->$(name)_index; i++) {
+            for (i = 0; i < self->$(name)_index; i++) {
                 int $(name)_index;
                 printf ("{");
                 for ($(name)_index = 0; $(name)_index < $(size); $(name)_index++) {
@@ -1187,7 +1312,7 @@ $(class.name)_dump ($(class.name)_t *self)
             printf ("    $(name)=$(field.value)\\n");
 .           elsif repeat <> ""
             printf ("$(name)=[");
-            for (int i = 0; i < self->$(name)_index; i++) {
+            for (i = 0; i < self->$(name)_index; i++) {
                 if (self->$(name) [i])
                     printf (" '%s'", self->$(name) [i]);
                 else
@@ -1205,7 +1330,7 @@ $(class.name)_dump ($(class.name)_t *self)
 .       elsif type = "strings"
 .           if repeat <> ""
             printf ("    $(name)=[");
-            for (int i = 0; i < self->$(name)_index; i++) {
+            for (i = 0; i < self->$(name)_index; i++) {
                 printf ("{");
                 if (self->$(name) [i]) {
                     char *$(name) = (char *) zlist_first (self->$(name) [i]);
@@ -1231,7 +1356,7 @@ $(class.name)_dump ($(class.name)_t *self)
 .       elsif type = "dictionary"
 .           if repeat <> ""
             printf ("    $(name)=[");
-            for (int i = 0; i < self->$(name)_index; i++) {
+            for (i = 0; i < self->$(name)_index; i++) {
                 printf ("   {\\n");
                 if (self->$(name))
                     zhash_foreach (self->$(name) [i], s_$(name)_dump, self);
@@ -1251,7 +1376,7 @@ $(class.name)_dump ($(class.name)_t *self)
 .       elsif type = "chunk"
 .           if repeat <> ""
             printf ("    $(name)=[");
-            for (int i = 0; i < self->$(name)_index; i++) {
+            for (i = 0; i < self->$(name)_index; i++) {
                 printf ("    {\\n");
                 if (self->$(name) [i])
                     zchunk_print (self->$(name) [i]);
@@ -1345,6 +1470,30 @@ $(class.name)_command ($(class.name)_t *self)
 
 .for class.field where !defined (value)
 .   if type = "number"
+.       if repeat <> ""
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+$(ctype) 
+$(class.name)_$(name)_index ($(class.name)_t *self, byte index)
+{
+    assert (self);
+    if (index > self->$(name)_index)
+        return 0;
+    return self->$(name) [index];
+}
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name) $(repeat), byte size)
+{
+    assert (self);
+    assert (size <= self->$(name)_index);
+    self->$(name)_index = size;
+    int i;
+    for (i = 0; i < size; i++)
+        self->$(name) [i] = $(name) [i];
+}
+.       else
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
@@ -1356,13 +1505,39 @@ $(class.name)_$(name) ($(class.name)_t *self)
 }
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name) $(repeat))
+$(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name))
 {
     assert (self);
     self->$(name) = $(name);
 }
+.       endif
 
 .   elsif type = "octets"
+.       if repeat <> ""
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+byte * 
+$(class.name)_$(name)_index ($(class.name)_t *self, byte index)
+{
+    assert (self);
+    if (index < self->$(name)_index)
+        return NULL;
+    return self->$(name) [index];
+}
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, byte **$(name), byte size)
+{
+    assert (self);
+    assert (size <= self->$(name)_index);
+    self->$(name)_index = size;
+    int i;
+    for (i = 0; i < size; i++) {
+        memcpy (self->$(name) [i], $(name) [i], $(size));
+    }
+}       
+.       else
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
@@ -1374,13 +1549,39 @@ $(class.name)_$(name) ($(class.name)_t *self)
 }
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, byte $(repeat) *$(name))
+$(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name))
 {
     assert (self);
     memcpy (self->$(name), $(name), $(size));
 }
+.       endif
 
 .   elsif type = "string" | type = "longstr"
+.       if repeat <> ""
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+const char *
+$(class.name)_$(name)_index ($(class.name)_t *self, byte index)
+{
+    assert (self);
+    if (index > self->$(name)_index)
+        return NULL;
+    return self->$(name) [index];
+}
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, const char **$(name), byte size)
+{
+    //  Format $(name) from provided arguments
+    assert (self);
+    assert (size <= self->$(name)_index);
+    self->$(name)_index = size;
+    int i;
+    for (i = 0; i < size; i++) 
+        strcpy (self->$(name) [i], $(name) [i]);
+}
+.       else
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
@@ -1402,8 +1603,38 @@ $(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...)
     self->$(name) = zsys_vprintf (format, argptr);
     va_end (argptr);
 }
+.       endif
 
 .   elsif type = "strings"
+.       if repeat <> ""
+//  --------------------------------------------------------------------------
+//  Get the $(name) field, without transferring ownership
+
+zlist_t *
+$(class.name)_$(name)_index ($(class.name)_t *self, byte index)
+{
+    assert (self);
+    if (index > self->$(name)_index)
+        return NULL;
+    return self->$(name) [index];
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name), byte size)
+{
+    assert (self);
+    assert (size <= self->$(name)_index);
+    self->$(name)_index = size;
+    int i;
+    for (i = 0; i < size; i++) {
+        zlist_destroy (&self->$(name) [i]);
+        self->$(name) [i] = $(name) [i];
+        $(name) [i] = NULL;
+    }
+}
+.       else
 //  --------------------------------------------------------------------------
 //  Get the $(name) field, without transferring ownership
 
@@ -1484,8 +1715,38 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 {
     return zlist_size (self->$(name));
 }
+.       endif
 
 .   elsif type = "dictionary"
+.       if repeat <> ""
+//  --------------------------------------------------------------------------
+//  Get the $(name) field without transferring ownership
+
+zhash_t *
+$(class.name)_$(name)_index ($(class.name)_t *self, byte size)
+{
+    assert (self);
+    if (size > self->$(name)_index)
+        return NULL;
+    return self->$(name) [index];
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name), byte size)
+{
+    assert (self);
+    assert (size <= self->$(name)_index);
+    self->$(name)_index = size;
+    int i;
+    for (i = 0; i < 0; i++) {
+        zhash_destroy (&self->$(name) [i]);
+        self->$(name) [i] = *$(name) [i];
+        $(name) [i] = NULL;
+    }
+}
+.       else
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
@@ -1572,8 +1833,37 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 {
     return zhash_size (self->$(name));
 }
+.       endif
 
 .   elsif type = "chunk" | type = "frame" | type = "msg"
+.       if repeat <> ""
+//  --------------------------------------------------------------------------
+//  Get the $(name) field without transferring ownership
+
+z$(type)_t *
+$(class.name)_$(name)_index ($(class.name)_t *self, byte index)
+{
+    assert (self);
+    if (index > self->$(name)_index)
+        return NULL
+    return self->$(name) [index];
+}
+
+//  Set the $(name) field, transferring ownership from caller
+
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type), byte size)
+{
+    assert (self);
+    assert (size <= self->$(name)_index);
+    int i;
+    for (i = 0; i < size; i++) {
+        z$(type)_destroy (&self->$(name) [i]);
+        self->$(name) [i] = $(type) [i];
+        $(type) [i] = NULL;
+    }
+}
+.       else
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
@@ -1605,6 +1895,8 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
     self->$(name) = *$(type)_p;
     *$(type)_p = NULL;
 }
+.       endif
+
 .   endif
 
 .endfor
@@ -1646,7 +1938,7 @@ $(class.name)_test (bool verbose)
     assert (copy);
     $(class.name)_destroy (&copy);
 
-.   for field where !defined (value)
+.   for field where !defined (value) & repeat = ""
 .       if type = "number"
     $(class.name)_set_$(name) (self, 123);
 .       elsif type = "octets"
@@ -1679,7 +1971,7 @@ $(class.name)_test (bool verbose)
         assert (self);
         assert ($(class.name)_routing_id (self));
         
-.   for field where !defined (value)
+.   for field where !defined (value) & repeat = ""
 .       if type = "number"
         assert ($(class.name)_$(name) (self) == 123);
 .       elsif type = "octets"
