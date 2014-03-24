@@ -52,6 +52,11 @@
         host                string      Originating hostname
         data                longstr     Actual log message
 
+    LISTS - This message conaints lists
+        sequence            number 2    
+        times               number 8    Log date/time
+        hosts               string      Originating hostname
+
     STRUCTURES - This message contains a list and a hash.
         sequence            number 2    
         aliases             strings     List of strings
@@ -79,6 +84,7 @@
 #define ZPROTO_EXAMPLE_VERSION              1
 
 #define ZPROTO_EXAMPLE_LOG                  1
+#define ZPROTO_EXAMPLE_LISTS                5
 #define ZPROTO_EXAMPLE_STRUCTURES           2
 #define ZPROTO_EXAMPLE_BINARY               3
 #define ZPROTO_EXAMPLE_TYPES                4
@@ -135,43 +141,50 @@ int
 //  Send the LOG to the output in one step
 int
     zproto_example_send_log (void *output,
-        uint16_t sequence,
-        byte level,
-        byte event,
-        uint16_t node,
-        uint16_t peer,
-        uint64_t time,
-        const char *host,
-        const char *data);
+    uint16_t sequence,
+    byte level,
+    byte event,
+    uint16_t node,
+    uint16_t peer,
+    uint64_t time,
+    const char *host,
+    const char *data);
+    
+//  Send the LISTS to the output in one step
+int
+    zproto_example_send_lists (void *output,
+    uint16_t sequence,
+    uint64_t times [255], byte times_size,
+    const char **hosts, byte hosts_size);
     
 //  Send the STRUCTURES to the output in one step
 int
     zproto_example_send_structures (void *output,
-        uint16_t sequence,
-        zlist_t *aliases,
-        zhash_t *headers);
+    uint16_t sequence,
+    zlist_t *aliases,
+    zhash_t *headers);
     
 //  Send the BINARY to the output in one step
 int
     zproto_example_send_binary (void *output,
-        uint16_t sequence,
-        byte *flags,
-        zchunk_t *public_key,
-        zframe_t *address,
-        zmsg_t *content);
+    uint16_t sequence,
+    byte *flags,
+    zchunk_t *public_key,
+    zframe_t *address,
+    zmsg_t *content);
     
 //  Send the TYPES to the output in one step
 int
     zproto_example_send_types (void *output,
-        uint16_t sequence,
-        const char *client_forename,
-        const char *client_surname,
-        const char *client_mobile,
-        const char *client_email,
-        const char *supplier_forename,
-        const char *supplier_surname,
-        const char *supplier_mobile,
-        const char *supplier_email);
+    uint16_t sequence,
+    const char *client_forename,
+    const char *client_surname,
+    const char *client_mobile,
+    const char *client_email,
+    const char *supplier_forename,
+    const char *supplier_surname,
+    const char *supplier_mobile,
+    const char *supplier_email);
     
 //  Duplicate the zproto_example message
 zproto_example_t *
@@ -242,6 +255,18 @@ const char *
     zproto_example_data (zproto_example_t *self);
 void
     zproto_example_set_data (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the times field
+uint64_t
+    zproto_example_times_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_times (zproto_example_t *self, uint64_t times [255], byte size);
+
+//  Get/set the hosts field
+const char *
+    zproto_example_hosts_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_hosts (zproto_example_t *self, const char **, byte size);
 
 //  Get/set the aliases field
 zlist_t *

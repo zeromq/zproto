@@ -49,34 +49,38 @@
 //  Structure of our class
 
 struct _zproto_example_t {
-    zframe_t *routing_id;       //  Routing_id from ROUTER, if any
-    int id;                     //  zproto_example message ID
-    byte *needle;               //  Read/write pointer for serialization
-    byte *ceiling;              //  Valid upper limit for read pointer
-    uint16_t sequence;          //  
-    uint16_t version;           //  Version
-    byte level;                 //  Log severity level
-    byte event;                 //  Type of event
-    uint16_t node;              //  Sending node
-    uint16_t peer;              //  Refers to this peer
-    uint64_t time;              //  Log date/time
-    char *host;                 //  Originating hostname
-    char *data;                 //  Actual log message
-    zlist_t *aliases;           //  List of strings
-    zhash_t *headers;           //  Other random properties
-    size_t headers_bytes;       //  Size of dictionary content
-    byte flags [4];             //  A set of flags
-    zchunk_t *public_key;       //  Our public key
-    zframe_t *address;          //  Return address as frame
-    zmsg_t *content;            //  Message to be delivered
-    char *client_forename;      //  Given name
-    char *client_surname;       //  Family name
-    char *client_mobile;        //  Mobile phone number
-    char *client_email;         //  Email address
-    char *supplier_forename;    //  Given name
-    char *supplier_surname;     //  Family name
-    char *supplier_mobile;      //  Mobile phone number
-    char *supplier_email;       //  Email address
+    zframe_t *routing_id;               //  Routing_id from ROUTER, if any
+    int id;                             //  zproto_example message ID
+    byte *needle;                       //  Read/write pointer for serialization
+    byte *ceiling;                      //  Valid upper limit for read pointer
+    uint16_t sequence;                  //  
+    uint16_t version;                   //  Version
+    byte level;                         //  Log severity level
+    byte event;                         //  Type of event
+    uint16_t node;                      //  Sending node
+    uint16_t peer;                      //  Refers to this peer
+    uint64_t time;                      //  Log date/time
+    char *host;                         //  Originating hostname
+    char *data;                         //  Actual log message
+    uint64_t times [255];               //  Log date/time
+    byte times_index;
+    char *hosts [255];                  //  Originating hostname
+    byte hosts_index;
+    zlist_t *aliases;                   //  List of strings
+    zhash_t *headers;                   //  Other random properties
+    size_t headers_bytes;               //  Size of dictionary content
+    byte flags [4];                     //  A set of flags
+    zchunk_t *public_key;               //  Our public key
+    zframe_t *address;                  //  Return address as frame
+    zmsg_t *content;                    //  Message to be delivered
+    char *client_forename;              //  Given name
+    char *client_surname;               //  Family name
+    char *client_mobile;                //  Mobile phone number
+    char *client_email;                 //  Email address
+    char *supplier_forename;            //  Given name
+    char *supplier_surname;             //  Family name
+    char *supplier_mobile;              //  Mobile phone number
+    char *supplier_email;               //  Email address
 };
 
 //  --------------------------------------------------------------------------
@@ -223,6 +227,8 @@ zproto_example_new (int id)
 {
     zproto_example_t *self = (zproto_example_t *) zmalloc (sizeof (zproto_example_t));
     self->id = id;
+    self->times_index = 255;
+    self->hosts_index = 255;
     return self;
 }
 
@@ -239,8 +245,14 @@ zproto_example_destroy (zproto_example_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
+        int i;
         free (self->host);
         free (self->data);
+        if (self->hosts) {
+            for (i = 0; i < self->hosts_index; i++)
+                if (self->hosts [i])
+                    free (self->hosts [i]);
+        }
         if (self->aliases)
             zlist_destroy (&self->aliases);
         zhash_destroy (&self->headers);
@@ -318,6 +330,32 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
             GET_LONGSTR (self->data);
             break;
 
+        case ZPROTO_EXAMPLE_LISTS:
+            GET_NUMBER2 (self->sequence);
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->times_index = 0;
+                while (self->times_index < list_size) {
+                    GET_NUMBER8 (self->times [self->times_index]);
+                    self->times_index++;    
+                }
+                //  Decrement to last valid position
+                self->times_index--;    
+            }
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->hosts_index = 0;
+                while (self->hosts_index < list_size) {
+                    GET_STRING (self->hosts [self->hosts_index]);
+                    self->hosts_index++;    
+                }
+                //  Decrement to last valid position
+                self->hosts_index--;    
+            }
+            break;
+
         case ZPROTO_EXAMPLE_STRUCTURES:
             GET_NUMBER2 (self->sequence);
             {
@@ -364,14 +402,11 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
             if (!address)
                 goto malformed;
             self->address = address;
-            //  Get zero or more remaining frames,
-            //  leave current frame untouched
+            //  Get zero or more remaining frames, leaving current
+            //  frame untouched
             self->content = zmsg_new ();
-            zframe_t *content_part = zmsg_pop (msg);
-            while (content_part) {
-                zmsg_add (self->content, content_part);
-                content_part = zmsg_pop (msg);
-            }
+            while (zmsg_size (msg))
+                zmsg_add (self->content, zmsg_pop (msg));
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -494,6 +529,31 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
                 frame_size += strlen (self->data);
             break;
             
+        case ZPROTO_EXAMPLE_LISTS:
+            //  sequence is a 2-byte integer
+            frame_size += 2;
+            //  Array with 1-byte length
+            frame_size += 1;
+            {
+                int i;
+                for (i = 0; i < self->times_index; i++) {
+                    //  times is a 8-byte integer
+                    frame_size += 8;
+                }
+            }
+            //  Array with 1-byte length
+            frame_size += 1;
+            {
+                int i;
+                for (i = 0; i < self->hosts_index; i++) {
+                    //  hosts is a string with 1-byte length
+                    frame_size++;       //  Size is one octet
+                    if (self->hosts [i])
+                        frame_size += strlen (self->hosts [i]);
+                }
+            }
+            break;
+            
         case ZPROTO_EXAMPLE_STRUCTURES:
             //  sequence is a 2-byte integer
             frame_size += 2;
@@ -595,6 +655,28 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty string
+            break;
+
+        case ZPROTO_EXAMPLE_LISTS:
+            PUT_NUMBER2 (self->sequence);
+            {
+                PUT_NUMBER1 (self->times_index + 1);
+                int i;
+                for (i = 0; i < self->times_index; i++) {
+                    PUT_NUMBER8 (self->times [i]);
+                }
+            }    
+            {
+                PUT_NUMBER1 (self->hosts_index + 1);
+                int i;
+                for (i = 0; i < self->hosts_index; i++) {
+                if (self->hosts [i]) {
+                    PUT_STRING (self->hosts [i]);
+                }
+                else
+                    PUT_NUMBER1 (0);    //  Empty string
+                }
+            }    
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
@@ -769,6 +851,24 @@ zproto_example_send_log (
 
 
 //  --------------------------------------------------------------------------
+//  Send the LISTS to the socket in one step
+
+int
+zproto_example_send_lists (
+    void *output,
+    uint16_t sequence,
+    uint64_t times [255], byte times_size,
+    const char **hosts, byte hosts_size)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LISTS);
+    zproto_example_set_sequence (self, sequence);
+    zproto_example_set_times (self, times, times_size);
+    zproto_example_set_hosts (self, hosts, hosts_size);
+    return zproto_example_send (&self, output);
+}
+
+
+//  --------------------------------------------------------------------------
 //  Send the STRUCTURES to the socket in one step
 
 int
@@ -780,7 +880,7 @@ zproto_example_send_structures (
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
     zproto_example_set_sequence (self, sequence);
-    zlist_t *aliases_copy = zlist_dup (aliases);
+        zlist_t *aliases_copy = zlist_dup (aliases);
     zproto_example_set_aliases (self, &aliases_copy);
     zhash_t *headers_copy = zhash_dup (headers);
     zproto_example_set_headers (self, &headers_copy);
@@ -856,6 +956,7 @@ zproto_example_dup (zproto_example_t *self)
     if (self->routing_id)
         copy->routing_id = zframe_dup (self->routing_id);
 
+    int i;
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             copy->sequence = self->sequence;
@@ -867,6 +968,16 @@ zproto_example_dup (zproto_example_t *self)
             copy->time = self->time;
             copy->host = self->host? strdup (self->host): NULL;
             copy->data = self->data? strdup (self->data): NULL;
+            break;
+
+        case ZPROTO_EXAMPLE_LISTS:
+            copy->sequence = self->sequence;
+            for (i = 0; i < self->times_index; i++) {
+                copy->times [i] = self->times [i];
+            }
+            for (i = 0; i < self->hosts_index; i++) {
+                copy->hosts [i] = self->hosts [i] ? strdup (self->hosts [i]): NULL;
+            }
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
@@ -916,6 +1027,7 @@ void
 zproto_example_dump (zproto_example_t *self)
 {
     assert (self);
+    int i;
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             puts ("LOG:");
@@ -934,6 +1046,28 @@ zproto_example_dump (zproto_example_t *self)
                 printf ("    data='%s'\n", self->data);
             else
                 printf ("    data=\n");
+            break;
+            
+        case ZPROTO_EXAMPLE_LISTS:
+            puts ("LISTS:");
+            printf ("    sequence=%ld\n", (long) self->sequence);
+            printf ("   times=[");
+            for (i = 0; i < self->times_index; i++) {
+                printf ("%ld", (long) self->times);
+                if (i < self->times_index - 1)
+                    printf (",");
+            }
+            printf ("]\n");
+            printf ("hosts=[");
+            for (i = 0; i < self->hosts_index; i++) {
+                if (self->hosts [i])
+                    printf (" '%s'", self->hosts [i]);
+                else
+                    printf (" ");
+                if (i < self->hosts_index - 1)
+                    printf (",");
+            }
+            printf (" ]\n");
             break;
             
         case ZPROTO_EXAMPLE_STRUCTURES:
@@ -959,14 +1093,14 @@ zproto_example_dump (zproto_example_t *self)
         case ZPROTO_EXAMPLE_BINARY:
             puts ("BINARY:");
             printf ("    sequence=%ld\n", (long) self->sequence);
-            printf ("    flags=");
+            printf ("    flags=[");
             int flags_index;
             for (flags_index = 0; flags_index < 4; flags_index++) {
                 if (flags_index && (flags_index % 4 == 0))
                     printf ("-");
                 printf ("%02X", self->flags [flags_index]);
             }
-            printf ("\n");
+        printf ("\n");
             printf ("    public_key={\n");
             if (self->public_key)
                 zchunk_print (self->public_key);
@@ -1074,6 +1208,9 @@ zproto_example_command (zproto_example_t *self)
         case ZPROTO_EXAMPLE_LOG:
             return ("LOG");
             break;
+        case ZPROTO_EXAMPLE_LISTS:
+            return ("LISTS");
+            break;
         case ZPROTO_EXAMPLE_STRUCTURES:
             return ("STRUCTURES");
             break;
@@ -1090,7 +1227,7 @@ zproto_example_command (zproto_example_t *self)
 //  --------------------------------------------------------------------------
 //  Get/set the sequence field
 
-uint16_t
+uint16_t 
 zproto_example_sequence (zproto_example_t *self)
 {
     assert (self);
@@ -1108,7 +1245,7 @@ zproto_example_set_sequence (zproto_example_t *self, uint16_t sequence)
 //  --------------------------------------------------------------------------
 //  Get/set the level field
 
-byte
+byte 
 zproto_example_level (zproto_example_t *self)
 {
     assert (self);
@@ -1126,7 +1263,7 @@ zproto_example_set_level (zproto_example_t *self, byte level)
 //  --------------------------------------------------------------------------
 //  Get/set the event field
 
-byte
+byte 
 zproto_example_event (zproto_example_t *self)
 {
     assert (self);
@@ -1144,7 +1281,7 @@ zproto_example_set_event (zproto_example_t *self, byte event)
 //  --------------------------------------------------------------------------
 //  Get/set the node field
 
-uint16_t
+uint16_t 
 zproto_example_node (zproto_example_t *self)
 {
     assert (self);
@@ -1162,7 +1299,7 @@ zproto_example_set_node (zproto_example_t *self, uint16_t node)
 //  --------------------------------------------------------------------------
 //  Get/set the peer field
 
-uint16_t
+uint16_t 
 zproto_example_peer (zproto_example_t *self)
 {
     assert (self);
@@ -1180,7 +1317,7 @@ zproto_example_set_peer (zproto_example_t *self, uint16_t peer)
 //  --------------------------------------------------------------------------
 //  Get/set the time field
 
-uint64_t
+uint64_t 
 zproto_example_time (zproto_example_t *self)
 {
     assert (self);
@@ -1238,6 +1375,55 @@ zproto_example_set_data (zproto_example_t *self, const char *format, ...)
     free (self->data);
     self->data = zsys_vprintf (format, argptr);
     va_end (argptr);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the times field
+
+uint64_t 
+zproto_example_times_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->times_index)
+        return 0;
+    return self->times [index];
+}
+
+void
+zproto_example_set_times (zproto_example_t *self, uint64_t times [255], byte size)
+{
+    assert (self);
+    assert (size <= self->times_index);
+    self->times_index = size;
+    int i;
+    for (i = 0; i < size; i++)
+        self->times [i] = times [i];
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the hosts field
+
+const char *
+zproto_example_hosts_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->hosts_index)
+        return NULL;
+    return self->hosts [index];
+}
+
+void
+zproto_example_set_hosts (zproto_example_t *self, const char **hosts, byte size)
+{
+    //  Format hosts from provided arguments
+    assert (self);
+    assert (size <= self->hosts_index);
+    self->hosts_index = size;
+    int i;
+    for (i = 0; i < size; i++) 
+        strcpy (self->hosts [i], hosts [i]);
 }
 
 
@@ -1414,7 +1600,7 @@ zproto_example_headers_size (zproto_example_t *self)
 //  --------------------------------------------------------------------------
 //  Get/set the flags field
 
-byte *
+byte * 
 zproto_example_flags (zproto_example_t *self)
 {
     assert (self);
@@ -1461,6 +1647,7 @@ zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p)
     *chunk_p = NULL;
 }
 
+
 //  --------------------------------------------------------------------------
 //  Get the address field without transferring ownership
 
@@ -1493,6 +1680,7 @@ zproto_example_set_address (zproto_example_t *self, zframe_t **frame_p)
     *frame_p = NULL;
 }
 
+
 //  --------------------------------------------------------------------------
 //  Get the content field without transferring ownership
 
@@ -1524,6 +1712,7 @@ zproto_example_set_content (zproto_example_t *self, zmsg_t **msg_p)
     self->content = *msg_p;
     *msg_p = NULL;
 }
+
 
 //  --------------------------------------------------------------------------
 //  Get/set the client_forename field
@@ -1771,6 +1960,36 @@ zproto_example_test (bool verbose)
         assert (zproto_example_time (self) == 123);
         assert (streq (zproto_example_host (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
+        zproto_example_destroy (&self);
+    }
+    self = zproto_example_new (ZPROTO_EXAMPLE_LISTS);
+    
+    //  Check that _dup works on empty message
+    copy = zproto_example_dup (self);
+    assert (copy);
+    zproto_example_destroy (&copy);
+
+    zproto_example_set_sequence (self, 123);
+    uint64_t times [255];
+    times [0] = 10;
+    times [1] = 20;
+    times [2] = 30;
+    zproto_example_set_times (self, times, 3);
+    const char **hosts = malloc( sizeof (char**));
+    hosts [0] = "Life is short"; 
+    hosts [1] = "but Now lasts"; 
+    hosts [2] = "for ever"; 
+    zproto_example_set_hosts (self, hosts, 3);
+    //  Send twice from same object
+    zproto_example_send_again (self, output);
+    zproto_example_send (&self, output);
+
+    for (instance = 0; instance < 2; instance++) {
+        self = zproto_example_recv (input);
+        assert (self);
+        assert (zproto_example_routing_id (self));
+        
+        assert (zproto_example_sequence (self) == 123);
         zproto_example_destroy (&self);
     }
     self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
