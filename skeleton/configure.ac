@@ -228,5 +228,5 @@ AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(perror gettimeofday memset)
 
 # Specify output files
-AC_CONFIG_FILES([Makefile src/Makefile model/Makefile doc/Makefile src/libmyproj.pc])
+AC_CONFIG_FILES([Makefile src/Makefile doc/Makefile src/libmyproj.pc])
 AC_OUTPUT
