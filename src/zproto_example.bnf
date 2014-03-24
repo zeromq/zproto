@@ -14,6 +14,11 @@ The following ABNF grammar defines the zproto example protocol:
     host            = string                ; Originating hostname
     data            = longstr               ; Actual log message
 
+    ; This message conaints lists
+    C:lists         = signature %d5 times hosts
+    times           = number-8              ; Log date/time
+    hosts           = string                ; Originating hostname
+
     ; This message contains a list and a hash.
     C:structures    = signature %d2 aliases headers
     aliases         = strings               ; List of strings

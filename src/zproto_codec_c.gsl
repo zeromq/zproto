@@ -568,13 +568,15 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .   if defined (repeat)
 .       if type = "string" | type = "longstr"
         if (self->$(name)) {
-            for (i = 0; i < self->$(name)_index; i++) 
-                free (self->$(name) [i]);
+            for (i = 0; i < self->$(name)_index; i++)
+                if (self->$(name) [i])
+                    free (self->$(name) [i]);
         }
 .       elsif type = "strings"
         if (self->$(name)) {
             for (i = 0; i < self->$(name)_index; i++)
-                zlist_destroy (&self->$(name) [i]);
+                if (self->$(name) [i])
+                    zlist_destroy (&self->$(name) [i]);
         }
 .       elsif type = "dictionary"
         for (i = 0; i < self->$(name)_index; i++)
