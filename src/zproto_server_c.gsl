@@ -665,7 +665,10 @@ static void
 s_server_apply_config (s_server_t *self)
 {
     //  Apply echo commands and class methods
-    zconfig_t *section = zconfig_child (self->config);
+    zconfig_t *section = zconfig_locate (self->config, "$(name)");
+    if (section)
+        section = zconfig_child (section);
+
     while (section) {
         zconfig_t *entry = zconfig_child (section);
         while (entry) {
@@ -759,7 +762,7 @@ s_server_control_message (s_server_t *self)
         if (self->config)
             s_server_apply_config (self);
         else {
-            printf ("E: cannot load config file '%s'\\n", config_file);
+            zclock_log ("E: cannot load config file '%s'\\n", config_file);
             self->config = zconfig_new ("root", NULL);
         }
         free (config_file);
