@@ -37,14 +37,31 @@ function generate_bnf
             >    signature       = %xAA %d$(signature)   ; two octets
         endif
         for field
-            if type = "number"
-                >    $(name)         = number-$(size)        ; $(field.?'':)
-                class.use_number_$(size) = 1
-            elsif type = "octets"
-                >    $(name)         = $(size)OCTET          ; $(field.?'':)
+            if defined (repeat)
+                if repeat = "n"
+                    repeat = "*"
+                else
+                    repeat = "0*" + repeat
+                endif
+                if type = "number"
+                    >    $(name)         = $(repeat)number-$(size)          ; $(field.?'':)
+                    class.use_number_$(size) = 1
+                elsif type = "octets"
+                    >    $(name)         = $(repeat)($(size)OCTET)          ; $(field.?'':)
+                else
+                    >    $(name)         = $(repeat)$(type)                 ; $(field.?'':)
+                    class.use_$(type) = 1
+                endif
             else
-                >    $(name)         = $(type)               ; $(field.?'':)
-                class.use_$(type) = 1
+                if type = "number"
+                    >    $(name)         = number-$(size)        ; $(field.?'':)
+                    class.use_number_$(size) = 1
+                elsif type = "octets"
+                    >    $(name)         = $(size)OCTET          ; $(field.?'':)
+                else
+                    >    $(name)         = $(type)               ; $(field.?'':)
+                    class.use_$(type) = 1
+                endif
             endif
         endfor
         for class.type where !defined (type.expressed)
