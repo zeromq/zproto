@@ -127,8 +127,6 @@ int
     char **$(name), byte $(name)_size\
 .       elsif type = "strings"
     zlist_t **$(name), byte $(name)_size\
-.       elsif type = "dictionary"
-    zhash_t **$(name), byte $(name)_size\
 .       elsif type = "chunk" | type = "frame" | type = "msg"
     z$(type)_t **$(name), byte $(name)_size\
 .       endif
@@ -212,15 +210,7 @@ zlist_t *
 void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name), byte size);
 .#
-.       elsif type = "dictionary"
-//  Get/set the $(name) field
-zhash_t *
-    $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
-//  Get the $(name) field and transfer ownership to caller
-void
-    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name), byte size);
-.#
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk"
 //  Get a copy of the $(name) field
 z$(type)_t *
     $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
@@ -372,10 +362,8 @@ struct _$(class.name)_t {
     char *$(name) [$(repeat)];          //  $(field.?'':)
 .       elsif type = "strings"
     zlist_t *$(name) [$(repeat)];       //  $(field.?'':)
-.       elsif type = "dictionary"
-    zhash_t *$(name) [$(repeat)];       //  $(field.?'':)
     size_t $(name)_bytes [$(repeat)];   //  Size of dictionary content
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk"
     z$(type)_t *$(name) [$(repeat)];    //  $(field.?'':)
 .       endif
 .   else 
@@ -578,10 +566,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
                 if (self->$(name) [i])
                     zlist_destroy (&self->$(name) [i]);
         }
-.       elsif type = "dictionary"
-        for (i = 0; i < self->$(name)_index; i++)
-            zhash_destroy (&self->$(name) [i]);
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk"
         for (i = 0; i < self->$(name)_index; i++)
             z$(type)_destroy (&self->$(name) [i]);
 .       endif
@@ -675,21 +660,6 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
                             GET_LONGSTR (string);
                             zlist_append (self->$(name) [self->$(name)_index], string);
                             free (string);
-                        }
-                    }
-.               elsif type = "dictionary"
-                    {
-                        size_t hash_size;
-                        GET_NUMBER4 (hash_size);
-                        self->$(name) [self->$(name)_index] = zhash_new ();
-                        zhash_autofree (self->$(name) [self->$(name)_index]);
-                        while (hash_size--) {
-                            char *key, *value;
-                            GET_STRING (key);
-                            GET_LONGSTR (value);
-                            zhash_insert (self->$(name) [self->$(name)_index], key, value);
-                            free (key);
-                            free (value);
                         }
                     }
 .               elsif type = "chunk"
@@ -898,15 +868,6 @@ $(class.name)_encode ($(class.name)_t *self, int socket_type)
                             $(name) = (char *) zlist_next (self->$(name) [i]);
                         }
                     }
-.           elsif type = "dictionary"
-                    //  $(name) is an array of key=value strings
-                    frame_size += 4;    //  Size is 4 octets
-                    if (self->$(name) [i]) {
-                        self->$(name)_bytes [i] = 0;
-                        //  Add up size of dictionary contents
-                        zhash_foreach (self->$(name), s_$(name)_count, self);
-                    }
-                    frame_size += self->$(name)_bytes [i];
 .           elsif type = "chunk"
                     //  $(name) is a chunk with 4-byte length
                     frame_size += 4;
@@ -1012,13 +973,6 @@ $(class.name)_encode ($(class.name)_t *self, int socket_type)
                 }
                 else
                     PUT_NUMBER4 (0);    //  Empty string array
-.           elsif type = "dictionary"
-                if (self->$(name) [i]) {
-                    PUT_NUMBER4 (zhash_size (self->$(name) [i]));
-                    zhash_foreach (self->$(name) [i], s_$(name)_write, self);
-                }
-                else
-                    PUT_NUMBER4 (0);    //  Empty dictionary
 .           elsif type = "chunk"
                 if (self->$(name) [i]) {
                     PUT_NUMBER4 (zchunk_size (self->$(name) [i]));
@@ -1180,9 +1134,7 @@ $(class.name)_send_$(name) (
     char **$(name), byte $(name)_size\
 .       elsif type = "strings"
     zlist_t **$(name), byte $(name)_size\
-.       elsif type = "dictionary"
-    zhash_t **$(name), byte $(name)_size\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk"
     z$(type)_t **$(name), byte $(name)_size\
 .       endif
 .   else
@@ -1211,10 +1163,8 @@ $(class.name)_send_$(name) (
 .       elsif type = "strings"
     zlist_t *$(name)_copy = zlist_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
-.       elsif type = "dictionary"
-    zhash_t *$(name)_copy = zhash_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk"
     z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
 .       endif
@@ -1266,9 +1216,7 @@ $(class.name)_dup ($(class.name)_t *self)
                 copy->$(name) [i] = self->$(name) [i] ? strdup (self->$(name) [i]): NULL;
 .           elsif type = "strings"
                 copy->$(name) [i] = self->$(name) [i] ? zlist_dup (self->$(name) [i]): NULL;
-.           elsif type = "dictionary"
-                copy->$(name) [i] = self->$(name) [i] ? zhash_dup (self->$(name) [i]): NULL;
-.           elsif type = "chunk" | type = "frame" | type = "msg"
+.           elsif type = "chunk"
                 copy->$(name) [i] = self->$(name) [i] ? z$(type)_dup (self->$(name) [i]): NULL;
 .           endif
             }
@@ -1404,25 +1352,12 @@ $(class.name)_dump ($(class.name)_t *self)
             printf (" }\\n");
 .           endif            
 .       elsif type = "dictionary"
-.           if defined (repeat)
-            printf ("    $(name)=[");
-            for (i = 0; i < self->$(name)_index; i++) {
-                printf ("   {\\n");
-                if (self->$(name))
-                    zhash_foreach (self->$(name) [i], s_$(name)_dump, self);
-                else
-                    printf ("(NULL)\\n");
-                printf ("    }\\n");
-            }
-            printf ("]\\n");
-.           else                
             printf ("    $(name)={\\n");
             if (self->$(name))
                 zhash_foreach (self->$(name), s_$(name)_dump, self);
             else
                 printf ("(NULL)\\n");
             printf ("    }\\n");
-.           endif           
 .       elsif type = "chunk"
 .           if defined (repeat)
             printf ("    $(name)=[");
@@ -1769,35 +1704,6 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 .       endif
 
 .   elsif type = "dictionary"
-.       if defined (repeat)
-//  --------------------------------------------------------------------------
-//  Get the $(name) field without transferring ownership
-
-zhash_t *
-$(class.name)_$(name)_index ($(class.name)_t *self, byte size)
-{
-    assert (self);
-    if (size > self->$(name)_index)
-        return NULL;
-    return self->$(name) [index];
-}
-
-//  Set the $(name) field, transferring ownership from caller
-
-void
-$(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name), byte size)
-{
-    assert (self);
-    assert (size <= self->$(name)_index);
-    self->$(name)_index = size;
-    int i;
-    for (i = 0; i < 0; i++) {
-        zhash_destroy (&self->$(name) [i]);
-        self->$(name) [i] = *$(name) [i];
-        $(name) [i] = NULL;
-    }
-}
-.       else
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
@@ -1884,10 +1790,9 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 {
     return zhash_size (self->$(name));
 }
-.       endif
 
 .   elsif type = "chunk" | type = "frame" | type = "msg"
-.       if defined (repeat)
+.       if defined (repeat) & type = "chunk"
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
