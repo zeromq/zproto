@@ -672,7 +672,7 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
                         GET_NUMBER4 (chunk_size);
                         if (self->needle + chunk_size > (self->ceiling))
                             goto malformed;
-                        self->$(name) [self->$(name)_index) = zchunk_new (self->needle, chunk_size);
+                        self->$(name) [self->$(name)_index] = zchunk_new (self->needle, chunk_size);
                         self->needle += chunk_size;
                     }
 .               endif            
@@ -1165,18 +1165,15 @@ $(class.name)_send_$(name) (
 .       if type = "number" | type = "octets" | type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       elsif type = "strings"
-    zlist_t *$(name)_copy = zlist_dup ($(name));
-    $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
-    $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
+    $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       elsif type = "chunk"
-    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
-    $(class.name)_set_$(name) (self, &$(name)_copy, $(name)_size));
+    $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       endif
 .   else
 .       if type = "number" | type = "octets" | type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, $(name));
 .       elsif type = "strings"
-        zlist_t *$(name)_copy = zlist_dup ($(name));
+    zlist_t *$(name)_copy = zlist_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
 .       elsif type = "dictionary"
     zhash_t *$(name)_copy = zhash_dup ($(name));
@@ -1803,19 +1800,19 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
-z$(type)_t *
+zchunk_t *
 $(class.name)_$(name)_index ($(class.name)_t *self, byte index)
 {
     assert (self);
     if (index > self->$(name)_index)
-        return NULL
+        return NULL;
     return self->$(name) [index];
 }
 
 //  Set the $(name) field, transferring ownership from caller
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type), byte size)
+$(class.name)_set_$(name) ($(class.name)_t *self, zchunk_t **$(type), byte size)
 {
     assert (self);
     assert (size <= self->$(name)_limit);
@@ -1911,11 +1908,31 @@ $(class.name)_test (bool verbose)
     $(name) [2] = 30;
     $(class.name)_set_$(name) (self, $(name), 3);
 .           elsif type = "string" | type = "longstr"
-    char **$(name) = malloc( sizeof (char**));
+    char **$(name) = malloc (sizeof (char**));
     $(name) [0] = "Life is short"; 
     $(name) [1] = "but Now lasts"; 
     $(name) [2] = "for ever"; 
     $(class.name)_set_$(name) (self, $(name), 3);
+    free ($(name));
+.       elsif type = "strings"
+    zlist_t **$(name) = malloc (sizeof (zlist_t **));
+    zlist_t *$(name)1 = zlist_new ();
+    zlist_append ($(name)1, "Name: Brutus");
+    zlist_append ($(name)1, "Age: 43");
+    $(name) [0] = $(name)1;
+    zlist_t *$(name)2 = zlist_new ();
+    zlist_append ($(name)2, "Name: Julius");
+    zlist_append ($(name)2, "Age: 37");
+    $(name) [1] = $(name)2;
+    $(class.name)_set_$(name) (self, $(name), 2);
+    free ($(name));
+.       elsif type = "chunk"
+    zchunk_t **$(name) = malloc (sizeof (zchunk_t **));
+    zchunk_t *$(message.name)_$(name)1 = zchunk_new ("Captcha Diem", 12);
+    $(name) [0] = $(message.name)_$(name)1;
+    zchunk_t *$(message.name)_$(name)2 = zchunk_new ("Memento mori", 12);
+    $(name) [1] = $(message.name)_$(name)2;
+    $(class.name)_set_$(name) (self, $(name), 2);
     free ($(name));
 .           endif 
 .       elsif type = "number"
@@ -1960,6 +1977,20 @@ $(class.name)_test (bool verbose)
         assert (streq ($(class.name)_$(name)_index (self, 0), "Life is short"));
         assert (streq ($(class.name)_$(name)_index (self, 1), "but Now lasts"));
         assert (streq ($(class.name)_$(name)_index (self, 2), "for ever"));
+.           elsif type = "strings"
+        zlist_t *$(name)1 = $(class.name)_$(name)_index (self, 0);
+        assert (zlist_size ($(name)1) == 2);
+        assert (streq (zlist_first ($(name)1), "Name: Brutus"));
+        assert (streq (zlist_next ($(name)1), "Age: 43"));
+        zlist_t *$(name)2 = $(class.name)_$(name)_index (self, 1);
+        assert (zlist_size ($(name)2) == 2);
+        assert (streq (zlist_first ($(name)2), "Name: Julius"));
+        assert (streq (zlist_next ($(name)2), "Age: 37"));
+.           elsif type = "chunk"
+        zchunk_t *$(name)1 = $(class.name)_$(name)_index (self, 0);
+        assert (memcmp (zchunk_data ($(name)1), "Captcha Diem", 12) == 0);
+        zchunk_t *$(name)2 = $(class.name)_$(name)_index (self, 1);
+        assert (memcmp (zchunk_data ($(name)2), "Memento mori", 12) == 0);
 .           endif
 .       else
 .           if type = "number"

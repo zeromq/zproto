@@ -77,12 +77,14 @@
 
     REPEAT - Demonstrates repeating fields
         sequence            number 2    
-        n1                  number 1    Repeating byte
-        n2                  number 2    Repeating 2-bytes
-        n3                  number 4    Repeating 4-bytes
-        n4                  number 8    Repeating 8-bytes
+        no1                 number 1    Repeating byte
+        no2                 number 2    Repeating 2-bytes
+        no4                 number 4    Repeating 4-bytes
+        no8                 number 8    Repeating 8-bytes
         str                 string      Repeating 1-byte string
         lstr                longstr     Repeating 4-byte string
+        strs                strings     Repeating strings
+        chunks              chunk       Repeating chunks
 */
 
 #define ZPROTO_EXAMPLE_VERSION              1
@@ -187,12 +189,14 @@ int
 int
     zproto_example_send_repeat (void *output,
     uint16_t sequence,
-    byte n1 [3], byte n1_size,
-    uint16_t n2 [144], byte n2_size,
-    uint32_t n3 [256], byte n3_size,
-    uint64_t n4 [256], byte n4_size,
+    byte no1 [3], byte no1_size,
+    uint16_t no2 [144], byte no2_size,
+    uint32_t no4 [256], byte no4_size,
+    uint64_t no8 [256], byte no8_size,
     char **str, byte str_size,
-    char **lstr, byte lstr_size);
+    char **lstr, byte lstr_size,
+    zlist_t **strs, byte strs_size,
+    zchunk_t **chunks, byte chunks_size);
     
 //  Duplicate the zproto_example message
 zproto_example_t *
@@ -391,29 +395,29 @@ const char *
 void
     zproto_example_set_supplier_email (zproto_example_t *self, const char *format, ...);
 
-//  Get/set the n1 field
+//  Get/set the no1 field
 byte
-    zproto_example_n1_index (zproto_example_t *self, byte index);
+    zproto_example_no1_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_n1 (zproto_example_t *self, byte n1 [3], byte size);
+    zproto_example_set_no1 (zproto_example_t *self, byte no1 [3], byte size);
 
-//  Get/set the n2 field
+//  Get/set the no2 field
 uint16_t
-    zproto_example_n2_index (zproto_example_t *self, byte index);
+    zproto_example_no2_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_n2 (zproto_example_t *self, uint16_t n2 [144], byte size);
+    zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [144], byte size);
 
-//  Get/set the n3 field
+//  Get/set the no4 field
 uint32_t
-    zproto_example_n3_index (zproto_example_t *self, byte index);
+    zproto_example_no4_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_n3 (zproto_example_t *self, uint32_t n3 [256], byte size);
+    zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [256], byte size);
 
-//  Get/set the n4 field
+//  Get/set the no8 field
 uint64_t
-    zproto_example_n4_index (zproto_example_t *self, byte index);
+    zproto_example_no8_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_n4 (zproto_example_t *self, uint64_t n4 [256], byte size);
+    zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [256], byte size);
 
 //  Get/set the str field
 const char *
@@ -426,6 +430,20 @@ const char *
     zproto_example_lstr_index (zproto_example_t *self, byte index);
 void
     zproto_example_set_lstr (zproto_example_t *self, char **, byte size);
+
+//  Get/set the strs field
+zlist_t *
+    zproto_example_strs_index (zproto_example_t *self, byte index);
+//  Get the strs field and transfer ownership to caller
+void
+    zproto_example_set_strs (zproto_example_t *self, zlist_t **strs, byte size);
+
+//  Get a copy of the chunks field
+zchunk_t *
+    zproto_example_chunks_index (zproto_example_t *self, byte index);
+//  Set the chunks field, transferring ownership from caller
+void
+    zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size);
 
 //  Self test of this class
 int
