@@ -156,6 +156,7 @@ equals 256.
     <field name = "lstr" type = "longstr" repeat = "n">Repeating 4-byte string</field>
     <field name = "strs" type = "strings" repeat = "n">Repeating strings</field>
     <field name = "chunks" type = "chunk" repeat = "2">Repeating chunks</field>
+    <field name = "persons" type = "person" repeat = "n">Repeating person</field>
 Demonstrates repeating fields
 </message>
 

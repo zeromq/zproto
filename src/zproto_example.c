@@ -102,6 +102,18 @@ struct _zproto_example_t {
     zchunk_t *chunks [2];               //  Repeating chunks
     byte chunks_index;
     size_t chunks_limit;
+    char *persons_forename [256];       //  Given name
+    byte persons_forename_index;
+    size_t persons_forename_limit;
+    char *persons_surname [256];        //  Family name
+    byte persons_surname_index;
+    size_t persons_surname_limit;
+    char *persons_mobile [256];         //  Mobile phone number
+    byte persons_mobile_index;
+    size_t persons_mobile_limit;
+    char *persons_email [256];          //  Email address
+    byte persons_email_index;
+    size_t persons_email_limit;
 };
 
 //  --------------------------------------------------------------------------
@@ -264,6 +276,14 @@ zproto_example_new (int id)
     self->strs_limit = 256;
     self->chunks_index = 0;
     self->chunks_limit = 2;
+    self->persons_forename_index = 0;
+    self->persons_forename_limit = 256;
+    self->persons_surname_index = 0;
+    self->persons_surname_limit = 256;
+    self->persons_mobile_index = 0;
+    self->persons_mobile_limit = 256;
+    self->persons_email_index = 0;
+    self->persons_email_limit = 256;
     return self;
 }
 
@@ -314,6 +334,26 @@ zproto_example_destroy (zproto_example_t **self_p)
         }
         for (i = 0; i < self->chunks_index + 1; i++)
             zchunk_destroy (&self->chunks [i]);
+        if (self->persons_forename) {
+            for (i = 0; i < self->persons_forename_index + 1; i++)
+                if (self->persons_forename [i])
+                    free (self->persons_forename [i]);
+        }
+        if (self->persons_surname) {
+            for (i = 0; i < self->persons_surname_index + 1; i++)
+                if (self->persons_surname [i])
+                    free (self->persons_surname [i]);
+        }
+        if (self->persons_mobile) {
+            for (i = 0; i < self->persons_mobile_index + 1; i++)
+                if (self->persons_mobile [i])
+                    free (self->persons_mobile [i]);
+        }
+        if (self->persons_email) {
+            for (i = 0; i < self->persons_email_index + 1; i++)
+                if (self->persons_email [i])
+                    free (self->persons_email [i]);
+        }
 
         //  Free object itself
         free (self);
@@ -549,6 +589,50 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
                 }
                 //  Decrement to last valid position
                 self->chunks_index--;   
+            }
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->persons_forename_index = 0;
+                while (self->persons_forename_index < list_size) {
+                    GET_STRING (self->persons_forename [self->persons_forename_index]);
+                    self->persons_forename_index++;  
+                }
+                //  Decrement to last valid position
+                self->persons_forename_index--;  
+            }
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->persons_surname_index = 0;
+                while (self->persons_surname_index < list_size) {
+                    GET_STRING (self->persons_surname [self->persons_surname_index]);
+                    self->persons_surname_index++;  
+                }
+                //  Decrement to last valid position
+                self->persons_surname_index--;  
+            }
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->persons_mobile_index = 0;
+                while (self->persons_mobile_index < list_size) {
+                    GET_STRING (self->persons_mobile [self->persons_mobile_index]);
+                    self->persons_mobile_index++;  
+                }
+                //  Decrement to last valid position
+                self->persons_mobile_index--;  
+            }
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->persons_email_index = 0;
+                while (self->persons_email_index < list_size) {
+                    GET_STRING (self->persons_email [self->persons_email_index]);
+                    self->persons_email_index++;  
+                }
+                //  Decrement to last valid position
+                self->persons_email_index--;  
             }
             break;
 
@@ -820,6 +904,50 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
                         frame_size += zchunk_size (self->chunks [i]);
                 }
             }
+            {
+                //  Array has 1-byte length
+                frame_size += 1;
+                int i;
+                for (i = 0; i < self->persons_forename_index + 1; i++) {
+                    //  persons_forename is a string with 1-byte length
+                    frame_size++;       //  Size is one octet
+                    if (self->persons_forename [i])
+                        frame_size += strlen (self->persons_forename [i]);
+                }
+            }
+            {
+                //  Array has 1-byte length
+                frame_size += 1;
+                int i;
+                for (i = 0; i < self->persons_surname_index + 1; i++) {
+                    //  persons_surname is a string with 1-byte length
+                    frame_size++;       //  Size is one octet
+                    if (self->persons_surname [i])
+                        frame_size += strlen (self->persons_surname [i]);
+                }
+            }
+            {
+                //  Array has 1-byte length
+                frame_size += 1;
+                int i;
+                for (i = 0; i < self->persons_mobile_index + 1; i++) {
+                    //  persons_mobile is a string with 1-byte length
+                    frame_size++;       //  Size is one octet
+                    if (self->persons_mobile [i])
+                        frame_size += strlen (self->persons_mobile [i]);
+                }
+            }
+            {
+                //  Array has 1-byte length
+                frame_size += 1;
+                int i;
+                for (i = 0; i < self->persons_email_index + 1; i++) {
+                    //  persons_email is a string with 1-byte length
+                    frame_size++;       //  Size is one octet
+                    if (self->persons_email [i])
+                        frame_size += strlen (self->persons_email [i]);
+                }
+            }
             break;
             
         default:
@@ -1015,6 +1143,50 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
                     PUT_NUMBER4 (0);    //  Empty chunk
                 }
             }    
+            {
+                PUT_NUMBER1 (self->persons_forename_index + 1);
+                int i;
+                for (i = 0; i < self->persons_forename_index + 1; i++) {
+                if (self->persons_forename [i]) {
+                    PUT_STRING (self->persons_forename [i]);
+                }
+                else
+                    PUT_NUMBER1 (0);    //  Empty string
+                }
+            }    
+            {
+                PUT_NUMBER1 (self->persons_surname_index + 1);
+                int i;
+                for (i = 0; i < self->persons_surname_index + 1; i++) {
+                if (self->persons_surname [i]) {
+                    PUT_STRING (self->persons_surname [i]);
+                }
+                else
+                    PUT_NUMBER1 (0);    //  Empty string
+                }
+            }    
+            {
+                PUT_NUMBER1 (self->persons_mobile_index + 1);
+                int i;
+                for (i = 0; i < self->persons_mobile_index + 1; i++) {
+                if (self->persons_mobile [i]) {
+                    PUT_STRING (self->persons_mobile [i]);
+                }
+                else
+                    PUT_NUMBER1 (0);    //  Empty string
+                }
+            }    
+            {
+                PUT_NUMBER1 (self->persons_email_index + 1);
+                int i;
+                for (i = 0; i < self->persons_email_index + 1; i++) {
+                if (self->persons_email [i]) {
+                    PUT_STRING (self->persons_email [i]);
+                }
+                else
+                    PUT_NUMBER1 (0);    //  Empty string
+                }
+            }    
             break;
 
     }
@@ -1199,7 +1371,11 @@ zproto_example_send_repeat (
     char **str, byte str_size,
     char **lstr, byte lstr_size,
     zlist_t **strs, byte strs_size,
-    zchunk_t **chunks, byte chunks_size)
+    zchunk_t **chunks, byte chunks_size,
+    char **persons_forename, byte persons_forename_size,
+    char **persons_surname, byte persons_surname_size,
+    char **persons_mobile, byte persons_mobile_size,
+    char **persons_email, byte persons_email_size)
 {
     zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_REPEAT);
     zproto_example_set_sequence (self, sequence);
@@ -1211,6 +1387,10 @@ zproto_example_send_repeat (
     zproto_example_set_lstr (self, lstr, lstr_size);
     zproto_example_set_strs (self, strs, strs_size);
     zproto_example_set_chunks (self, chunks, chunks_size);
+    zproto_example_set_persons_forename (self, persons_forename, persons_forename_size);
+    zproto_example_set_persons_surname (self, persons_surname, persons_surname_size);
+    zproto_example_set_persons_mobile (self, persons_mobile, persons_mobile_size);
+    zproto_example_set_persons_email (self, persons_email, persons_email_size);
     return zproto_example_send (&self, output);
 }
 
@@ -1300,6 +1480,22 @@ zproto_example_dup (zproto_example_t *self)
             copy->chunks_index = self->chunks_index;
             for (i = 0; i < self->chunks_index + 1; i++) {
                 copy->chunks [i] = self->chunks [i] ? zchunk_dup (self->chunks [i]): NULL;
+            }
+            copy->persons_forename_index = self->persons_forename_index;
+            for (i = 0; i < self->persons_forename_index + 1; i++) {
+                copy->persons_forename [i] = self->persons_forename [i] ? strdup (self->persons_forename [i]): NULL;
+            }
+            copy->persons_surname_index = self->persons_surname_index;
+            for (i = 0; i < self->persons_surname_index + 1; i++) {
+                copy->persons_surname [i] = self->persons_surname [i] ? strdup (self->persons_surname [i]): NULL;
+            }
+            copy->persons_mobile_index = self->persons_mobile_index;
+            for (i = 0; i < self->persons_mobile_index + 1; i++) {
+                copy->persons_mobile [i] = self->persons_mobile [i] ? strdup (self->persons_mobile [i]): NULL;
+            }
+            copy->persons_email_index = self->persons_email_index;
+            for (i = 0; i < self->persons_email_index + 1; i++) {
+                copy->persons_email [i] = self->persons_email [i] ? strdup (self->persons_email [i]): NULL;
             }
             break;
 
@@ -1507,6 +1703,46 @@ zproto_example_dump (zproto_example_t *self)
                 printf ("    }\n");
             }
             printf ("]\n");
+            printf ("persons_forename=[");
+            for (i = 0; i < self->persons_forename_index + 1; i++) {
+                if (self->persons_forename [i])
+                    printf (" '%s'", self->persons_forename [i]);
+                else
+                    printf (" ");
+                if (i < self->persons_forename_index - 1)
+                    printf (",");
+            }
+            printf (" ]\n");
+            printf ("persons_surname=[");
+            for (i = 0; i < self->persons_surname_index + 1; i++) {
+                if (self->persons_surname [i])
+                    printf (" '%s'", self->persons_surname [i]);
+                else
+                    printf (" ");
+                if (i < self->persons_surname_index - 1)
+                    printf (",");
+            }
+            printf (" ]\n");
+            printf ("persons_mobile=[");
+            for (i = 0; i < self->persons_mobile_index + 1; i++) {
+                if (self->persons_mobile [i])
+                    printf (" '%s'", self->persons_mobile [i]);
+                else
+                    printf (" ");
+                if (i < self->persons_mobile_index - 1)
+                    printf (",");
+            }
+            printf (" ]\n");
+            printf ("persons_email=[");
+            for (i = 0; i < self->persons_email_index + 1; i++) {
+                if (self->persons_email [i])
+                    printf (" '%s'", self->persons_email [i]);
+                else
+                    printf (" ");
+                if (i < self->persons_email_index - 1)
+                    printf (",");
+            }
+            printf (" ]\n");
             break;
             
     }
@@ -2408,6 +2644,114 @@ zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size)
 }
 
 
+//  --------------------------------------------------------------------------
+//  Get/set the persons_forename field
+
+const char *
+zproto_example_persons_forename_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->persons_forename_index)
+        return NULL;
+    return self->persons_forename [index];
+}
+
+void
+zproto_example_set_persons_forename (zproto_example_t *self, char **persons_forename, byte size)
+{
+    //  Format persons_forename from provided arguments
+    assert (self);
+    assert (size <= self->persons_forename_limit);
+    self->persons_forename_index = size - 1;
+    int i;
+    for (i = 0; i < size; i++) {
+        self->persons_forename [i] = malloc (sizeof (char *) * strlen (persons_forename [i]));
+        strcpy (self->persons_forename [i], persons_forename [i]);
+    }
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the persons_surname field
+
+const char *
+zproto_example_persons_surname_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->persons_surname_index)
+        return NULL;
+    return self->persons_surname [index];
+}
+
+void
+zproto_example_set_persons_surname (zproto_example_t *self, char **persons_surname, byte size)
+{
+    //  Format persons_surname from provided arguments
+    assert (self);
+    assert (size <= self->persons_surname_limit);
+    self->persons_surname_index = size - 1;
+    int i;
+    for (i = 0; i < size; i++) {
+        self->persons_surname [i] = malloc (sizeof (char *) * strlen (persons_surname [i]));
+        strcpy (self->persons_surname [i], persons_surname [i]);
+    }
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the persons_mobile field
+
+const char *
+zproto_example_persons_mobile_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->persons_mobile_index)
+        return NULL;
+    return self->persons_mobile [index];
+}
+
+void
+zproto_example_set_persons_mobile (zproto_example_t *self, char **persons_mobile, byte size)
+{
+    //  Format persons_mobile from provided arguments
+    assert (self);
+    assert (size <= self->persons_mobile_limit);
+    self->persons_mobile_index = size - 1;
+    int i;
+    for (i = 0; i < size; i++) {
+        self->persons_mobile [i] = malloc (sizeof (char *) * strlen (persons_mobile [i]));
+        strcpy (self->persons_mobile [i], persons_mobile [i]);
+    }
+}
+
+
+//  --------------------------------------------------------------------------
+//  Get/set the persons_email field
+
+const char *
+zproto_example_persons_email_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->persons_email_index)
+        return NULL;
+    return self->persons_email [index];
+}
+
+void
+zproto_example_set_persons_email (zproto_example_t *self, char **persons_email, byte size)
+{
+    //  Format persons_email from provided arguments
+    assert (self);
+    assert (size <= self->persons_email_limit);
+    self->persons_email_index = size - 1;
+    int i;
+    for (i = 0; i < size; i++) {
+        self->persons_email [i] = malloc (sizeof (char *) * strlen (persons_email [i]));
+        strcpy (self->persons_email [i], persons_email [i]);
+    }
+}
+
+
 
 //  --------------------------------------------------------------------------
 //  Selftest
@@ -2631,6 +2975,30 @@ zproto_example_test (bool verbose)
     chunks [1] = repeat_chunks2;
     zproto_example_set_chunks (self, chunks, 2);
     free (chunks);
+    char **persons_forename = malloc (sizeof (char**));
+    persons_forename [0] = "Life is short"; 
+    persons_forename [1] = "but Now lasts"; 
+    persons_forename [2] = "for ever"; 
+    zproto_example_set_persons_forename (self, persons_forename, 3);
+    free (persons_forename);
+    char **persons_surname = malloc (sizeof (char**));
+    persons_surname [0] = "Life is short"; 
+    persons_surname [1] = "but Now lasts"; 
+    persons_surname [2] = "for ever"; 
+    zproto_example_set_persons_surname (self, persons_surname, 3);
+    free (persons_surname);
+    char **persons_mobile = malloc (sizeof (char**));
+    persons_mobile [0] = "Life is short"; 
+    persons_mobile [1] = "but Now lasts"; 
+    persons_mobile [2] = "for ever"; 
+    zproto_example_set_persons_mobile (self, persons_mobile, 3);
+    free (persons_mobile);
+    char **persons_email = malloc (sizeof (char**));
+    persons_email [0] = "Life is short"; 
+    persons_email [1] = "but Now lasts"; 
+    persons_email [2] = "for ever"; 
+    zproto_example_set_persons_email (self, persons_email, 3);
+    free (persons_email);
     //  Send twice from same object
     zproto_example_send_again (self, output);
     zproto_example_send (&self, output);
@@ -2671,6 +3039,18 @@ zproto_example_test (bool verbose)
         assert (memcmp (zchunk_data (chunks1), "Captcha Diem", 12) == 0);
         zchunk_t *chunks2 = zproto_example_chunks_index (self, 1);
         assert (memcmp (zchunk_data (chunks2), "Memento mori", 12) == 0);
+        assert (streq (zproto_example_persons_forename_index (self, 0), "Life is short"));
+        assert (streq (zproto_example_persons_forename_index (self, 1), "but Now lasts"));
+        assert (streq (zproto_example_persons_forename_index (self, 2), "for ever"));
+        assert (streq (zproto_example_persons_surname_index (self, 0), "Life is short"));
+        assert (streq (zproto_example_persons_surname_index (self, 1), "but Now lasts"));
+        assert (streq (zproto_example_persons_surname_index (self, 2), "for ever"));
+        assert (streq (zproto_example_persons_mobile_index (self, 0), "Life is short"));
+        assert (streq (zproto_example_persons_mobile_index (self, 1), "but Now lasts"));
+        assert (streq (zproto_example_persons_mobile_index (self, 2), "for ever"));
+        assert (streq (zproto_example_persons_email_index (self, 0), "Life is short"));
+        assert (streq (zproto_example_persons_email_index (self, 1), "but Now lasts"));
+        assert (streq (zproto_example_persons_email_index (self, 2), "for ever"));
         zproto_example_destroy (&self);
     }
 

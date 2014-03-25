@@ -66,6 +66,9 @@ function resolve_types ()
                         field.name = original_field.name + " " + type_field.name
                         field.type = type_field.type
                         field.size = type_field.size? 0
+                        if defined (original_field.repeat)
+                            field.repeat = original_field.repeat
+                        endif
                         field. = type_field.?''
                     endnew
                 endfor

@@ -85,6 +85,10 @@
         lstr                longstr     Repeating 4-byte string
         strs                strings     Repeating strings
         chunks              chunk       Repeating chunks
+        persons_forename    string      Given name
+        persons_surname     string      Family name
+        persons_mobile      string      Mobile phone number
+        persons_email       string      Email address
 */
 
 #define ZPROTO_EXAMPLE_VERSION              1
@@ -196,7 +200,11 @@ int
     char **str, byte str_size,
     char **lstr, byte lstr_size,
     zlist_t **strs, byte strs_size,
-    zchunk_t **chunks, byte chunks_size);
+    zchunk_t **chunks, byte chunks_size,
+    char **persons_forename, byte persons_forename_size,
+    char **persons_surname, byte persons_surname_size,
+    char **persons_mobile, byte persons_mobile_size,
+    char **persons_email, byte persons_email_size);
     
 //  Duplicate the zproto_example message
 zproto_example_t *
@@ -444,6 +452,30 @@ zchunk_t *
 //  Set the chunks field, transferring ownership from caller
 void
     zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size);
+
+//  Get/set the persons_forename field
+const char *
+    zproto_example_persons_forename_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_forename (zproto_example_t *self, char **, byte size);
+
+//  Get/set the persons_surname field
+const char *
+    zproto_example_persons_surname_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_surname (zproto_example_t *self, char **, byte size);
+
+//  Get/set the persons_mobile field
+const char *
+    zproto_example_persons_mobile_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_mobile (zproto_example_t *self, char **, byte size);
+
+//  Get/set the persons_email field
+const char *
+    zproto_example_persons_email_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_email (zproto_example_t *self, char **, byte size);
 
 //  Self test of this class
 int
