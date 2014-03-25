@@ -26,8 +26,11 @@ function set_defaults ()
         endfor
         for field
             field.name = "$(field.name:c)"
+            if defined (repeat)  
+                class.hasRepeat = "true"
+            endif
             if defined (repeat) & repeat = "n" 
-                field.repeat = "255"
+                field.repeat = "256"
             endif
             if type = "number"
                 field.size ?= 1

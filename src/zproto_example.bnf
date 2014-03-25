@@ -36,6 +36,15 @@ The following ABNF grammar defines the zproto example protocol:
     mobile          = string                ; Mobile phone number
     email           = string                ; Email address
 
+    ; Demonstrates repeating fields
+    C:repeat        = signature %d5 n1 n2 n3 n4 str lstr
+    n1              = number-1              ; Repeating byte
+    n2              = number-2              ; Repeating 2-bytes
+    n3              = number-4              ; Repeating 4-bytes
+    n4              = number-8              ; Repeating 8-bytes
+    str             = string                ; Repeating 1-byte string
+    lstr            = longstr               ; Repeating 4-byte string
+
     ; A list of string values
     strings         = strings-count *strings-value
     strings-count   = number-4
