@@ -1482,7 +1482,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name) [$(repeat)], 
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
-$(ctype) 
+$(ctype)
 $(class.name)_$(name) ($(class.name)_t *self)
 {
     assert (self);
