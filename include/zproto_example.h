@@ -74,6 +74,21 @@
         supplier_surname    string      Family name
         supplier_mobile     string      Mobile phone number
         supplier_email      string      Email address
+
+    REPEAT - Demonstrates repeating fields
+        sequence            number 2    
+        no1                 number 1    Repeating byte
+        no2                 number 2    Repeating 2-bytes
+        no4                 number 4    Repeating 4-bytes
+        no8                 number 8    Repeating 8-bytes
+        str                 string      Repeating 1-byte string
+        lstr                longstr     Repeating 4-byte string
+        strs                strings     Repeating strings
+        chunks              chunk       Repeating chunks
+        persons_forename    string      Given name
+        persons_surname     string      Family name
+        persons_mobile      string      Mobile phone number
+        persons_email       string      Email address
 */
 
 #define ZPROTO_EXAMPLE_VERSION              1
@@ -82,6 +97,7 @@
 #define ZPROTO_EXAMPLE_STRUCTURES           2
 #define ZPROTO_EXAMPLE_BINARY               3
 #define ZPROTO_EXAMPLE_TYPES                4
+#define ZPROTO_EXAMPLE_REPEAT               5
 #define ZPROTO_EXAMPLE_FLAGS_SIZE           4
 
 #ifdef __cplusplus
@@ -135,43 +151,60 @@ int
 //  Send the LOG to the output in one step
 int
     zproto_example_send_log (void *output,
-        uint16_t sequence,
-        byte level,
-        byte event,
-        uint16_t node,
-        uint16_t peer,
-        uint64_t time,
-        const char *host,
-        const char *data);
+    uint16_t sequence,
+    byte level,
+    byte event,
+    uint16_t node,
+    uint16_t peer,
+    uint64_t time,
+    const char *host,
+    const char *data);
     
 //  Send the STRUCTURES to the output in one step
 int
     zproto_example_send_structures (void *output,
-        uint16_t sequence,
-        zlist_t *aliases,
-        zhash_t *headers);
+    uint16_t sequence,
+    zlist_t *aliases,
+    zhash_t *headers);
     
 //  Send the BINARY to the output in one step
 int
     zproto_example_send_binary (void *output,
-        uint16_t sequence,
-        byte *flags,
-        zchunk_t *public_key,
-        zframe_t *address,
-        zmsg_t *content);
+    uint16_t sequence,
+    byte *flags,
+    zchunk_t *public_key,
+    zframe_t *address,
+    zmsg_t *content);
     
 //  Send the TYPES to the output in one step
 int
     zproto_example_send_types (void *output,
-        uint16_t sequence,
-        const char *client_forename,
-        const char *client_surname,
-        const char *client_mobile,
-        const char *client_email,
-        const char *supplier_forename,
-        const char *supplier_surname,
-        const char *supplier_mobile,
-        const char *supplier_email);
+    uint16_t sequence,
+    const char *client_forename,
+    const char *client_surname,
+    const char *client_mobile,
+    const char *client_email,
+    const char *supplier_forename,
+    const char *supplier_surname,
+    const char *supplier_mobile,
+    const char *supplier_email);
+    
+//  Send the REPEAT to the output in one step
+int
+    zproto_example_send_repeat (void *output,
+    uint16_t sequence,
+    byte no1 [3], byte no1_size,
+    uint16_t no2 [144], byte no2_size,
+    uint32_t no4 [256], byte no4_size,
+    uint64_t no8 [256], byte no8_size,
+    char **str, byte str_size,
+    char **lstr, byte lstr_size,
+    zlist_t **strs, byte strs_size,
+    zchunk_t **chunks, byte chunks_size,
+    char **persons_forename, byte persons_forename_size,
+    char **persons_surname, byte persons_surname_size,
+    char **persons_mobile, byte persons_mobile_size,
+    char **persons_email, byte persons_email_size);
     
 //  Duplicate the zproto_example message
 zproto_example_t *
@@ -369,6 +402,80 @@ const char *
     zproto_example_supplier_email (zproto_example_t *self);
 void
     zproto_example_set_supplier_email (zproto_example_t *self, const char *format, ...);
+
+//  Get/set the no1 field
+byte
+    zproto_example_no1_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_no1 (zproto_example_t *self, byte no1 [3], byte size);
+
+//  Get/set the no2 field
+uint16_t
+    zproto_example_no2_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [144], byte size);
+
+//  Get/set the no4 field
+uint32_t
+    zproto_example_no4_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [256], byte size);
+
+//  Get/set the no8 field
+uint64_t
+    zproto_example_no8_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [256], byte size);
+
+//  Get/set the str field
+const char *
+    zproto_example_str_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_str (zproto_example_t *self, char **, byte size);
+
+//  Get/set the lstr field
+const char *
+    zproto_example_lstr_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_lstr (zproto_example_t *self, char **, byte size);
+
+//  Get/set the strs field
+zlist_t *
+    zproto_example_strs_index (zproto_example_t *self, byte index);
+//  Get the strs field and transfer ownership to caller
+void
+    zproto_example_set_strs (zproto_example_t *self, zlist_t **strs, byte size);
+
+//  Get a copy of the chunks field
+zchunk_t *
+    zproto_example_chunks_index (zproto_example_t *self, byte index);
+//  Set the chunks field, transferring ownership from caller
+void
+    zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size);
+
+//  Get/set the persons_forename field
+const char *
+    zproto_example_persons_forename_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_forename (zproto_example_t *self, char **, byte size);
+
+//  Get/set the persons_surname field
+const char *
+    zproto_example_persons_surname_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_surname (zproto_example_t *self, char **, byte size);
+
+//  Get/set the persons_mobile field
+const char *
+    zproto_example_persons_mobile_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_mobile (zproto_example_t *self, char **, byte size);
+
+//  Get/set the persons_email field
+const char *
+    zproto_example_persons_email_index (zproto_example_t *self, byte index);
+void
+    zproto_example_set_persons_email (zproto_example_t *self, char **, byte size);
 
 //  Self test of this class
 int
