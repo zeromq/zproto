@@ -193,10 +193,10 @@ int
 int
     zproto_example_send_repeat (void *output,
     uint16_t sequence,
-    byte no1 [0*3], byte no1_size,
-    uint16_t no2 [0*144], byte no2_size,
-    uint32_t no4 [0*256], byte no4_size,
-    uint64_t no8 [*], byte no8_size,
+    byte no1 [3], byte no1_size,
+    uint16_t no2 [144], byte no2_size,
+    uint32_t no4 [256], byte no4_size,
+    uint64_t no8 [256], byte no8_size,
     char **str, byte str_size,
     char **lstr, byte lstr_size,
     zlist_t **strs, byte strs_size,
@@ -407,25 +407,25 @@ void
 byte
     zproto_example_no1_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_no1 (zproto_example_t *self, byte no1 [0*3], byte size);
+    zproto_example_set_no1 (zproto_example_t *self, byte no1 [3], byte size);
 
 //  Get/set the no2 field
 uint16_t
     zproto_example_no2_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [0*144], byte size);
+    zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [144], byte size);
 
 //  Get/set the no4 field
 uint32_t
     zproto_example_no4_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [0*256], byte size);
+    zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [256], byte size);
 
 //  Get/set the no8 field
 uint64_t
     zproto_example_no8_index (zproto_example_t *self, byte index);
 void
-    zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [*], byte size);
+    zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [256], byte size);
 
 //  Get/set the str field
 const char *

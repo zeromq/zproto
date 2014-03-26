@@ -77,41 +77,41 @@ struct _zproto_example_t {
     char *supplier_surname;             //  Family name
     char *supplier_mobile;              //  Mobile phone number
     char *supplier_email;               //  Email address
-    byte no1 [0*3];                     //  Repeating byte
+    byte no1 [3];                       //  Repeating byte
     byte no1_index;
     size_t no1_limit;
-    uint16_t no2 [0*144];               //  Repeating 2-bytes
+    uint16_t no2 [144];                 //  Repeating 2-bytes
     byte no2_index;
     size_t no2_limit;
-    uint32_t no4 [0*256];               //  Repeating 4-bytes
+    uint32_t no4 [256];                 //  Repeating 4-bytes
     byte no4_index;
     size_t no4_limit;
-    uint64_t no8 [*];                   //  Repeating 8-bytes
+    uint64_t no8 [256];                 //  Repeating 8-bytes
     byte no8_index;
     size_t no8_limit;
-    char *str [0*3];                    //  Repeating 1-byte string
+    char *str [3];                      //  Repeating 1-byte string
     byte str_index;
     size_t str_limit;
-    char *lstr [*];                     //  Repeating 4-byte string
+    char *lstr [256];                   //  Repeating 4-byte string
     byte lstr_index;
     size_t lstr_limit;
-    zlist_t *strs [*];                  //  Repeating strings
-    size_t strs_bytes [*];              //  Size of dictionary content
+    zlist_t *strs [256];                //  Repeating strings
+    size_t strs_bytes [256];            //  Size of dictionary content
     byte strs_index;
     size_t strs_limit;
-    zchunk_t *chunks [0*2];             //  Repeating chunks
+    zchunk_t *chunks [2];               //  Repeating chunks
     byte chunks_index;
     size_t chunks_limit;
-    char *persons_forename [*];         //  Given name
+    char *persons_forename [256];       //  Given name
     byte persons_forename_index;
     size_t persons_forename_limit;
-    char *persons_surname [*];          //  Family name
+    char *persons_surname [256];        //  Family name
     byte persons_surname_index;
     size_t persons_surname_limit;
-    char *persons_mobile [*];           //  Mobile phone number
+    char *persons_mobile [256];         //  Mobile phone number
     byte persons_mobile_index;
     size_t persons_mobile_limit;
-    char *persons_email [*];            //  Email address
+    char *persons_email [256];          //  Email address
     byte persons_email_index;
     size_t persons_email_limit;
 };
@@ -261,29 +261,29 @@ zproto_example_new (int id)
     zproto_example_t *self = (zproto_example_t *) zmalloc (sizeof (zproto_example_t));
     self->id = id;
     self->no1_index = 0;
-    self->no1_limit = 0*3;
+    self->no1_limit = 3;
     self->no2_index = 0;
-    self->no2_limit = 0*144;
+    self->no2_limit = 144;
     self->no4_index = 0;
-    self->no4_limit = 0*256;
+    self->no4_limit = 256;
     self->no8_index = 0;
-    self->no8_limit = *;
+    self->no8_limit = 256;
     self->str_index = 0;
-    self->str_limit = 0*3;
+    self->str_limit = 3;
     self->lstr_index = 0;
-    self->lstr_limit = *;
+    self->lstr_limit = 256;
     self->strs_index = 0;
-    self->strs_limit = *;
+    self->strs_limit = 256;
     self->chunks_index = 0;
-    self->chunks_limit = 0*2;
+    self->chunks_limit = 2;
     self->persons_forename_index = 0;
-    self->persons_forename_limit = *;
+    self->persons_forename_limit = 256;
     self->persons_surname_index = 0;
-    self->persons_surname_limit = *;
+    self->persons_surname_limit = 256;
     self->persons_mobile_index = 0;
-    self->persons_mobile_limit = *;
+    self->persons_mobile_limit = 256;
     self->persons_email_index = 0;
-    self->persons_email_limit = *;
+    self->persons_email_limit = 256;
     return self;
 }
 
@@ -1364,10 +1364,10 @@ int
 zproto_example_send_repeat (
     void *output,
     uint16_t sequence,
-    byte no1 [0*3], byte no1_size,
-    uint16_t no2 [0*144], byte no2_size,
-    uint32_t no4 [0*256], byte no4_size,
-    uint64_t no8 [*], byte no8_size,
+    byte no1 [3], byte no1_size,
+    uint16_t no2 [144], byte no2_size,
+    uint32_t no4 [256], byte no4_size,
+    uint64_t no8 [256], byte no8_size,
     char **str, byte str_size,
     char **lstr, byte lstr_size,
     zlist_t **strs, byte strs_size,
@@ -2449,7 +2449,7 @@ zproto_example_no1_index (zproto_example_t *self, byte index)
 }
 
 void
-zproto_example_set_no1 (zproto_example_t *self, byte no1 [0*3], byte size)
+zproto_example_set_no1 (zproto_example_t *self, byte no1 [3], byte size)
 {
     assert (self);
     assert (size <= self->no1_limit);
@@ -2473,7 +2473,7 @@ zproto_example_no2_index (zproto_example_t *self, byte index)
 }
 
 void
-zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [0*144], byte size)
+zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [144], byte size)
 {
     assert (self);
     assert (size <= self->no2_limit);
@@ -2497,7 +2497,7 @@ zproto_example_no4_index (zproto_example_t *self, byte index)
 }
 
 void
-zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [0*256], byte size)
+zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [256], byte size)
 {
     assert (self);
     assert (size <= self->no4_limit);
@@ -2521,7 +2521,7 @@ zproto_example_no8_index (zproto_example_t *self, byte index)
 }
 
 void
-zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [*], byte size)
+zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [256], byte size)
 {
     assert (self);
     assert (size <= self->no8_limit);
@@ -2925,22 +2925,22 @@ zproto_example_test (bool verbose)
     zproto_example_destroy (&copy);
 
     zproto_example_set_sequence (self, 123);
-    byte no1 [0*3];
+    byte no1 [3];
     no1 [0] = 10;
     no1 [1] = 20;
     no1 [2] = 30;
     zproto_example_set_no1 (self, no1, 3);
-    uint16_t no2 [0*144];
+    uint16_t no2 [144];
     no2 [0] = 10;
     no2 [1] = 20;
     no2 [2] = 30;
     zproto_example_set_no2 (self, no2, 3);
-    uint32_t no4 [0*256];
+    uint32_t no4 [256];
     no4 [0] = 10;
     no4 [1] = 20;
     no4 [2] = 30;
     zproto_example_set_no4 (self, no4, 3);
-    uint64_t no8 [*];
+    uint64_t no8 [256];
     no8 [0] = 10;
     no8 [1] = 20;
     no8 [2] = 30;
