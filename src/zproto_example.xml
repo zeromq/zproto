@@ -142,4 +142,22 @@ prefixed with the original field name, e.g. client_forename, supplier_email.
     <field name = "email" type = "string">Email address</field>
 </type>
 
+A BNF allows repetition of fields. To achive this behavior add the attribute
+'repeat' to a field. The value might be a specific number or 'n' for 
+arbitrary repetition. Currently the limit for repetition is 1-byte. Thus 'n'
+equals 256.
+
+<message name = "repeat" id = "5">
+    <field name = "no1" type = "number" size = "1" repeat = "3">Repeating byte</field>
+    <field name = "no2" type = "number" size = "2" repeat = "144">Repeating 2-bytes</field>
+    <field name = "no4" type = "number" size = "4" repeat = "256">Repeating 4-bytes</field>
+    <field name = "no8" type = "number" size = "8" repeat = "n">Repeating 8-bytes</field>
+    <field name = "str" type = "string" repeat = "3">Repeating 1-byte string</field>
+    <field name = "lstr" type = "longstr" repeat = "n">Repeating 4-byte string</field>
+    <field name = "strs" type = "strings" repeat = "n">Repeating strings</field>
+    <field name = "chunks" type = "chunk" repeat = "2">Repeating chunks</field>
+    <field name = "persons" type = "person" repeat = "n">Repeating person</field>
+Demonstrates repeating fields
+</message>
+
 </class>
