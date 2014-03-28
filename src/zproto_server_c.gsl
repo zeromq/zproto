@@ -102,7 +102,9 @@ endfor
     * The code generation script that built this file: $(script)
     ************************************************************************
 
-    $(string.trim (class->license.):block                                   )
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
     =========================================================================
 */
 
@@ -167,7 +169,9 @@ void
     * The code generation script that built this file: $(script)
     ************************************************************************
 
-    $(string.trim (class->license.):block                                   )
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
     =========================================================================
 */
 
@@ -983,7 +987,9 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
-    $(string.trim (class->license.):block                                   )
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
     =========================================================================
 */
 
@@ -996,8 +1002,8 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
 */
 
 #include <czmq.h>
-#include "../include/$(class.proto).h"
-#include "../include/$(class.name).h"
+#include "$(class.header)/$(class.proto).h"
+#include "$(class.header)/$(class.name).h"
 
 //  ---------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
@@ -1104,7 +1110,6 @@ $(class.name)_test (bool verbose)
     //  Reduce this by giving server thread time to exit
     zclock_sleep (200);
     printf ("OK\\n");
-    return 0;
 }
 .endif
 .close

@@ -27,14 +27,20 @@ function generate_bnf
         endif
         >
         >    ; $(string.trim (message.?''):)
+        if role ?= "client"
         >    C:$(message.name:)\
+        elsif role ?= "server"
+        >    S:$(message.name:)\
+        else
+        >    $(message.name:)\
+        endif
         >                    = signature %d$(id)\
         for field
             > $(field.name)\
         endfor
         >
         if first()
-            >    signature       = %xAA %d$(signature)   ; two octets
+            >    signature       = %xAA %xA$(signature)  ; two octets
         endif
         for field
             if type = "number"
