@@ -9,7 +9,7 @@ resolve_includes ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.output "$(class.header)/$(class.name).h"
+.output "../include/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
@@ -24,8 +24,9 @@ set_defaults ()
     * The XML model used for this code generation: $(filename)
     * The code generation script that built this file: $(script)
     ************************************************************************
-    
-    $(string.trim (class->license.):block                                   )
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
     =========================================================================
 */
 
@@ -315,7 +316,7 @@ int
 #endif
 
 #endif
-.output "$(class.source)/$(class.name).c"
+.output "$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -331,7 +332,9 @@ int
     * The code generation script that built this file: $(script)
     ************************************************************************
     
-    $(string.trim (class->license.):block                                   )
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
     =========================================================================
 */
 
@@ -343,7 +346,7 @@ int
 */
 
 #include <czmq.h>
-#include "$(class.header)/$(class.name).h"
+#include "../include/$(class.name).h"
 
 //  Structure of our class
 
@@ -735,11 +738,13 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
                 self->needle += chunk_size;
             }
 .       elsif type = "frame"
-            //  Get next frame, leave current untouched
-            zframe_t *$(name) = zmsg_pop (msg);
-            if (!$(name))
-                goto malformed;
-            self->$(name) = $(name);
+            {
+                //  Get next frame, leave current untouched
+                zframe_t *$(name) = zmsg_pop (msg);
+                if (!$(name))
+                    goto malformed;
+                self->$(name) = $(name);
+            }
 .       elsif type = "msg"
             //  Get zero or more remaining frames, leaving current
             //  frame untouched
@@ -779,6 +784,9 @@ $(class.name)_recv (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv (input);
+.if switches.trace ?= 1
+    zmsg_dump (msg);
+.endif
     return $(class.name)_decode (&msg, zsocket_type (input));
 }
 

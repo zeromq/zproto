@@ -458,11 +458,13 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
                 self->public_key = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
-            //  Get next frame, leave current untouched
-            zframe_t *address = zmsg_pop (msg);
-            if (!address)
-                goto malformed;
-            self->address = address;
+            {
+                //  Get next frame, leave current untouched
+                zframe_t *address = zmsg_pop (msg);
+                if (!address)
+                    goto malformed;
+                self->address = address;
+            }
             //  Get zero or more remaining frames, leaving current
             //  frame untouched
             self->content = zmsg_new ();

@@ -3,8 +3,8 @@ The following ABNF grammar defines the zproto example protocol:
     example         = log | structures | binary
 
     ; Log an event.
-    C:log           = signature %d1 version level event node peer time host data
-    signature       = %xAA %d0              ; two octets
+    log             = signature %d1 version level event node peer time host data
+    signature       = %xAA %xA0             ; two octets
     version         = number-2              ; Version
     level           = number-1              ; Log severity level
     event           = number-1              ; Type of event
@@ -15,19 +15,19 @@ The following ABNF grammar defines the zproto example protocol:
     data            = longstr               ; Actual log message
 
     ; This message contains a list and a hash.
-    C:structures    = signature %d2 aliases headers
+    structures      = signature %d2 aliases headers
     aliases         = strings               ; List of strings
     headers         = dictionary            ; Other random properties
 
     ; Deliver a multi-part message.
-    C:binary        = signature %d3 flags public key address content
+    binary          = signature %d3 flags public key address content
     flags           = 4OCTET                ; A set of flags
     public key      = chunk                 ; Our public key
     address         = frame                 ; Return address as frame
     content         = msg                   ; Message to be delivered
 
     ; Demonstrate custom-defined types
-    C:types         = signature %d4 client supplier
+    types           = signature %d4 client supplier
     client          = person                ; Client contact
     supplier        = person                ; Supplier contact
     person          = forename surname mobile email
