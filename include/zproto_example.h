@@ -12,7 +12,6 @@
     * The XML model used for this code generation: zproto_example.xml
     * The code generation script that built this file: zproto_codec_c
     ************************************************************************
-    
     Copyright (C) 2014 the Authors                                         
                                                                            
     Permission is hereby granted, free of charge, to any person obtaining  

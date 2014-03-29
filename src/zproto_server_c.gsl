@@ -88,7 +88,7 @@ for class.action
 endfor
 
 .endtemplate
-.output "$(class.header)/$(class.name).h"
+.output "../include/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -155,7 +155,7 @@ void
 #endif
 
 #endif
-.output "$(class.source)/$(class.name)_engine.h"
+.output "$(class.name)_engine.h"
 /*  =========================================================================
     $(class.name)_engine - $(class.title:) engine
 
@@ -981,7 +981,7 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
     s_server_destroy (&self);
 }
 .#  Generate source file first time only
-.source_file = "$(class.source)/$(class.name).c"
+.source_file = "$(class.name).c"
 .if !file.exists (source_file)
 .   output source_file
 /*  =========================================================================
@@ -1002,8 +1002,8 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
 */
 
 #include <czmq.h>
-#include "$(class.header)/$(class.proto).h"
-#include "$(class.header)/$(class.name).h"
+#include "../include/$(class.proto).h"
+#include "../include/$(class.name).h"
 
 //  ---------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here

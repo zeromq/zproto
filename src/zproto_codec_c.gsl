@@ -9,7 +9,7 @@ resolve_includes ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.output "$(class.header)/$(class.name).h"
+.output "../include/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
@@ -318,7 +318,7 @@ int
 #endif
 
 #endif
-.output "$(class.source)/$(class.name).c"
+.output "$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -348,7 +348,7 @@ int
 */
 
 #include <czmq.h>
-#include "$(class.header)/$(class.name).h"
+#include "../include/$(class.name).h"
 
 //  Structure of our class
 
