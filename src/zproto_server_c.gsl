@@ -16,6 +16,20 @@ endif
 #   Load message structures for this engine
 global.proto = xml.load_file (class.proto + ".xml")
 
+#   Lowercase state/event/action names
+for class.state
+    state.name = "$(name)"
+    for event
+        event.name = "$(name)"
+        if defined (event.next)
+            event.next = "$(next)"
+        endif
+        for action
+            action.name = "$(name)"
+        endfor
+    endfor
+endfor
+
 #   API methods that get passed to server task
 for class.method
    if return ?= "number"
