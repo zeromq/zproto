@@ -7,6 +7,7 @@ function generate_bnf
     >The following ABNF grammar defines the $(class.title:):
     >
 
+    class.signature ?= 0
     for class.grammar
         >$(string.trim (grammar.):)
     else
