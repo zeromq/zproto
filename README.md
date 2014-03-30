@@ -137,32 +137,33 @@ Here's the state machine for the ZPIPES server:
         title = "ZPIPES server"
         proto = "zpipes_msg"
         script = "zproto_server_c"
-        header = "../include"
         >
         This is a server implementation for the ZPIPES protocol
         <include filename = "license.xml" />
 
         <!-- State machine for a client connection -->
         <state name = "start">
-            <event name = "input" next = "reading">
+            <event name = "INPUT" next = "reading">
                 <action name = "open pipe for input" />
-                <action name = "send" message = "input ok" />
+                <action name = "send" message = "INPUT OK" />
             </event>
-            <event name = "output" next = "writing">
+            <event name = "OUTPUT" next = "writing">
                 <action name = "open pipe for output" />
-                <action name = "send" message = "output ok" />
+                <action name = "send" message = "OUTPUT OK" />
             </event>
         </state>
 
-        This state allows two protocol commands, read and close:
+        This state allows two protocol commands, READ and CLOSE.
+        Names of states, events, and actions are case insensitive.
+        By convention we use uppercase for protocol events:
 
         <state name = "reading">
-            <event name = "read" next = "expecting chunk">
+            <event name = "READ" next = "expecting chunk">
                 <action name = "expect chunk on pipe" />
             </event>
-            <event name = "close">
+            <event name = "CLOSE">
                 <action name = "close pipe" />
-                <action name = "send" message = "close ok" />
+                <action name = "send" message = "CLOSE OK" />
                 <action name = "terminate" />
             </event>
         </state>
@@ -178,42 +179,42 @@ Here's the state machine for the ZPIPES server:
             <event name = "have chunk" next = "reading">
                 <action name = "clear pending reads" />
                 <action name = "fetch chunk from pipe" />
-                <action name = "send" message = "read ok" />
+                <action name = "send" message = "READ OK" />
             </event>
             <event name = "pipe terminated" next = "reading">
                 <action name = "clear pending reads" />
-                <action name = "send" message = "end of pipe" />
+                <action name = "send" message = "END OF PIPE" />
             </event>
             <event name = "timeout expired" next = "reading">
                 <action name = "clear pending reads" />
-                <action name = "send" message = "timeout" />
+                <action name = "send" message = "TIMEOUT" />
             </event>
         </state>
 
         <state name = "writing">
-            <event name = "write" next = "writing">
+            <event name = "WRITE" next = "writing">
                 <action name = "store chunk to pipe" />
-                <action name = "send" message = "write ok" />
+                <action name = "send" message = "WRITE OK" />
             </event>
-            <event name = "close">
+            <event name = "CLOSE">
                 <action name = "close pipe" />
-                <action name = "send" message = "close ok" />
+                <action name = "send" message = "CLOSE OK" />
                 <action name = "terminate" />
             </event>
         </state>
 
         The defaults state handles an 'exception_event' (sends
-        'failed' back to the client). It also specifies that any
+        FAILED back to the client). It also specifies that any
         unrecognized protocol command (an '$other' event) will
-        also cause the engine to send 'failed' back to the client.
+        also cause the engine to send FAILED back to the client.
 
         <state name = "defaults">
             <event name = "exception">
-                <action name = "send" message = "failed" />
+                <action name = "send" message = "FAILED" />
                 <action name = "terminate" />
             </event>
             <event name = "$other">
-                <action name = "send" message = "failed" />
+                <action name = "send" message = "FAILED" />
             </event>
         </state>
 
