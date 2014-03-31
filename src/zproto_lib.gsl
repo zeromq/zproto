@@ -28,6 +28,8 @@ function set_defaults ()
             field.name = "$(field.name:c)"
             if defined (repeat)  
                 class.hasRepeat = "true"
+            else
+                class.hasRepeat = "false"
             endif
             if defined (repeat) & repeat = "n" 
                 field.repeat = "256"
