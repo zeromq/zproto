@@ -96,8 +96,6 @@ State machines are a little unusual, conceptually. If you're not familiar with t
 
 * Any action can raise an *exception event* that interrupts the flow through the action list and to the next state.
 
-* A *defaults state* collects events that may occur in any state, together with their actions.
-
 ### The zproto Server Model
 
 The zproto_server_c.gsl code generator outputs a single .h file called an *engine* that does the hard work. If needed, it'll also generate you a skeleton .c file for your server, which you edit and build. It doesn't re-create that file again, though it will append new action stubs.
@@ -116,9 +114,9 @@ The server is a class that exposes an API like this (taken from the [zeromq/zbro
     void
         zpipes_server_configure (zpipes_server_t *self, const char *config_file);
 
-    //  Set one configuration path value
+    //  Set one configuration option value
     void
-        zpipes_server_setoption (zpipes_server_t *self, const char *path, const char *value);
+        zpipes_server_set (zpipes_server_t *self, const char *path, const char *value);
 
     //  Binds the server to an endpoint, formatted as printf string
     long
@@ -130,145 +128,177 @@ The server is a class that exposes an API like this (taken from the [zeromq/zbro
 
 Rather than run the server as a main program, you write a main program that creates and works with server objects. These run as background services, accepting clients on a ZMQ ROUTER port. The bind method exposes that port to the outside world.
 
-Here's the state machine for the ZPIPES server:
+Your input to the code generator is two XML files (without schemas, DTDs, entity encodings!) that defines a set of 'states', and the protocol messages as used to generate the codec. Here is a minimal 'hello_server.xml' example that defines a Hello, World server:
 
     <class
-        name = "zpipes_server"
-        title = "ZPIPES server"
-        proto = "zpipes_msg"
+        name = "hello_server"
+        title = "Hello server"
+        proto = "hello_msg"
         script = "zproto_server_c"
         >
-        This is a server implementation for the ZPIPES protocol
-        <include filename = "license.xml" />
+        A Hello, World server
 
-        <!-- State machine for a client connection -->
         <state name = "start">
-            <event name = "INPUT" next = "reading">
-                <action name = "open pipe for input" />
-                <action name = "send" message = "INPUT OK" />
-            </event>
-            <event name = "OUTPUT" next = "writing">
-                <action name = "open pipe for output" />
-                <action name = "send" message = "OUTPUT OK" />
+            <event name = "HELLO">
+                <action name = "send" message = "WORLD" />
             </event>
         </state>
-
-        This state allows two protocol commands, READ and CLOSE.
-        Names of states, events, and actions are case insensitive.
-        By convention we use uppercase for protocol events:
-
-        <state name = "reading">
-            <event name = "READ" next = "expecting chunk">
-                <action name = "expect chunk on pipe" />
-            </event>
-            <event name = "CLOSE">
-                <action name = "close pipe" />
-                <action name = "send" message = "CLOSE OK" />
-                <action name = "terminate" />
-            </event>
-        </state>
-
-        This internal state shows how we make a decision in the
-        state machine. These are three internal events; they can
-        happen come immediately from 'expect chunk on pipe', or
-        come later from various places. The server can ask for a
-        wakeup event (timeout expired). We can also get events
-        from other clients' machines.
-
-        <state name = "expecting chunk">
-            <event name = "have chunk" next = "reading">
-                <action name = "clear pending reads" />
-                <action name = "fetch chunk from pipe" />
-                <action name = "send" message = "READ OK" />
-            </event>
-            <event name = "pipe terminated" next = "reading">
-                <action name = "clear pending reads" />
-                <action name = "send" message = "END OF PIPE" />
-            </event>
-            <event name = "timeout expired" next = "reading">
-                <action name = "clear pending reads" />
-                <action name = "send" message = "TIMEOUT" />
-            </event>
-        </state>
-
-        <state name = "writing">
-            <event name = "WRITE" next = "writing">
-                <action name = "store chunk to pipe" />
-                <action name = "send" message = "WRITE OK" />
-            </event>
-            <event name = "CLOSE">
-                <action name = "close pipe" />
-                <action name = "send" message = "CLOSE OK" />
-                <action name = "terminate" />
-            </event>
-        </state>
-
-        The defaults state handles an 'exception_event' (sends
-        FAILED back to the client). It also specifies that any
-        unrecognized protocol command (an '$other' event) will
-        also cause the engine to send FAILED back to the client.
-
-        <state name = "defaults">
-            <event name = "exception">
-                <action name = "send" message = "FAILED" />
-                <action name = "terminate" />
-            </event>
-            <event name = "$other">
-                <action name = "send" message = "FAILED" />
-            </event>
-        </state>
-
-        We can define API methods to pass commands back from the
-        application through to the engine.
-
-        <!-- API methods
-        <method name = "somename" return = "number">
-            One-line description of method here
-            <argument name = "some value" type = "string">What is this argument?</argument>
-            <argument name = "some value" type = "number">What is this argument?</argument>
-        </method>
-        -->
     </class>
 
-The generated server manages clients automatically. There's various options to expire dead clients, and so on -- read the zproto_server_c.gsl code to understand more. The state machine applies to *single client connection* from start to finish.
+Names of states, events, and actions are case insensitive. By convention however we use uppercase for protocol events. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
 
-There are two predefined actions: "send" and "terminate". Other actions map to functions in your own code. The engine calls these functions as needed, passing the client context:
+The generated server manages clients automatically. To build this, do:
 
+    gsl -q -trace:1 -animate:1 hello_server.xml
+
+The first time you do this, you'll get a hello_server.c source file. You can edit that; it won't be regenerated. The generated code goes, instead, into hello_server_engine.h. Take a look if you like.
+
+The trace option shows all protocol messages received and sent. The animate option shows the state machine as it moves through states and actions.
+
+There are two predefined actions: "send", which sends a specific protocol message, and "terminate", which ends the client connection. Other actions map to functions in your own code, e.g.:
+
+    <state name = "start">
+        <event name = "HELLO" next = "start">
+            <action name = "tell the user hello too" />
+            <action name = "send" message = "WORLD" />
+        </event>
+    </state>
+
+    ...
+    
     static void
-    store_chunk_to_pipe (client_t *self)
+    tell_the_user_hello_too (client_t *self)
     {
-        //  State machine guarantees we're in a valid state for writing
-        assert (self->pipe);
-        assert (self->writing);
-
-        //  Always store chunk on list, even to pass to pending reader
-        zlist_append (self->pipe->queue, zpipes_msg_get_chunk (self->request));
-        if (self->pipe->reader) {
-            send_event (self->pipe->reader, have_chunk_event);
-            assert (zlist_size (self->pipe->queue) == 0);
-        }
+        puts ("Hello, World!");
     }
 
-There are a set of methods your actions can call:
+Your server code (the actions) gets a small API to work with:
 
     //  Set the next event, needed in at least one action in an internal
     //  state; otherwise the state machine will wait for a message on the
     //  router socket and treat that as the event.
-    static void set_next_event (client_t *self, event_t event);
+    static void
+    set_next_event (client_t *self, event_t event);
 
     //  Raise an exception with 'event', halting any actions in progress.
     //  Continues execution of actions defined for the exception event.
-    static void raise_exception (client_t *self, event_t event);
+    static void
+    raise_exception (client_t *self, event_t event);
 
     //  Set wakeup alarm after 'delay' msecs. The next state should
     //  handle the wakeup event. The alarm is cancelled on any other
     //  event.
-    static void set_wakeup_event (client_t *self, size_t delay, event_t event);
+    static void
+    set_wakeup_event (client_t *self, size_t delay, event_t event);
 
     //  Execute 'event' on specified client. Use this to send events to
     //  other clients. Cancels any wakeup alarm on that client.
-    static void send_event (client_t *self, event_t event);
+    static void
+    send_event (client_t *self, event_t event);
 
+### Message Filtering & Priorities
+
+The generated engine implements a simple yet useful form of message filtering:
+
+* If a protocol message is not valid in the current state (i.e. there is no matching event), then it is queued for later processing.
+
+* When entering a new state, the engine will pull and process protocol messages from oldest to newest, matching events in the state.
+
+You can use this to mix blocking and non-blocking work on the same connection. For instance, one command may involve some work (such as waiting on other connections) that can block for arbitrary periods. At the same time the client may send heartbeat commands that the engine has to respond to:
+
+    <state name = "start">
+        <event name = "HELLO" next = "waiting">
+            <action name = "wait on other internal event" />
+        </event>
+        <event name = "PING">
+            <action name = "send" message = "PONG" />
+        </event>
+    </state>
+
+    <state name = "waiting">
+        <event name = "ok" next = "start">
+            <action name = "tell the user hello too" />
+            <action name = "send" message = "WORLD" />
+        </event>
+        <event name = "error" next = "start">
+            <action name = "terminate" />
+        </event>
+        <event name = "PING">
+            <action name = "send" message = "PONG" />
+        </event>
+    </state>
+
+Note here that while the engine is waiting for an internal event, it will continue to process PING commands, but will not process HELLO commands.
+
+As side-effect of message filtering, the client can 'pipeline' messages, e.g. sending multiple HELLOs before waiting for WORLD replies.
+
+### Superstates
+
+Superstates are a shorthand to reduce the amount of error-prone repetition in a state machine. Here is the same state machine using a superstate:
+
+    <state name = "start" inherit = "defaults">
+        <event name = "HELLO" next = "waiting">
+            <action name = "wait on other internal event" />
+        </event>
+    </state>
+
+    <state name = "waiting" inherit = "defaults">
+        <event name = "ok" next = "start">
+            <action name = "tell the user hello too" />
+            <action name = "send" message = "WORLD" />
+        </event>
+        <event name = "error" next = "start">
+            <action name = "terminate" />
+        </event>
+    </state>
+
+    <state name = "defaults">
+        <event name = "PING">
+            <action name = "send" message = "PONG" />
+        </event>
+    </state>
+
+Note the logic of PING, which says, "when the client sends PING, respond by sending PONG, and then stay in the same state." You can't currently use super-superstates.
+
+For complex protocols you can collect error handling together using the wildcard event, "*", which means "all other protocol events in this state". For example:
+
+    <state name = "defaults">
+        <event name = "PING">
+            <action name = "send" message = "PONG" />
+        </event>
+        <event name = "*">
+            <action name = "log unexpected client message" />
+            <action name = "terminate" />
+        </event>
+    </state>
+
+### Client and Server Properties
+
+In your server code, you have two structures, client_t and server_t. Note that the client_t structure MUST always contain these variables (the request and reply will use whatever protocol name you defined):
+
+    server_t *server;           //  Reference to parent server
+    hello_msg_t *request;       //  Last received request
+    hello_msg_t *reply;         //  Reply to send out, if any
+
+### Client Connection Expiry
+
+If you define an "expired" event anywhere in your dialog, the server will automatically expire idle clients after a timeout, which defaults to 60 seconds. It's smart to put this into a superstate:
+
+    <state name = "defaults">
+        <event name = "PING">
+            <action name = "send" message = "PONG" />
+        </event>
+        <event name = "expired">
+            <action name = "terminate" />
+        </event>
+    </state>
+
+To tune the expiry time, use this method (e.g. to set to 1 second):
+
+    hello_server_set (self, "server/timeout", "1000");
+
+It is good practice to do heartbeating by sending a PING from the client and responding to that with a PONG or suchlike. Do not heartbeat from the server to clients; that is fragile.
+    
 ### For More Information
 
 Though [the Libero documentation](http://legacy.imatix.com/html/libero/) is quite old now, it's useful as a guide to what's possible with state machines. The Libero model added superstates, substates, and other useful ways to manage larger state machines.
