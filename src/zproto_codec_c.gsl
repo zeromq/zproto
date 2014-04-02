@@ -556,7 +556,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
-.if class.repeats = "true"
+.if class.has_repeats
         int index;
 .endif
 .for class.field
@@ -1209,7 +1209,7 @@ $(class.name)_dup ($(class.name)_t *self)
     $(class.name)_t *copy = $(class.name)_new (self->id);
     if (self->routing_id)
         copy->routing_id = zframe_dup (self->routing_id);
-.if class.repeats = "true"
+.if class.has_repeats
     int index;
 .endif
     switch (self->id) {
@@ -1271,7 +1271,7 @@ void
 $(class.name)_dump ($(class.name)_t *self)
 {
     assert (self);
-.if class.repeats = "true"
+.if class.has_repeats
     int index;
 .endif
     switch (self->id) {

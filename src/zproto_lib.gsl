@@ -25,12 +25,12 @@ function set_defaults ()
         for field
             field.name = "$(field.name:c)"
             if defined (repeat)
-                class.repeats = "true"
+                class.has_repeats = 1
+                if repeat = "n"
+                    repeat = "256"
+                endif
             else
-                class.repeats = "false"
-            endif
-            if defined (repeat) & repeat = "n" 
-                field.repeat = "256"
+                class.has_repeats = 0
             endif
             if type = "number"
                 field.size ?= 1
@@ -66,9 +66,7 @@ function resolve_types ()
                         field.name = original_field.name + " " + type_field.name
                         field.type = type_field.type
                         field.size = type_field.size? 0
-                        if defined (original_field.repeat)
-                            field.repeat = original_field.repeat
-                        endif
+                        field.repeat = original_field.repeat?
                         field. = type_field.?''
                     endnew
                 endfor
