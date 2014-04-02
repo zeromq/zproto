@@ -746,7 +746,8 @@ s_client_execute (s_client_t *self, int event)
 .   else
                 else {
                     //  Handle unexpected internal events
-                    zclock_log ("%6d: W: unhandled event %s in %s",
+                    zlog_warning (self->server->log,
+                        "%6d: unhandled event %s in %s",
                         self->unique_id,
                         s_event_name [self->event],
                         s_state_name [self->state]);
@@ -800,9 +801,10 @@ s_server_config_self (s_server_t *self)
         zconfig_resolve (self->config, "server/monitor", "5"));
     self->monitor_at = zclock_time () + self->monitor;
 
-    //  Show logs in foreground by default
-    if (atoi (
-        zconfig_resolve (self->config, "server/foreground", "1")) == 1)
+    //  Do we want to run server in the background?
+    int background = atoi (
+        zconfig_resolve (self->config, "server/background", "0"));
+    if (!background)
         zlog_set_foreground (self->log, true);
 }
 
@@ -858,7 +860,7 @@ s_server_apply_config (s_server_t *self)
         zconfig_t *entry = zconfig_child (section);
         while (entry) {
             if (streq (zconfig_name (entry), "echo"))
-                zclock_log ("%s", zconfig_value (entry));
+                zlog_notice (self->log, "%s", zconfig_value (entry));
             entry = zconfig_next (entry);
         }
         if (streq (zconfig_name (section), "bind")) {
@@ -947,7 +949,8 @@ s_server_control_message (s_server_t *self)
         if (self->config)
             s_server_apply_config (self);
         else {
-            zclock_log ("E: cannot load config file '%s'\\n", config_file);
+            zlog_warning (self->log,
+                "cannot load config file '%s'\\n", config_file);
             self->config = zconfig_new ("root", NULL);
         }
         free (config_file);
@@ -1008,11 +1011,9 @@ s_server_client_message (s_server_t *self)
 static void
 s_server_task (void *args, zctx_t *ctx, void *pipe)
 {
-.if switches.trace ?= 1
-    zclock_log ("Initialize background server task");
-.endif
     s_server_t *self = s_server_new (ctx, pipe);
     assert (self);
+    zlog_notice (self->log, "Starting $(class.name) service");
     zstr_send (self->pipe, "OK");
 
     zmq_pollitem_t items [] = {
@@ -1050,6 +1051,7 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
             self->monitor_at = zclock_time () + self->monitor;
         }
     }
+    zlog_notice (self->log, "Terminating $(class.name) service");
     s_server_destroy (&self);
 }
 .#  Generate source file first time only
