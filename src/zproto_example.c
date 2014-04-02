@@ -300,7 +300,7 @@ zproto_example_destroy (zproto_example_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
-        int i;
+        int index;
         free (self->host);
         free (self->data);
         if (self->aliases)
@@ -318,41 +318,41 @@ zproto_example_destroy (zproto_example_t **self_p)
         free (self->supplier_mobile);
         free (self->supplier_email);
         if (self->str) {
-            for (i = 0; i < self->str_index + 1; i++)
-                if (self->str [i])
-                    free (self->str [i]);
+            for (index = 0; index < self->str_index + 1; index++)
+                if (self->str [index])
+                    free (self->str [index]);
         }
         if (self->lstr) {
-            for (i = 0; i < self->lstr_index + 1; i++)
-                if (self->lstr [i])
-                    free (self->lstr [i]);
+            for (index = 0; index < self->lstr_index + 1; index++)
+                if (self->lstr [index])
+                    free (self->lstr [index]);
         }
         if (self->strs) {
-            for (i = 0; i < self->strs_index + 1; i++)
-                if (self->strs [i])
-                    zlist_destroy (&self->strs [i]);
+            for (index = 0; index < self->strs_index + 1; index++)
+                if (self->strs [index])
+                    zlist_destroy (&self->strs [index]);
         }
-        for (i = 0; i < self->chunks_index + 1; i++)
-            zchunk_destroy (&self->chunks [i]);
+        for (index = 0; index < self->chunks_index + 1; index++)
+            zchunk_destroy (&self->chunks [index]);
         if (self->persons_forename) {
-            for (i = 0; i < self->persons_forename_index + 1; i++)
-                if (self->persons_forename [i])
-                    free (self->persons_forename [i]);
+            for (index = 0; index < self->persons_forename_index + 1; index++)
+                if (self->persons_forename [index])
+                    free (self->persons_forename [index]);
         }
         if (self->persons_surname) {
-            for (i = 0; i < self->persons_surname_index + 1; i++)
-                if (self->persons_surname [i])
-                    free (self->persons_surname [i]);
+            for (index = 0; index < self->persons_surname_index + 1; index++)
+                if (self->persons_surname [index])
+                    free (self->persons_surname [index]);
         }
         if (self->persons_mobile) {
-            for (i = 0; i < self->persons_mobile_index + 1; i++)
-                if (self->persons_mobile [i])
-                    free (self->persons_mobile [i]);
+            for (index = 0; index < self->persons_mobile_index + 1; index++)
+                if (self->persons_mobile [index])
+                    free (self->persons_mobile [index]);
         }
         if (self->persons_email) {
-            for (i = 0; i < self->persons_email_index + 1; i++)
-                if (self->persons_email [i])
-                    free (self->persons_email [i]);
+            for (index = 0; index < self->persons_email_index + 1; index++)
+                if (self->persons_email [index])
+                    free (self->persons_email [index]);
         }
 
         //  Free object itself
@@ -823,8 +823,8 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->no1_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->no1_index + 1; index++) {
                     //  no1 is a 1-byte integer
                     frame_size += 1;
                 }
@@ -832,8 +832,8 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->no2_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->no2_index + 1; index++) {
                     //  no2 is a 2-byte integer
                     frame_size += 2;
                 }
@@ -841,8 +841,8 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->no4_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->no4_index + 1; index++) {
                     //  no4 is a 4-byte integer
                     frame_size += 4;
                 }
@@ -850,8 +850,8 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->no8_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->no8_index + 1; index++) {
                     //  no8 is a 8-byte integer
                     frame_size += 8;
                 }
@@ -859,38 +859,38 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->str_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->str_index + 1; index++) {
                     //  str is a string with 1-byte length
                     frame_size++;       //  Size is one octet
-                    if (self->str [i])
-                        frame_size += strlen (self->str [i]);
+                    if (self->str [index])
+                        frame_size += strlen (self->str [index]);
                 }
             }
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->lstr_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->lstr_index + 1; index++) {
                     //  lstr is a string with 4-byte length
                     frame_size += 4;
-                    if (self->lstr [i])
-                        frame_size += strlen (self->lstr [i]);
+                    if (self->lstr [index])
+                        frame_size += strlen (self->lstr [index]);
                 }
             }
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->strs_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->strs_index + 1; index++) {
                     //  strs is an array of strings
                     frame_size += 4;    //  Size is 4 octets
-                    if (self->strs [i]) {
+                    if (self->strs [index]) {
                         //  Add up size of list contents
-                        char *strs = (char *) zlist_first (self->strs [i]);
+                        char *strs = (char *) zlist_first (self->strs [index]);
                         while (strs) {
                             frame_size += 4 + strlen (strs);
-                            strs = (char *) zlist_next (self->strs [i]);
+                            strs = (char *) zlist_next (self->strs [index]);
                         }
                     }
                 }
@@ -898,56 +898,56 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->chunks_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->chunks_index + 1; index++) {
                     //  chunks is a chunk with 4-byte length
                     frame_size += 4;
-                    if (self->chunks [i])
-                        frame_size += zchunk_size (self->chunks [i]);
+                    if (self->chunks [index])
+                        frame_size += zchunk_size (self->chunks [index]);
                 }
             }
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->persons_forename_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->persons_forename_index + 1; index++) {
                     //  persons_forename is a string with 1-byte length
                     frame_size++;       //  Size is one octet
-                    if (self->persons_forename [i])
-                        frame_size += strlen (self->persons_forename [i]);
+                    if (self->persons_forename [index])
+                        frame_size += strlen (self->persons_forename [index]);
                 }
             }
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->persons_surname_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->persons_surname_index + 1; index++) {
                     //  persons_surname is a string with 1-byte length
                     frame_size++;       //  Size is one octet
-                    if (self->persons_surname [i])
-                        frame_size += strlen (self->persons_surname [i]);
+                    if (self->persons_surname [index])
+                        frame_size += strlen (self->persons_surname [index]);
                 }
             }
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->persons_mobile_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->persons_mobile_index + 1; index++) {
                     //  persons_mobile is a string with 1-byte length
                     frame_size++;       //  Size is one octet
-                    if (self->persons_mobile [i])
-                        frame_size += strlen (self->persons_mobile [i]);
+                    if (self->persons_mobile [index])
+                        frame_size += strlen (self->persons_mobile [index]);
                 }
             }
             {
                 //  Array has 1-byte length
                 frame_size += 1;
-                int i;
-                for (i = 0; i < self->persons_email_index + 1; i++) {
+                int index;
+                for (index = 0; index < self->persons_email_index + 1; index++) {
                     //  persons_email is a string with 1-byte length
                     frame_size++;       //  Size is one octet
-                    if (self->persons_email [i])
-                        frame_size += strlen (self->persons_email [i]);
+                    if (self->persons_email [index])
+                        frame_size += strlen (self->persons_email [index]);
                 }
             }
             break;
@@ -1066,38 +1066,38 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             PUT_NUMBER2 (self->sequence);
             {
                 PUT_NUMBER1 (self->no1_index + 1);
-                int i;
-                for (i = 0; i < self->no1_index + 1; i++) {
-                    PUT_NUMBER1 (self->no1 [i]);
+                int index;
+                for (index = 0; index < self->no1_index + 1; index++) {
+                    PUT_NUMBER1 (self->no1 [index]);
                 }
             }    
             {
                 PUT_NUMBER1 (self->no2_index + 1);
-                int i;
-                for (i = 0; i < self->no2_index + 1; i++) {
-                    PUT_NUMBER2 (self->no2 [i]);
+                int index;
+                for (index = 0; index < self->no2_index + 1; index++) {
+                    PUT_NUMBER2 (self->no2 [index]);
                 }
             }    
             {
                 PUT_NUMBER1 (self->no4_index + 1);
-                int i;
-                for (i = 0; i < self->no4_index + 1; i++) {
-                    PUT_NUMBER4 (self->no4 [i]);
+                int index;
+                for (index = 0; index < self->no4_index + 1; index++) {
+                    PUT_NUMBER4 (self->no4 [index]);
                 }
             }    
             {
                 PUT_NUMBER1 (self->no8_index + 1);
-                int i;
-                for (i = 0; i < self->no8_index + 1; i++) {
-                    PUT_NUMBER8 (self->no8 [i]);
+                int index;
+                for (index = 0; index < self->no8_index + 1; index++) {
+                    PUT_NUMBER8 (self->no8 [index]);
                 }
             }    
             {
                 PUT_NUMBER1 (self->str_index + 1);
-                int i;
-                for (i = 0; i < self->str_index + 1; i++) {
-                if (self->str [i]) {
-                    PUT_STRING (self->str [i]);
+                int index;
+                for (index = 0; index < self->str_index + 1; index++) {
+                if (self->str [index]) {
+                    PUT_STRING (self->str [index]);
                 }
                 else
                     PUT_NUMBER1 (0);    //  Empty string
@@ -1105,10 +1105,10 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->lstr_index + 1);
-                int i;
-                for (i = 0; i < self->lstr_index + 1; i++) {
-                if (self->lstr [i]) {
-                    PUT_LONGSTR (self->lstr [i]);
+                int index;
+                for (index = 0; index < self->lstr_index + 1; index++) {
+                if (self->lstr [index]) {
+                    PUT_LONGSTR (self->lstr [index]);
                 }
                 else
                     PUT_NUMBER4 (0);    //  Empty string
@@ -1116,14 +1116,14 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->strs_index + 1);
-                int i;
-                for (i = 0; i < self->strs_index + 1; i++) {
-                if (self->strs [i]) {
-                    PUT_NUMBER4 (zlist_size (self->strs [i]));
-                    char *strs = (char *) zlist_first (self->strs [i]);
+                int index;
+                for (index = 0; index < self->strs_index + 1; index++) {
+                if (self->strs [index]) {
+                    PUT_NUMBER4 (zlist_size (self->strs [index]));
+                    char *strs = (char *) zlist_first (self->strs [index]);
                     while (strs) {
                         PUT_LONGSTR (strs);
-                        strs = (char *) zlist_next (self->strs [i]);
+                        strs = (char *) zlist_next (self->strs [index]);
                     }
                 }
                 else
@@ -1132,14 +1132,14 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->chunks_index + 1);
-                int i;
-                for (i = 0; i < self->chunks_index + 1; i++) {
-                if (self->chunks [i]) {
-                    PUT_NUMBER4 (zchunk_size (self->chunks [i]));
+                int index;
+                for (index = 0; index < self->chunks_index + 1; index++) {
+                if (self->chunks [index]) {
+                    PUT_NUMBER4 (zchunk_size (self->chunks [index]));
                     memcpy (self->needle,
-                            zchunk_data (self->chunks [i]),
-                            zchunk_size (self->chunks [i]));
-                    self->needle += zchunk_size (self->chunks [i]);
+                            zchunk_data (self->chunks [index]),
+                            zchunk_size (self->chunks [index]));
+                    self->needle += zchunk_size (self->chunks [index]);
                 }
                 else
                     PUT_NUMBER4 (0);    //  Empty chunk
@@ -1147,10 +1147,10 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->persons_forename_index + 1);
-                int i;
-                for (i = 0; i < self->persons_forename_index + 1; i++) {
-                if (self->persons_forename [i]) {
-                    PUT_STRING (self->persons_forename [i]);
+                int index;
+                for (index = 0; index < self->persons_forename_index + 1; index++) {
+                if (self->persons_forename [index]) {
+                    PUT_STRING (self->persons_forename [index]);
                 }
                 else
                     PUT_NUMBER1 (0);    //  Empty string
@@ -1158,10 +1158,10 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->persons_surname_index + 1);
-                int i;
-                for (i = 0; i < self->persons_surname_index + 1; i++) {
-                if (self->persons_surname [i]) {
-                    PUT_STRING (self->persons_surname [i]);
+                int index;
+                for (index = 0; index < self->persons_surname_index + 1; index++) {
+                if (self->persons_surname [index]) {
+                    PUT_STRING (self->persons_surname [index]);
                 }
                 else
                     PUT_NUMBER1 (0);    //  Empty string
@@ -1169,10 +1169,10 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->persons_mobile_index + 1);
-                int i;
-                for (i = 0; i < self->persons_mobile_index + 1; i++) {
-                if (self->persons_mobile [i]) {
-                    PUT_STRING (self->persons_mobile [i]);
+                int index;
+                for (index = 0; index < self->persons_mobile_index + 1; index++) {
+                if (self->persons_mobile [index]) {
+                    PUT_STRING (self->persons_mobile [index]);
                 }
                 else
                     PUT_NUMBER1 (0);    //  Empty string
@@ -1180,10 +1180,10 @@ zproto_example_encode (zproto_example_t *self, int socket_type)
             }    
             {
                 PUT_NUMBER1 (self->persons_email_index + 1);
-                int i;
-                for (i = 0; i < self->persons_email_index + 1; i++) {
-                if (self->persons_email [i]) {
-                    PUT_STRING (self->persons_email [i]);
+                int index;
+                for (index = 0; index < self->persons_email_index + 1; index++) {
+                if (self->persons_email [index]) {
+                    PUT_STRING (self->persons_email [index]);
                 }
                 else
                     PUT_NUMBER1 (0);    //  Empty string
@@ -1409,7 +1409,7 @@ zproto_example_dup (zproto_example_t *self)
     zproto_example_t *copy = zproto_example_new (self->id);
     if (self->routing_id)
         copy->routing_id = zframe_dup (self->routing_id);
-    int i;
+    int index;
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             copy->sequence = self->sequence;
@@ -1452,52 +1452,52 @@ zproto_example_dup (zproto_example_t *self)
         case ZPROTO_EXAMPLE_REPEAT:
             copy->sequence = self->sequence;
             copy->no1_index = self->no1_index;
-            for (i = 0; i < self->no1_index + 1; i++) {
-                copy->no1 [i] = self->no1 [i];
+            for (index = 0; index < self->no1_index + 1; index++) {
+                copy->no1 [index] = self->no1 [index];
             }
             copy->no2_index = self->no2_index;
-            for (i = 0; i < self->no2_index + 1; i++) {
-                copy->no2 [i] = self->no2 [i];
+            for (index = 0; index < self->no2_index + 1; index++) {
+                copy->no2 [index] = self->no2 [index];
             }
             copy->no4_index = self->no4_index;
-            for (i = 0; i < self->no4_index + 1; i++) {
-                copy->no4 [i] = self->no4 [i];
+            for (index = 0; index < self->no4_index + 1; index++) {
+                copy->no4 [index] = self->no4 [index];
             }
             copy->no8_index = self->no8_index;
-            for (i = 0; i < self->no8_index + 1; i++) {
-                copy->no8 [i] = self->no8 [i];
+            for (index = 0; index < self->no8_index + 1; index++) {
+                copy->no8 [index] = self->no8 [index];
             }
             copy->str_index = self->str_index;
-            for (i = 0; i < self->str_index + 1; i++) {
-                copy->str [i] = self->str [i] ? strdup (self->str [i]): NULL;
+            for (index = 0; index < self->str_index + 1; index++) {
+                copy->str [index] = self->str [index] ? strdup (self->str [index]): NULL;
             }
             copy->lstr_index = self->lstr_index;
-            for (i = 0; i < self->lstr_index + 1; i++) {
-                copy->lstr [i] = self->lstr [i] ? strdup (self->lstr [i]): NULL;
+            for (index = 0; index < self->lstr_index + 1; index++) {
+                copy->lstr [index] = self->lstr [index] ? strdup (self->lstr [index]): NULL;
             }
             copy->strs_index = self->strs_index;
-            for (i = 0; i < self->strs_index + 1; i++) {
-                copy->strs [i] = self->strs [i] ? zlist_dup (self->strs [i]): NULL;
+            for (index = 0; index < self->strs_index + 1; index++) {
+                copy->strs [index] = self->strs [index] ? zlist_dup (self->strs [index]): NULL;
             }
             copy->chunks_index = self->chunks_index;
-            for (i = 0; i < self->chunks_index + 1; i++) {
-                copy->chunks [i] = self->chunks [i] ? zchunk_dup (self->chunks [i]): NULL;
+            for (index = 0; index < self->chunks_index + 1; index++) {
+                copy->chunks [index] = self->chunks [index] ? zchunk_dup (self->chunks [index]): NULL;
             }
             copy->persons_forename_index = self->persons_forename_index;
-            for (i = 0; i < self->persons_forename_index + 1; i++) {
-                copy->persons_forename [i] = self->persons_forename [i] ? strdup (self->persons_forename [i]): NULL;
+            for (index = 0; index < self->persons_forename_index + 1; index++) {
+                copy->persons_forename [index] = self->persons_forename [index] ? strdup (self->persons_forename [index]): NULL;
             }
             copy->persons_surname_index = self->persons_surname_index;
-            for (i = 0; i < self->persons_surname_index + 1; i++) {
-                copy->persons_surname [i] = self->persons_surname [i] ? strdup (self->persons_surname [i]): NULL;
+            for (index = 0; index < self->persons_surname_index + 1; index++) {
+                copy->persons_surname [index] = self->persons_surname [index] ? strdup (self->persons_surname [index]): NULL;
             }
             copy->persons_mobile_index = self->persons_mobile_index;
-            for (i = 0; i < self->persons_mobile_index + 1; i++) {
-                copy->persons_mobile [i] = self->persons_mobile [i] ? strdup (self->persons_mobile [i]): NULL;
+            for (index = 0; index < self->persons_mobile_index + 1; index++) {
+                copy->persons_mobile [index] = self->persons_mobile [index] ? strdup (self->persons_mobile [index]): NULL;
             }
             copy->persons_email_index = self->persons_email_index;
-            for (i = 0; i < self->persons_email_index + 1; i++) {
-                copy->persons_email [i] = self->persons_email [i] ? strdup (self->persons_email [i]): NULL;
+            for (index = 0; index < self->persons_email_index + 1; index++) {
+                copy->persons_email [index] = self->persons_email [index] ? strdup (self->persons_email [index]): NULL;
             }
             break;
 
@@ -1522,7 +1522,7 @@ void
 zproto_example_dump (zproto_example_t *self)
 {
     assert (self);
-    int i;
+    int index;
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             puts ("LOG:");
@@ -1635,113 +1635,113 @@ zproto_example_dump (zproto_example_t *self)
             puts ("REPEAT:");
             printf ("    sequence=%ld\n", (long) self->sequence);
             printf ("   no1=[");
-            for (i = 0; i < self->no1_index + 1; i++) {
+            for (index = 0; index < self->no1_index + 1; index++) {
                 printf ("%ld", (long) self->no1);
-                if (i < self->no1_index - 1)
+                if (index < self->no1_index - 1)
                     printf (",");
             }
             printf ("]\n");
             printf ("   no2=[");
-            for (i = 0; i < self->no2_index + 1; i++) {
+            for (index = 0; index < self->no2_index + 1; index++) {
                 printf ("%ld", (long) self->no2);
-                if (i < self->no2_index - 1)
+                if (index < self->no2_index - 1)
                     printf (",");
             }
             printf ("]\n");
             printf ("   no4=[");
-            for (i = 0; i < self->no4_index + 1; i++) {
+            for (index = 0; index < self->no4_index + 1; index++) {
                 printf ("%ld", (long) self->no4);
-                if (i < self->no4_index - 1)
+                if (index < self->no4_index - 1)
                     printf (",");
             }
             printf ("]\n");
             printf ("   no8=[");
-            for (i = 0; i < self->no8_index + 1; i++) {
+            for (index = 0; index < self->no8_index + 1; index++) {
                 printf ("%ld", (long) self->no8);
-                if (i < self->no8_index - 1)
+                if (index < self->no8_index - 1)
                     printf (",");
             }
             printf ("]\n");
             printf ("str=[");
-            for (i = 0; i < self->str_index + 1; i++) {
-                if (self->str [i])
-                    printf (" '%s'", self->str [i]);
+            for (index = 0; index < self->str_index + 1; index++) {
+                if (self->str [index])
+                    printf (" '%s'", self->str [index]);
                 else
                     printf (" ");
-                if (i < self->str_index - 1)
+                if (index < self->str_index - 1)
                     printf (",");
             }
             printf (" ]\n");
             printf ("lstr=[");
-            for (i = 0; i < self->lstr_index + 1; i++) {
-                if (self->lstr [i])
-                    printf (" '%s'", self->lstr [i]);
+            for (index = 0; index < self->lstr_index + 1; index++) {
+                if (self->lstr [index])
+                    printf (" '%s'", self->lstr [index]);
                 else
                     printf (" ");
-                if (i < self->lstr_index - 1)
+                if (index < self->lstr_index - 1)
                     printf (",");
             }
             printf (" ]\n");
             printf ("    strs=[");
-            for (i = 0; i < self->strs_index + 1; i++) {
+            for (index = 0; index < self->strs_index + 1; index++) {
                 printf ("{");
-                if (self->strs [i]) {
-                    char *strs = (char *) zlist_first (self->strs [i]);
+                if (self->strs [index]) {
+                    char *strs = (char *) zlist_first (self->strs [index]);
                     while (strs) {
                         printf (" '%s'", strs);
-                        strs = (char *) zlist_next (self->strs [i]);
+                        strs = (char *) zlist_next (self->strs [index]);
                     }
                 }
                 printf (" }\n");
             }
             printf ("]\n");
             printf ("    chunks=[");
-            for (i = 0; i < self->chunks_index + 1; i++) {
+            for (index = 0; index < self->chunks_index + 1; index++) {
                 printf ("    {\n");
-                if (self->chunks [i])
-                    zchunk_print (self->chunks [i]);
+                if (self->chunks [index])
+                    zchunk_print (self->chunks [index]);
                 else
                     printf ("(NULL)\n");
                 printf ("    }\n");
             }
             printf ("]\n");
             printf ("persons_forename=[");
-            for (i = 0; i < self->persons_forename_index + 1; i++) {
-                if (self->persons_forename [i])
-                    printf (" '%s'", self->persons_forename [i]);
+            for (index = 0; index < self->persons_forename_index + 1; index++) {
+                if (self->persons_forename [index])
+                    printf (" '%s'", self->persons_forename [index]);
                 else
                     printf (" ");
-                if (i < self->persons_forename_index - 1)
+                if (index < self->persons_forename_index - 1)
                     printf (",");
             }
             printf (" ]\n");
             printf ("persons_surname=[");
-            for (i = 0; i < self->persons_surname_index + 1; i++) {
-                if (self->persons_surname [i])
-                    printf (" '%s'", self->persons_surname [i]);
+            for (index = 0; index < self->persons_surname_index + 1; index++) {
+                if (self->persons_surname [index])
+                    printf (" '%s'", self->persons_surname [index]);
                 else
                     printf (" ");
-                if (i < self->persons_surname_index - 1)
+                if (index < self->persons_surname_index - 1)
                     printf (",");
             }
             printf (" ]\n");
             printf ("persons_mobile=[");
-            for (i = 0; i < self->persons_mobile_index + 1; i++) {
-                if (self->persons_mobile [i])
-                    printf (" '%s'", self->persons_mobile [i]);
+            for (index = 0; index < self->persons_mobile_index + 1; index++) {
+                if (self->persons_mobile [index])
+                    printf (" '%s'", self->persons_mobile [index]);
                 else
                     printf (" ");
-                if (i < self->persons_mobile_index - 1)
+                if (index < self->persons_mobile_index - 1)
                     printf (",");
             }
             printf (" ]\n");
             printf ("persons_email=[");
-            for (i = 0; i < self->persons_email_index + 1; i++) {
-                if (self->persons_email [i])
-                    printf (" '%s'", self->persons_email [i]);
+            for (index = 0; index < self->persons_email_index + 1; index++) {
+                if (self->persons_email [index])
+                    printf (" '%s'", self->persons_email [index]);
                 else
                     printf (" ");
-                if (i < self->persons_email_index - 1)
+                if (index < self->persons_email_index - 1)
                     printf (",");
             }
             printf (" ]\n");
@@ -2456,9 +2456,9 @@ zproto_example_set_no1 (zproto_example_t *self, byte no1 [3], byte size)
     assert (self);
     assert (size <= self->no1_limit);
     self->no1_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++)
-        self->no1 [i] = no1 [i];
+    int index;
+    for (index = 0; index < size; index++)
+        self->no1 [index] = no1 [index];
 }
 
 
@@ -2480,9 +2480,9 @@ zproto_example_set_no2 (zproto_example_t *self, uint16_t no2 [144], byte size)
     assert (self);
     assert (size <= self->no2_limit);
     self->no2_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++)
-        self->no2 [i] = no2 [i];
+    int index;
+    for (index = 0; index < size; index++)
+        self->no2 [index] = no2 [index];
 }
 
 
@@ -2504,9 +2504,9 @@ zproto_example_set_no4 (zproto_example_t *self, uint32_t no4 [256], byte size)
     assert (self);
     assert (size <= self->no4_limit);
     self->no4_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++)
-        self->no4 [i] = no4 [i];
+    int index;
+    for (index = 0; index < size; index++)
+        self->no4 [index] = no4 [index];
 }
 
 
@@ -2528,9 +2528,9 @@ zproto_example_set_no8 (zproto_example_t *self, uint64_t no8 [256], byte size)
     assert (self);
     assert (size <= self->no8_limit);
     self->no8_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++)
-        self->no8 [i] = no8 [i];
+    int index;
+    for (index = 0; index < size; index++)
+        self->no8 [index] = no8 [index];
 }
 
 
@@ -2553,10 +2553,10 @@ zproto_example_set_str (zproto_example_t *self, char **str, byte size)
     assert (self);
     assert (size <= self->str_limit);
     self->str_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        self->str [i] = malloc (sizeof (char *) * strlen (str [i]));
-        strcpy (self->str [i], str [i]);
+    int index;
+    for (index = 0; index < size; index++) {
+        self->str [index] = malloc (sizeof (char *) * strlen (str [index]));
+        strcpy (self->str [index], str [index]);
     }
 }
 
@@ -2580,10 +2580,10 @@ zproto_example_set_lstr (zproto_example_t *self, char **lstr, byte size)
     assert (self);
     assert (size <= self->lstr_limit);
     self->lstr_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        self->lstr [i] = malloc (sizeof (char *) * strlen (lstr [i]));
-        strcpy (self->lstr [i], lstr [i]);
+    int index;
+    for (index = 0; index < size; index++) {
+        self->lstr [index] = malloc (sizeof (char *) * strlen (lstr [index]));
+        strcpy (self->lstr [index], lstr [index]);
     }
 }
 
@@ -2608,11 +2608,11 @@ zproto_example_set_strs (zproto_example_t *self, zlist_t **strs, byte size)
     assert (self);
     assert (size <= self->strs_limit);
     self->strs_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        zlist_destroy (&self->strs [i]);
-        self->strs [i] = strs [i];
-        strs [i] = NULL;
+    int index;
+    for (index = 0; index < size; index++) {
+        zlist_destroy (&self->strs [index]);
+        self->strs [index] = strs [index];
+        strs [index] = NULL;
     }
 }
 
@@ -2637,11 +2637,11 @@ zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size)
     assert (self);
     assert (size <= self->chunks_limit);
     self->chunks_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        zchunk_destroy (&self->chunks [i]);
-        self->chunks [i] = chunk [i];
-        chunk [i] = NULL;
+    int index;
+    for (index = 0; index < size; index++) {
+        zchunk_destroy (&self->chunks [index]);
+        self->chunks [index] = chunk [index];
+        chunk [index] = NULL;
     }
 }
 
@@ -2665,10 +2665,10 @@ zproto_example_set_persons_forename (zproto_example_t *self, char **persons_fore
     assert (self);
     assert (size <= self->persons_forename_limit);
     self->persons_forename_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        self->persons_forename [i] = malloc (sizeof (char *) * strlen (persons_forename [i]));
-        strcpy (self->persons_forename [i], persons_forename [i]);
+    int index;
+    for (index = 0; index < size; index++) {
+        self->persons_forename [index] = malloc (sizeof (char *) * strlen (persons_forename [index]));
+        strcpy (self->persons_forename [index], persons_forename [index]);
     }
 }
 
@@ -2692,10 +2692,10 @@ zproto_example_set_persons_surname (zproto_example_t *self, char **persons_surna
     assert (self);
     assert (size <= self->persons_surname_limit);
     self->persons_surname_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        self->persons_surname [i] = malloc (sizeof (char *) * strlen (persons_surname [i]));
-        strcpy (self->persons_surname [i], persons_surname [i]);
+    int index;
+    for (index = 0; index < size; index++) {
+        self->persons_surname [index] = malloc (sizeof (char *) * strlen (persons_surname [index]));
+        strcpy (self->persons_surname [index], persons_surname [index]);
     }
 }
 
@@ -2719,10 +2719,10 @@ zproto_example_set_persons_mobile (zproto_example_t *self, char **persons_mobile
     assert (self);
     assert (size <= self->persons_mobile_limit);
     self->persons_mobile_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        self->persons_mobile [i] = malloc (sizeof (char *) * strlen (persons_mobile [i]));
-        strcpy (self->persons_mobile [i], persons_mobile [i]);
+    int index;
+    for (index = 0; index < size; index++) {
+        self->persons_mobile [index] = malloc (sizeof (char *) * strlen (persons_mobile [index]));
+        strcpy (self->persons_mobile [index], persons_mobile [index]);
     }
 }
 
@@ -2746,10 +2746,10 @@ zproto_example_set_persons_email (zproto_example_t *self, char **persons_email, 
     assert (self);
     assert (size <= self->persons_email_limit);
     self->persons_email_index = size - 1;
-    int i;
-    for (i = 0; i < size; i++) {
-        self->persons_email [i] = malloc (sizeof (char *) * strlen (persons_email [i]));
-        strcpy (self->persons_email [i], persons_email [i]);
+    int index;
+    for (index = 0; index < size; index++) {
+        self->persons_email [index] = malloc (sizeof (char *) * strlen (persons_email [index]));
+        strcpy (self->persons_email [index], persons_email [index]);
     }
 }
 

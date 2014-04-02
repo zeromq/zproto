@@ -24,10 +24,10 @@ function set_defaults ()
         endfor
         for field
             field.name = "$(field.name:c)"
-            if defined (repeat)  
-                class.hasRepeat = "true"
+            if defined (repeat)
+                class.repeats = "true"
             else
-                class.hasRepeat = "false"
+                class.repeats = "false"
             endif
             if defined (repeat) & repeat = "n" 
                 field.repeat = "256"
