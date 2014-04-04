@@ -882,18 +882,16 @@ s_server_apply_config (s_server_t *self)
         section = zconfig_child (section);
 
     while (section) {
-        zconfig_t *entry = zconfig_child (section);
-        while (entry) {
-            if (streq (zconfig_name (entry), "echo"))
-                zlog_notice (self->log, "%s", zconfig_value (entry));
-            entry = zconfig_next (entry);
-        }
+        if (streq (zconfig_name (section), "echo"))
+            zlog_notice (self->log, "%s", zconfig_value (section));
+        else
         if (streq (zconfig_name (section), "bind")) {
             char *endpoint = zconfig_resolve (section, "endpoint", "?");
             int rc = zsocket_bind (self->router, "%s", endpoint);
             assert (rc != -1);
         }
 .for class.method where count (argument) > 0
+        else
         if (streq (zconfig_name (section), "$(name:c)")) {
 .   for argument
 .       if type = "string"
