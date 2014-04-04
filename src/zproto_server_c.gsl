@@ -459,7 +459,7 @@ static $(ctype)
 //  router socket and treat that as the event.
 
 static void
-set_next_event (client_t *client, event_t event)
+engine_set_next_event (client_t *client, event_t event)
 {
     if (client) {
         s_client_t *self = (s_client_t *) client;
@@ -471,7 +471,7 @@ set_next_event (client_t *client, event_t event)
 //  Continues execution of actions defined for the exception event.
 
 static void
-raise_exception (client_t *client, event_t event)
+engine_set_exception (client_t *client, event_t event)
 {
     if (client) {
         s_client_t *self = (s_client_t *) client;
@@ -484,7 +484,7 @@ raise_exception (client_t *client, event_t event)
 //  event.
 
 static void
-set_wakeup_event (client_t *client, size_t delay, event_t event)
+engine_set_wakeup_event (client_t *client, size_t delay, event_t event)
 {
     if (client) {
         s_client_t *self = (s_client_t *) client;
@@ -502,7 +502,7 @@ set_wakeup_event (client_t *client, size_t delay, event_t event)
 //  other clients. Cancels any wakeup alarm on that client.
 
 static void
-send_event (client_t *client, event_t event)
+engine_send_event (client_t *client, event_t event)
 {
     if (client) {
         s_client_t *self = (s_client_t *) client;
@@ -514,7 +514,7 @@ send_event (client_t *client, event_t event)
 //  Handler must be a CZMQ zloop_fn function; receives server as arg.
 
 static void
-handle_socket (server_t *server, void *socket, zloop_fn handler)
+engine_handle_socket (server_t *server, void *socket, zloop_fn handler)
 {
     if (server) {
         s_server_t *self = (s_server_t *) server;
@@ -531,11 +531,11 @@ handle_socket (server_t *server, void *socket, zloop_fn handler)
 static void
 s_satisfy_pedantic_compilers (void)
 {
-    set_next_event (NULL, 0);
-    raise_exception (NULL, 0);
-    set_wakeup_event (NULL, 0, 0);
-    send_event (NULL, 0);
-    handle_socket (NULL, 0, NULL);
+    engine_set_next_event (NULL, 0);
+    engine_set_exception (NULL, 0);
+    engine_set_wakeup_event (NULL, 0, 0);
+    engine_send_event (NULL, 0);
+    engine_handle_socket (NULL, 0, NULL);
 }
 
 
@@ -1056,8 +1056,8 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
     zlog_notice (self->log, "Starting $(class.name) service");
     zstr_send (self->pipe, "OK");
 
-    handle_socket ((server_t *) self, self->pipe, s_server_control_message);
-    handle_socket ((server_t *) self, self->router, s_server_client_message);
+    engine_handle_socket ((server_t *) self, self->pipe, s_server_control_message);
+    engine_handle_socket ((server_t *) self, self->router, s_server_client_message);
     zloop_start (self->loop);
     
     zlog_notice (self->log, "Terminating $(class.name) service");
@@ -1142,7 +1142,7 @@ server_terminate (server_t *self)
 
 
 //  Allocate properties and structures for a new client connection and
-//  optionally set_next_event (). Return 0 if OK, or -1 on error.
+//  optionally engine_set_next_event (). Return 0 if OK, or -1 on error.
 
 static int
 client_initialize (client_t *self)

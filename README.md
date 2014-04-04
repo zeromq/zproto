@@ -94,7 +94,7 @@ State machines are a little unusual, conceptually. If you're not familiar with t
 
 * In the next state, the machine either continues with an *internal event* produced by the previous actions, or waits for an *external event* coming as a protocol command.
 
-* Any action can raise an *exception event* that interrupts the flow through the action list and to the next state.
+* Any action can set an *exception event* that interrupts the flow through the action list and to the next state.
 
 ### The zproto Server Model
 
@@ -178,23 +178,23 @@ Your server code (the actions) gets a small API to work with:
     //  state; otherwise the state machine will wait for a message on the
     //  router socket and treat that as the event.
     static void
-    set_next_event (client_t *self, event_t event);
+    engine_set_next_event (client_t *self, event_t event);
 
     //  Raise an exception with 'event', halting any actions in progress.
     //  Continues execution of actions defined for the exception event.
     static void
-    raise_exception (client_t *self, event_t event);
+    engine_set_exception (client_t *self, event_t event);
 
     //  Set wakeup alarm after 'delay' msecs. The next state should
     //  handle the wakeup event. The alarm is cancelled on any other
     //  event.
     static void
-    set_wakeup_event (client_t *self, size_t delay, event_t event);
+    engine_set_wakeup_event (client_t *self, size_t delay, event_t event);
 
     //  Execute 'event' on specified client. Use this to send events to
     //  other clients. Cancels any wakeup alarm on that client.
     static void
-    send_event (client_t *self, event_t event);
+    engine_send_event (client_t *self, event_t event);
 
 ### Message Filtering & Priorities
 
@@ -326,11 +326,11 @@ The generated engine offers zloop integration so you can monitor your own socket
     //  Handler must be a CZMQ zloop_fn function; receives server as arg.
 
     static void
-    handle_socket (server_t *server, void *socket, zloop_fn handler);
+    engine_handle_socket (server_t *server, void *socket, zloop_fn handler);
 
 The engine invokes the handler with the 'server' as the argument. Here is the general style of using such a handler. First, in the 'server_initialize' function:
 
-    handle_socket (self, self->some_socket, some_handler);
+    engine_handle_socket (self, self->some_socket, some_handler);
 
 Where 'some_socket' is a ZeroMQ socket, and where 'some_handler' looks like this:
 
