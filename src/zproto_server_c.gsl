@@ -240,9 +240,11 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     assert (self_p);
     if (*self_p) {
         $(class.name)_t *self = *self_p;
-        zstr_send (self->pipe, "TERMINATE");
-        char *string = zstr_recv (self->pipe);
-        free (string);
+        if (!zctx_interrupted) {
+            zstr_send (self->pipe, "TERMINATE");
+            char *string = zstr_recv (self->pipe);
+            free (string);
+        }
         zctx_destroy (&self->ctx);
         free (self);
         *self_p = NULL;
@@ -888,7 +890,8 @@ s_server_apply_config (s_server_t *self)
         }
         if (streq (zconfig_name (section), "bind")) {
             char *endpoint = zconfig_resolve (section, "endpoint", "?");
-            self->port = zsocket_bind (self->router, "%s", endpoint);
+            int rc = zsocket_bind (self->router, "%s", endpoint);
+            assert (rc != -1);
         }
 .for class.method where count (argument) > 0
         if (streq (zconfig_name (section), "$(name:c)")) {
@@ -922,7 +925,7 @@ s_server_control_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     s_server_t *self = (s_server_t *) argument;
     zmsg_t *msg = zmsg_recv (self->pipe);
     if (!msg)
-        return 0;               //  Interrupted; do nothing
+        return -1;              //  Interrupted; exit zloop
 .if switches.trace ?= 1
     zclock_log ("API command:");
     zmsg_dump (msg);
@@ -965,6 +968,7 @@ s_server_control_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     if (streq (method, "BIND")) {
         char *endpoint = zmsg_popstr (msg);
         self->port = zsocket_bind (self->router, "%s", endpoint);
+        assert (self->port != -1);
         zstr_sendf (self->pipe, "%d", self->port);
         free (endpoint);
     }
@@ -1012,7 +1016,7 @@ s_server_client_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     s_server_t *self = (s_server_t *) argument;
     $(proto)_t *msg = $(proto)_recv (self->router);
     if (!msg)
-        return 0;               //  Interrupted; do nothing
+        return -1;              //  Interrupted; exit zloop
 
     char *hashkey = zframe_strhex ($(proto)_routing_id (msg));
     s_client_t *client = (s_client_t *) zhash_lookup (self->clients, hashkey);
@@ -1045,9 +1049,9 @@ s_server_client_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     return 0;
 }
 
-
 //  Finally here's the server thread itself, which polls its two
 //  sockets and processes incoming messages
+
 static void
 s_server_task (void *args, zctx_t *ctx, void *pipe)
 {
