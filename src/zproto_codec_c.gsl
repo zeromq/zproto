@@ -6,6 +6,7 @@
 include "zproto_lib.gsl"
 include "zproto_bnf.gsl"
 resolve_includes ()
+expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
@@ -121,36 +122,36 @@ int
 ,
 .   if defined (repeat)
 .       if type = "number"
-    $(ctype) $(name) [$(repeat)], byte $(name)_size\
+        $(ctype) $(name) [$(repeat)], byte $(name)_size\
 .       elsif type = "octets"
-    byte **$(name), byte $(name)_size\
+        byte **$(name), byte $(name)_size\
 .       elsif type = "string" | type = "longstr"
-    char **$(name), byte $(name)_size\
+        char **$(name), byte $(name)_size\
 .       elsif type = "strings"
-    zlist_t **$(name), byte $(name)_size\
+        zlist_t **$(name), byte $(name)_size\
 .       elsif type = "chunk" | type = "frame" | type = "msg"
-    z$(type)_t **$(name), byte $(name)_size\
+        z$(type)_t **$(name), byte $(name)_size\
 .       endif
 .   else
 .       if type = "number"
-    $(ctype) $(name)\
+        $(ctype) $(name)\
 .       elsif type = "octets"
-    byte *$(name)\
+        byte *$(name)\
 .       elsif type = "string" | type = "longstr"
-    const char *$(name)\
+        const char *$(name)\
 .       elsif type = "strings"
-    zlist_t *$(name)\
+        zlist_t *$(name)\
 .       elsif type = "dictionary"
-    zhash_t *$(name)\
+        zhash_t *$(name)\
 .       elsif type = "chunk" | type = "frame" | type = "msg"
-    z$(type)_t *$(name)\
+        z$(type)_t *$(name)\
 .       elsif type = "chunk"
-    zchunk_t *$(name)\
+        zchunk_t *$(name)\
 .       elsif type = "frame"
 .       message.has_frame = 1
-    zframe_t *$(name)\
+        zframe_t *$(name)\
 .       elsif type = "msg"
-    zmsg_t *$(name)\
+        zmsg_t *$(name)\
 .       message.has_msg = name
 .       endif
 .   endif
