@@ -94,7 +94,7 @@ State machines are a little unusual, conceptually. If you're not familiar with t
 
 * In the next state, the machine either continues with an *internal event* produced by the previous actions, or waits for an *external event* coming as a protocol command.
 
-* Any action can raise an *exception event* that interrupts the flow through the action list and to the next state.
+* Any action can set an *exception event* that interrupts the flow through the action list and to the next state.
 
 ### The zproto Server Model
 
@@ -178,23 +178,23 @@ Your server code (the actions) gets a small API to work with:
     //  state; otherwise the state machine will wait for a message on the
     //  router socket and treat that as the event.
     static void
-    set_next_event (client_t *self, event_t event);
+    engine_set_next_event (client_t *self, event_t event);
 
     //  Raise an exception with 'event', halting any actions in progress.
     //  Continues execution of actions defined for the exception event.
     static void
-    raise_exception (client_t *self, event_t event);
+    engine_set_exception (client_t *self, event_t event);
 
     //  Set wakeup alarm after 'delay' msecs. The next state should
     //  handle the wakeup event. The alarm is cancelled on any other
     //  event.
     static void
-    set_wakeup_event (client_t *self, size_t delay, event_t event);
+    engine_set_wakeup_event (client_t *self, size_t delay, event_t event);
 
     //  Execute 'event' on specified client. Use this to send events to
     //  other clients. Cancels any wakeup alarm on that client.
     static void
-    send_event (client_t *self, event_t event);
+    engine_send_event (client_t *self, event_t event);
 
 ### Message Filtering & Priorities
 
@@ -297,8 +297,55 @@ To tune the expiry time, use this method (e.g. to set to 1 second):
 
     hello_server_set (self, "server/timeout", "1000");
 
-It is good practice to do heartbeating by sending a PING from the client and responding to that with a PONG or suchlike. Do not heartbeat from the server to clients; that is fragile.
-    
+The server timeout can also come from a configuration file, see below. It is good practice to do heartbeating by sending a PING from the client and responding to that with a PONG or suchlike. Do not heartbeat from the server to clients; that is fragile.
+
+### Server Configuration File
+
+You can call the 'configure' method on the server object to configure it, and you can also call the 'set' method later to change individual configuration options. The configuration file format is ZPL (ZeroMQ RFC 5), which looks like this:
+
+    #   Default zbroker configuration
+    #
+    hello_server
+        echo = I: starting hello service on tcp://*:8888
+        bind
+            endpoint = tcp://*:8888
+
+    #   Apply to all servers that load this config file
+    server
+        timeout = 10        #   Client connection timeout
+        background = 1      #   Run as background process
+        workdir = .         #   Working directory for daemon
+
+'echo' and 'bind' in the 'hello_server' section are executed automatically.
+
+### CZMQ Reactor Integration
+
+The generated engine offers zloop integration so you can monitor your own sockets for activity and execute callbacks when messages arrive on them. Use this API method:
+
+    //  Poll socket for activity, invoke handler on any received message.
+    //  Handler must be a CZMQ zloop_fn function; receives server as arg.
+
+    static void
+    engine_handle_socket (server_t *server, void *socket, zloop_fn handler);
+
+The engine invokes the handler with the 'server' as the argument. Here is the general style of using such a handler. First, in the 'server_initialize' function:
+
+    engine_handle_socket (self, self->some_socket, some_handler);
+
+Where 'some_socket' is a ZeroMQ socket, and where 'some_handler' looks like this:
+
+    static int
+    some_handler (zloop_t *loop, zmq_pollitem_t *item, void *argument)
+    {
+        server_t *self = (server_t *) argument;
+        zmsg_t *msg = zmsg_recv (self->some_socket);
+        if (!msg)
+            return 0;               //  Interrupted; do nothing
+        zmsg_dump (msg);            //  Nice during development
+        ... process the message
+        return 0;                   //  0 = continue, -1 = end reactor
+    }
+
 ### For More Information
 
 Though [the Libero documentation](http://legacy.imatix.com/html/libero/) is quite old now, it's useful as a guide to what's possible with state machines. The Libero model added superstates, substates, and other useful ways to manage larger state machines.

@@ -1,11 +1,8 @@
 .template 0
 #  Library functions
 
-function set_defaults ()
-    resolve_types ()
-    
+function expand_headers ()
     for message
-        message.name = "$(message.name:c)"
         if !defined (message.id)
             message.id = item ()
         endif
@@ -22,6 +19,14 @@ function set_defaults ()
                 endfor
             endfor
         endfor
+    endfor
+endfunction
+
+function set_defaults ()
+    resolve_types ()
+    
+    for message
+        message.name = "$(message.name:c)"
         for field
             field.name = "$(field.name:c)"
             if defined (repeat)
