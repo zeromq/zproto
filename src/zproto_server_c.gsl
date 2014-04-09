@@ -599,6 +599,11 @@ s_client_destroy (s_client_t **self_p)
         s_client_t *self = *self_p;
         $(proto)_destroy (&self->client.request);
         $(proto)_destroy (&self->client.reply);
+        
+        if (self->wakeup_timer)
+            zloop_timer_end (self->server->loop, self->wakeup_timer);
+        if (self->expiry_timer)
+            zloop_timer_end (self->server->loop, self->expiry_timer);
 
         //  Empty and destroy mailbox
         $(proto)_t *request = ($(proto)_t *) zlist_first (self->mailbox);
@@ -859,10 +864,11 @@ s_server_destroy (s_server_t **self_p)
     if (*self_p) {
         s_server_t *self = *self_p;
         server_terminate (&self->server);
-        zloop_destroy (&self->loop);
         zsocket_destroy (self->ctx, self->router);
         zconfig_destroy (&self->config);
         zhash_destroy (&self->clients);
+        zloop_destroy (&self->loop);
+        zlog_destroy (&self->log);
         free (self);
         *self_p = NULL;
     }
