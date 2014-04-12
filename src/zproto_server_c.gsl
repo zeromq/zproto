@@ -409,7 +409,7 @@ typedef struct {
     zhash_t *clients;           //  Clients we're connected to
     zconfig_t *config;          //  Configuration tree
     zlog_t *log;                //  Server logger
-    uint client_count;          //  Client identifier counter
+    uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
     bool terminated;            //  Server is shutting down
 } s_server_t;
@@ -576,7 +576,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     self->hashkey = zframe_strhex (routing_id);
     self->routing_id = zframe_dup (routing_id);
     self->mailbox = zlist_new ();
-    self->unique_id = ++(server->client_count);
+    self->unique_id = server->client_id++;
     
     self->client.server = (server_t *) server;
     self->client.reply = $(proto)_new (0);
@@ -599,6 +599,11 @@ s_client_destroy (s_client_t **self_p)
         s_client_t *self = *self_p;
         $(proto)_destroy (&self->client.request);
         $(proto)_destroy (&self->client.reply);
+        
+        if (self->wakeup_timer)
+            zloop_timer_end (self->server->loop, self->wakeup_timer);
+        if (self->expiry_timer)
+            zloop_timer_end (self->server->loop, self->expiry_timer);
 
         //  Empty and destroy mailbox
         $(proto)_t *request = ($(proto)_t *) zlist_first (self->mailbox);
@@ -702,9 +707,6 @@ s_client_filter_mailbox (s_client_t *self)
 static void
 s_client_execute (s_client_t *self, int event)
 {
-.if switches.animate ?= 1
-    printf ("\\n");             //  Delimit each client block
-.endif
     self->next_event = event;
     //  Cancel wakeup timer, if any was pending
     if (self->wakeup_timer) {
@@ -839,13 +841,17 @@ s_server_new (zctx_t *ctx, void *pipe)
     self->log = zlog_new ("$(class.name)");
     self->config = zconfig_new ("root", NULL);
     self->loop = zloop_new ();
+    srandom ((unsigned) time (NULL));
+    self->client_id = randof (1000);
 .if switches.trace ?= 1
     zloop_set_verbose (self->loop, true);
 .endif
     s_server_config_self (self);
 
     //  Initialize application server context
-    self->server.ctx = ctx;
+    self->server.ctx = self->ctx;
+    self->server.log = self->log;
+    self->server.config = self->config;
     server_initialize (&self->server);
 
     s_satisfy_pedantic_compilers ();
@@ -859,10 +865,11 @@ s_server_destroy (s_server_t **self_p)
     if (*self_p) {
         s_server_t *self = *self_p;
         server_terminate (&self->server);
-        zloop_destroy (&self->loop);
         zsocket_destroy (self->ctx, self->router);
         zconfig_destroy (&self->config);
         zhash_destroy (&self->clients);
+        zloop_destroy (&self->loop);
+        zlog_destroy (&self->log);
         free (self);
         *self_p = NULL;
     }
@@ -975,8 +982,10 @@ s_server_control_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
         char *config_file = zmsg_popstr (msg);
         zconfig_destroy (&self->config);
         self->config = zconfig_load (config_file);
-        if (self->config)
+        if (self->config) {
             s_server_apply_config (self);
+            self->server.config = self->config;
+        }
         else {
             zlog_warning (self->log,
                 "cannot load config file '%s'\\n", config_file);
@@ -1055,14 +1064,14 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
 {
     s_server_t *self = s_server_new (ctx, pipe);
     assert (self);
-    zlog_notice (self->log, "Starting $(class.name) service");
+    zlog_notice (self->log, "starting $(class.name) service");
     zstr_send (self->pipe, "OK");
 
     engine_handle_socket ((server_t *) self, self->pipe, s_server_control_message);
     engine_handle_socket ((server_t *) self, self->router, s_server_client_message);
     zloop_start (self->loop);
     
-    zlog_notice (self->log, "Terminating $(class.name) service");
+    zlog_notice (self->log, "terminating $(class.name) service");
     s_server_destroy (&self);
 }
 .#  Generate source file first time only
@@ -1103,6 +1112,8 @@ struct _server_t {
     //  These properties must always be present in the server_t
     //  and are set by the generated engine; do not modify them!
     zctx_t *ctx;                //  Parent ZeroMQ context
+    zlog_t *log;                //  For any logging needed
+    zconfig_t *config;          //  Current loaded configuration
     
     //  Add any properties you need here
 };

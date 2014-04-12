@@ -112,6 +112,7 @@ function generate_bnf
     >    dict-name       = string
         class.use_number_4 = 1
         class.use_string = 1
+        class.use_longstr = 1
     endif
     if defined (class.use_chunk)
     >
