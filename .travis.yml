@@ -6,7 +6,7 @@ before_script:
 - cd gsl/src
 - make
 - sudo make install
-- cd ..
+- cd ../..
 - git clone git://github.com/jedisct1/libsodium.git
 - git clone git://github.com/zeromq/libzmq.git
 - git clone git://github.com/zeromq/czmq.git
