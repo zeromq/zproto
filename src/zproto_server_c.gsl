@@ -409,7 +409,7 @@ typedef struct {
     zhash_t *clients;           //  Clients we're connected to
     zconfig_t *config;          //  Configuration tree
     zlog_t *log;                //  Server logger
-    uint client_count;          //  Client identifier counter
+    uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
     bool terminated;            //  Server is shutting down
 } s_server_t;
@@ -576,7 +576,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     self->hashkey = zframe_strhex (routing_id);
     self->routing_id = zframe_dup (routing_id);
     self->mailbox = zlist_new ();
-    self->unique_id = ++(server->client_count);
+    self->unique_id = server->client_id++;
     
     self->client.server = (server_t *) server;
     self->client.reply = $(proto)_new (0);
@@ -841,6 +841,8 @@ s_server_new (zctx_t *ctx, void *pipe)
     self->log = zlog_new ("$(class.name)");
     self->config = zconfig_new ("root", NULL);
     self->loop = zloop_new ();
+    srandom ((unsigned) time (NULL));
+    self->client_id = randof (1000);
 .if switches.trace ?= 1
     zloop_set_verbose (self->loop, true);
 .endif
