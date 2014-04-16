@@ -370,8 +370,7 @@ typedef enum {
 .endfor
 } event_t;
 
-.if switches.animate ?= 1
-//  Names for animation
+//  Names for animation and error reporting
 static char *
 s_state_name [] = {
     "(NONE)",
@@ -392,7 +391,6 @@ s_event_name [] = {
 .endfor
 };
  
-.endif
 
 //  ---------------------------------------------------------------------
 //  Context for the whole server task. This embeds the application-level
