@@ -369,7 +369,7 @@ zproto_example_destroy (zproto_example_t **self_p)
 //  and nullifies the msg refernce.
 
 zproto_example_t *
-zproto_example_decode (zmsg_t **msg_p, int socket_type)
+zproto_example_decode (zmsg_t **msg_p)
 {
     assert (msg_p);
     zmsg_t *msg = *msg_p;
@@ -377,15 +377,6 @@ zproto_example_decode (zmsg_t **msg_p, int socket_type)
         return NULL;
         
     zproto_example_t *self = zproto_example_new (0);
-    //  If message came from a router socket, first frame is routing_id
-    if (socket_type == ZMQ_ROUTER) {
-        self->routing_id = zmsg_pop (msg);
-        //  If message was not valid, forget about it
-        if (!self->routing_id || !zmsg_next (msg)) {
-            zproto_example_destroy (&self);
-            return (NULL);      //  Malformed or empty
-        }
-    }
     //  Read and parse command in frame
     zframe_t *frame = zmsg_pop (msg);
     if (!frame) 
@@ -666,7 +657,22 @@ zproto_example_recv (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv (input);
-    return zproto_example_decode (&msg, zsocket_type (input));
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t * routing_id = NULL;
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg)) {
+            return (NULL);      //  Malformed or empty
+        }
+    }
+
+    zproto_example_t * zproto_example = zproto_example_decode (&msg);
+
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        zproto_example->routing_id = routing_id;
+    }
+    return zproto_example;
 }
 
 
@@ -679,7 +685,22 @@ zproto_example_recv_nowait (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv_nowait (input);
-    return zproto_example_decode (&msg, zsocket_type (input));
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t * routing_id = NULL;
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg)) {
+            return (NULL);      //  Malformed or empty
+        }
+    }
+
+    zproto_example_t * zproto_example = zproto_example_decode (&msg);
+
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        zproto_example->routing_id = routing_id;
+    }
+    return zproto_example;
 }
 
 
@@ -710,15 +731,11 @@ s_headers_write (const char *key, void *item, void *argument)
 //  first frame of the resulting message.
 
 zmsg_t *
-zproto_example_encode (zproto_example_t *self, int socket_type)
+zproto_example_encode (zproto_example_t *self)
 {
     assert (self);
     zmsg_t *msg = zmsg_new ();
 
-    //  If we're sending to a ROUTER, send the routing_id first
-    if (socket_type == ZMQ_ROUTER)
-        zmsg_prepend (msg, &self->routing_id);
-        
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
@@ -1235,7 +1252,12 @@ zproto_example_send (zproto_example_t **self_p, void *output)
     assert (output);
 
     zproto_example_t *self = *self_p;
-    zmsg_t *msg = zproto_example_encode (self, zsocket_type (output));
+    zmsg_t *msg = zproto_example_encode (self);
+    
+    //  If we're sending to a ROUTER, send the routing_id first
+    if (zsocket_type (output) == ZMQ_ROUTER)
+        zmsg_prepend (msg, &self->routing_id);
+        
     if (msg && zmsg_send (&msg, output) == 0)
         return 0;
     else
@@ -1253,6 +1275,142 @@ zproto_example_send_again (zproto_example_t *self, void *output)
     assert (output);
     self = zproto_example_dup (self);
     return zproto_example_send (&self, output);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode LOG message
+
+zmsg_t * 
+zproto_example_encode_log (
+    uint16_t sequence,
+    byte level,
+    byte event,
+    uint16_t node,
+    uint16_t peer,
+    uint64_t time,
+    const char *host,
+    const char *data)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
+    zproto_example_set_sequence (self, sequence);
+    zproto_example_set_level (self, level);
+    zproto_example_set_event (self, event);
+    zproto_example_set_node (self, node);
+    zproto_example_set_peer (self, peer);
+    zproto_example_set_time (self, time);
+    zproto_example_set_host (self, host);
+    zproto_example_set_data (self, data);
+    return zproto_example_encode (self);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode STRUCTURES message
+
+zmsg_t * 
+zproto_example_encode_structures (
+    uint16_t sequence,
+    zlist_t *aliases,
+    zhash_t *headers)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
+    zproto_example_set_sequence (self, sequence);
+    zlist_t *aliases_copy = zlist_dup (aliases);
+    zproto_example_set_aliases (self, &aliases_copy);
+    zhash_t *headers_copy = zhash_dup (headers);
+    zproto_example_set_headers (self, &headers_copy);
+    return zproto_example_encode (self);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode BINARY message
+
+zmsg_t * 
+zproto_example_encode_binary (
+    uint16_t sequence,
+    byte *flags,
+    zchunk_t *public_key,
+    zframe_t *address,
+    zmsg_t *content)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
+    zproto_example_set_sequence (self, sequence);
+    zproto_example_set_flags (self, flags);
+    zchunk_t *public_key_copy = zchunk_dup (public_key);
+    zproto_example_set_public_key (self, &public_key_copy);
+    zframe_t *address_copy = zframe_dup (address);
+    zproto_example_set_address (self, &address_copy);
+    zmsg_t *content_copy = zmsg_dup (content);
+    zproto_example_set_content (self, &content_copy);
+    return zproto_example_encode (self);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode TYPES message
+
+zmsg_t * 
+zproto_example_encode_types (
+    uint16_t sequence,
+    const char *client_forename,
+    const char *client_surname,
+    const char *client_mobile,
+    const char *client_email,
+    const char *supplier_forename,
+    const char *supplier_surname,
+    const char *supplier_mobile,
+    const char *supplier_email)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_TYPES);
+    zproto_example_set_sequence (self, sequence);
+    zproto_example_set_client_forename (self, client_forename);
+    zproto_example_set_client_surname (self, client_surname);
+    zproto_example_set_client_mobile (self, client_mobile);
+    zproto_example_set_client_email (self, client_email);
+    zproto_example_set_supplier_forename (self, supplier_forename);
+    zproto_example_set_supplier_surname (self, supplier_surname);
+    zproto_example_set_supplier_mobile (self, supplier_mobile);
+    zproto_example_set_supplier_email (self, supplier_email);
+    return zproto_example_encode (self);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode REPEAT message
+
+zmsg_t * 
+zproto_example_encode_repeat (
+    uint16_t sequence,
+    byte no1 [3], byte no1_size,
+    uint16_t no2 [144], byte no2_size,
+    uint32_t no4 [256], byte no4_size,
+    uint64_t no8 [256], byte no8_size,
+    char **str, byte str_size,
+    char **lstr, byte lstr_size,
+    zlist_t **strs, byte strs_size,
+    zchunk_t **chunks, byte chunks_size,
+    char **persons_forename, byte persons_forename_size,
+    char **persons_surname, byte persons_surname_size,
+    char **persons_mobile, byte persons_mobile_size,
+    char **persons_email, byte persons_email_size)
+{
+    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_REPEAT);
+    zproto_example_set_sequence (self, sequence);
+    zproto_example_set_no1 (self, no1, no1_size);
+    zproto_example_set_no2 (self, no2, no2_size);
+    zproto_example_set_no4 (self, no4, no4_size);
+    zproto_example_set_no8 (self, no8, no8_size);
+    zproto_example_set_str (self, str, str_size);
+    zproto_example_set_lstr (self, lstr, lstr_size);
+    zproto_example_set_strs (self, strs, strs_size);
+    zproto_example_set_chunks (self, chunks, chunks_size);
+    zproto_example_set_persons_forename (self, persons_forename, persons_forename_size);
+    zproto_example_set_persons_surname (self, persons_surname, persons_surname_size);
+    zproto_example_set_persons_mobile (self, persons_mobile, persons_mobile_size);
+    zproto_example_set_persons_email (self, persons_email, persons_email_size);
+    return zproto_example_encode (self);
 }
 
 
