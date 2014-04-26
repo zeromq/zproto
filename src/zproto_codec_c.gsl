@@ -84,14 +84,14 @@ CZMQ_EXPORT void
 //  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
 //  and nullifies the msg refernce.
 CZMQ_EXPORT $(class.name)_t *
-    $(class.name)_decode (zmsg_t **msg_p, int socket_type);
+    $(class.name)_decode (zmsg_t **msg_p);
 
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
 //  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
 //  first frame of the resulting message.
 CZMQ_EXPORT zmsg_t *
-    $(class.name)_encode ($(class.name)_t *self, int socket_type);
+    $(class.name)_encode ($(class.name)_t *self);
 
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
 //  or NULL if error. Will block if there's no message waiting.
@@ -110,6 +110,57 @@ CZMQ_EXPORT int
 //  Send the $(class.name) to the output, and do not destroy it
 CZMQ_EXPORT int
     $(class.name)_send_again ($(class.name)_t *self, void *output);
+
+.for message
+//  Encode the $(message.NAME) 
+CZMQ_EXPORT zmsg_t *
+    $(class.name)_encode_$(name) (
+.for field where !defined (value)
+.   if defined (message.has_msg)
+.       echo "E: 'msg' field must be last in the message"
+.   endif
+.   if !first ()
+,
+.   endif 
+.   if defined (repeat)
+.       if type = "number"
+        $(ctype) $(name) [$(repeat)], byte $(name)_size\
+.       elsif type = "octets"
+        byte **$(name), byte $(name)_size\
+.       elsif type = "string" | type = "longstr"
+        char **$(name), byte $(name)_size\
+.       elsif type = "strings"
+        zlist_t **$(name), byte $(name)_size\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+        z$(type)_t **$(name), byte $(name)_size\
+.       endif
+.   else
+.       if type = "number"
+        $(ctype) $(name)\
+.       elsif type = "octets"
+        byte *$(name)\
+.       elsif type = "string" | type = "longstr"
+        const char *$(name)\
+.       elsif type = "strings"
+        zlist_t *$(name)\
+.       elsif type = "dictionary"
+        zhash_t *$(name)\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+        z$(type)_t *$(name)\
+.       elsif type = "chunk"
+        zchunk_t *$(name)\
+.       elsif type = "frame"
+.       message.has_frame = 1
+        zframe_t *$(name)\
+.       elsif type = "msg"
+        zmsg_t *$(name)\
+.       message.has_msg = name
+.       endif
+.   endif
+.endfor
+);
+
+.endfor
 
 .for message
 //  Send the $(message.NAME) to the output in one step
@@ -606,7 +657,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 //  and nullifies the msg refernce.
 
 $(class.name)_t *
-$(class.name)_decode (zmsg_t **msg_p, int socket_type)
+$(class.name)_decode (zmsg_t **msg_p)
 {
     assert (msg_p);
     zmsg_t *msg = *msg_p;
@@ -614,15 +665,6 @@ $(class.name)_decode (zmsg_t **msg_p, int socket_type)
         return NULL;
         
     $(class.name)_t *self = $(class.name)_new (0);
-    //  If message came from a router socket, first frame is routing_id
-    if (socket_type == ZMQ_ROUTER) {
-        self->routing_id = zmsg_pop (msg);
-        //  If message was not valid, forget about it
-        if (!self->routing_id || !zmsg_next (msg)) {
-            $(class.name)_destroy (&self);
-            return (NULL);      //  Malformed or empty
-        }
-    }
     //  Read and parse command in frame
     zframe_t *frame = zmsg_pop (msg);
     if (!frame) 
@@ -788,7 +830,22 @@ $(class.name)_recv (void *input)
 .if switches.trace ?= 1
     zmsg_dump (msg);
 .endif
-    return $(class.name)_decode (&msg, zsocket_type (input));
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t * routing_id = NULL;
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg)) {
+            return (NULL);      //  Malformed or empty
+        }
+    }
+
+    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
+
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        $(class.name)->routing_id = routing_id;
+    }
+    return $(class.name);
 }
 
 
@@ -801,7 +858,25 @@ $(class.name)_recv_nowait (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv_nowait (input);
-    return $(class.name)_decode (&msg, zsocket_type (input));
+.if switches.trace ?= 1
+    zmsg_dump (msg);
+.endif
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t * routing_id = NULL;
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg)) {
+            return (NULL);      //  Malformed or empty
+        }
+    }
+
+    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
+
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        $(class.name)->routing_id = routing_id;
+    }
+    return $(class.name);
 }
 .for class.field where type = "dictionary"
 
@@ -834,15 +909,11 @@ s_$(name)_write (const char *key, void *item, void *argument)
 //  first frame of the resulting message.
 
 zmsg_t *
-$(class.name)_encode ($(class.name)_t *self, int socket_type)
+$(class.name)_encode ($(class.name)_t *self)
 {
     assert (self);
     zmsg_t *msg = zmsg_new ();
 
-    //  If we're sending to a ROUTER, send the routing_id first
-    if (socket_type == ZMQ_ROUTER)
-        zmsg_prepend (msg, &self->routing_id);
-        
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
 .for class.message
@@ -1108,7 +1179,12 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     assert (output);
 
     $(class.name)_t *self = *self_p;
-    zmsg_t *msg = $(class.name)_encode (self, zsocket_type (output));
+    zmsg_t *msg = $(class.name)_encode (self);
+    
+    //  If we're sending to a ROUTER, send the routing_id first
+    if (zsocket_type (output) == ZMQ_ROUTER)
+        zmsg_prepend (msg, &self->routing_id);
+        
     if (msg && zmsg_send (&msg, output) == 0)
         return 0;
     else
@@ -1129,6 +1205,76 @@ $(class.name)_send_again ($(class.name)_t *self, void *output)
 }
 
 
+.for message
+//  --------------------------------------------------------------------------
+//  Encode $(message.NAME) message
+
+zmsg_t * 
+$(class.name)_encode_$(name) (
+.for field where !defined (value)
+.   if !first ()
+,
+.   endif
+.   if defined (repeat)
+.       if type = "number"
+    $(ctype) $(name) [$(repeat)], byte $(name)_size\
+.       elsif type = "octets"
+    byte **$(name), byte $(name)_size\
+.       elsif type = "string" | type = "longstr"
+    char **$(name), byte $(name)_size\
+.       elsif type = "strings"
+    zlist_t **$(name), byte $(name)_size\
+.       elsif type = "chunk"
+    z$(type)_t **$(name), byte $(name)_size\
+.       endif
+.   else
+.       if type = "number"
+    $(ctype) $(name)\
+.       elsif type = "octets"
+    byte *$(name)\
+.       elsif type = "string" | type = "longstr"
+    const char *$(name)\
+.       elsif type = "strings"
+    zlist_t *$(name)\
+.       elsif type = "dictionary"
+    zhash_t *$(name)\
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)\
+.       endif
+.   endif
+.endfor
+)
+{
+    $(class.name)_t *self = $(class.name)_new ($(class.NAME)_$(NAME));
+.for field where !defined (value)
+.   if defined (repeat)
+.       if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    $(class.name)_set_$(name) (self, $(name), $(name)_size);
+.       elsif type = "strings"
+    $(class.name)_set_$(name) (self, $(name), $(name)_size);
+.       elsif type = "chunk"
+    $(class.name)_set_$(name) (self, $(name), $(name)_size);
+.       endif
+.   else
+.       if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    $(class.name)_set_$(name) (self, $(name));
+.       elsif type = "strings"
+    zlist_t *$(name)_copy = zlist_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.       elsif type = "dictionary"
+    zhash_t *$(name)_copy = zhash_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.       elsif type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.       endif
+.   endif
+.endfor
+    return $(class.name)_encode (self);
+}
+
+
+.endfor
 .for message
 //  --------------------------------------------------------------------------
 //  Send the $(message.NAME) to the socket in one step

@@ -120,14 +120,14 @@ CZMQ_EXPORT void
 //  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
 //  and nullifies the msg refernce.
 CZMQ_EXPORT zproto_example_t *
-    zproto_example_decode (zmsg_t **msg_p, int socket_type);
+    zproto_example_decode (zmsg_t **msg_p);
 
 //  Encode zproto_example into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
 //  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
 //  first frame of the resulting message.
 CZMQ_EXPORT zmsg_t *
-    zproto_example_encode (zproto_example_t *self, int socket_type);
+    zproto_example_encode (zproto_example_t *self);
 
 //  Receive and parse a zproto_example from the socket. Returns new object, 
 //  or NULL if error. Will block if there's no message waiting.
@@ -146,6 +146,65 @@ CZMQ_EXPORT int
 //  Send the zproto_example to the output, and do not destroy it
 CZMQ_EXPORT int
     zproto_example_send_again (zproto_example_t *self, void *output);
+
+//  Encode the LOG 
+CZMQ_EXPORT zmsg_t *
+    zproto_example_encode_log (
+        uint16_t sequence,
+        byte level,
+        byte event,
+        uint16_t node,
+        uint16_t peer,
+        uint64_t time,
+        const char *host,
+        const char *data);
+
+//  Encode the STRUCTURES 
+CZMQ_EXPORT zmsg_t *
+    zproto_example_encode_structures (
+        uint16_t sequence,
+        zlist_t *aliases,
+        zhash_t *headers);
+
+//  Encode the BINARY 
+CZMQ_EXPORT zmsg_t *
+    zproto_example_encode_binary (
+        uint16_t sequence,
+        byte *flags,
+        zchunk_t *public_key,
+        zframe_t *address,
+        zmsg_t *content);
+
+//  Encode the TYPES 
+CZMQ_EXPORT zmsg_t *
+    zproto_example_encode_types (
+        uint16_t sequence,
+        const char *client_forename,
+        const char *client_surname,
+        const char *client_mobile,
+        const char *client_email,
+        const char *supplier_forename,
+        const char *supplier_surname,
+        const char *supplier_mobile,
+        const char *supplier_email);
+
+//  Encode the REPEAT 
+CZMQ_EXPORT zmsg_t *
+    zproto_example_encode_repeat (
+        uint16_t sequence,
+        byte no1 [3], byte no1_size,
+        uint16_t no2 [144], byte no2_size,
+        uint32_t no4 [256], byte no4_size,
+        uint64_t no8 [256], byte no8_size,
+        char **str, byte str_size,
+        char **lstr, byte lstr_size,
+        zlist_t **strs, byte strs_size,
+        zchunk_t **chunks, byte chunks_size,
+        char **persons_forename, byte persons_forename_size,
+        char **persons_surname, byte persons_surname_size,
+        char **persons_mobile, byte persons_mobile_size,
+        char **persons_email, byte persons_email_size);
+
 
 //  Send the LOG to the output in one step
 CZMQ_EXPORT int
