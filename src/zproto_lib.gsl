@@ -25,6 +25,7 @@ endfunction
 function set_defaults ()
     resolve_types ()
     
+    class.has_repeats = 0
     for message
         message.name = "$(message.name:c)"
         for field
@@ -34,8 +35,6 @@ function set_defaults ()
                 if repeat = "n"
                     repeat = "256"
                 endif
-            else
-                class.has_repeats = 0
             endif
             if type = "number"
                 field.size ?= 1
