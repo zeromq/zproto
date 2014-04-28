@@ -16,6 +16,7 @@ TESTS = zproto_selftest
 zprotodir = @bindir@
 zproto_DATA = \
 	zproto_codec_c.gsl \
+	zproto_codec_clite.gsl \
 	zproto_server_c.gsl \
 	zproto_bnf.gsl \
 	zproto_lib.gsl
