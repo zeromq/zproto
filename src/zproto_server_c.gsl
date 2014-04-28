@@ -839,7 +839,7 @@ s_server_new (zctx_t *ctx, void *pipe)
     self->log = zlog_new ("$(class.name)");
     self->config = zconfig_new ("root", NULL);
     self->loop = zloop_new ();
-    srandom ((unsigned) time (NULL));
+    srandom ((unsigned int) zclock_time ());
     self->client_id = randof (1000);
 .if switches.trace ?= 1
     zloop_set_verbose (self->loop, true);

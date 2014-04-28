@@ -91,7 +91,7 @@ CZMQ_EXPORT $(class.name)_t *
 //  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
 //  first frame of the resulting message.
 CZMQ_EXPORT zmsg_t *
-    $(class.name)_encode ($(class.name)_t *self);
+    $(class.name)_encode ($(class.name)_t **self_p);
 
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
 //  or NULL if error. Will block if there's no message waiting.
@@ -831,20 +831,17 @@ $(class.name)_recv (void *input)
     zmsg_dump (msg);
 .endif
     //  If message came from a router socket, first frame is routing_id
-    zframe_t * routing_id = NULL;
+    zframe_t *routing_id = NULL;
     if (zsocket_type (input) == ZMQ_ROUTER) {
         routing_id = zmsg_pop (msg);
         //  If message was not valid, forget about it
-        if (!routing_id || !zmsg_next (msg)) {
-            return (NULL);      //  Malformed or empty
-        }
+        if (!routing_id || !zmsg_next (msg))
+            return NULL;        //  Malformed or empty
     }
-
     $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-
-    if (zsocket_type (input) == ZMQ_ROUTER) {
+    if (zsocket_type (input) == ZMQ_ROUTER)
         $(class.name)->routing_id = routing_id;
-    }
+        
     return $(class.name);
 }
 
@@ -862,20 +859,17 @@ $(class.name)_recv_nowait (void *input)
     zmsg_dump (msg);
 .endif
     //  If message came from a router socket, first frame is routing_id
-    zframe_t * routing_id = NULL;
+    zframe_t *routing_id = NULL;
     if (zsocket_type (input) == ZMQ_ROUTER) {
         routing_id = zmsg_pop (msg);
         //  If message was not valid, forget about it
-        if (!routing_id || !zmsg_next (msg)) {
-            return (NULL);      //  Malformed or empty
-        }
+        if (!routing_id || !zmsg_next (msg))
+            return NULL;        //  Malformed or empty
     }
-
     $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-
-    if (zsocket_type (input) == ZMQ_ROUTER) {
+    if (zsocket_type (input) == ZMQ_ROUTER)
         $(class.name)->routing_id = routing_id;
-    }
+        
     return $(class.name);
 }
 .for class.field where type = "dictionary"
@@ -909,9 +903,12 @@ s_$(name)_write (const char *key, void *item, void *argument)
 //  first frame of the resulting message.
 
 zmsg_t *
-$(class.name)_encode ($(class.name)_t *self)
+$(class.name)_encode ($(class.name)_t **self_p)
 {
-    assert (self);
+    assert (self_p);
+    assert (*self_p);
+    
+    $(class.name)_t *self = *self_p;
     zmsg_t *msg = zmsg_new ();
 
     size_t frame_size = 2 + 1;          //  Signature and message ID
@@ -1131,7 +1128,7 @@ $(class.name)_encode ($(class.name)_t *self)
     //  Now send the data frame
     if (zmsg_append (msg, &frame)) {
         zmsg_destroy (&msg);
-        $(class.name)_destroy (&self);
+        $(class.name)_destroy (self_p);
         return NULL;
     }
 .for class.message where count (field, type = "frame")
@@ -1143,7 +1140,7 @@ $(class.name)_encode ($(class.name)_t *self)
             self->$(field.name) = zframe_new (NULL, 0);
         if (zmsg_append (msg, &self->$(field.name))) {
             zmsg_destroy (&msg);
-            $(class.name)_destroy (&self);
+            $(class.name)_destroy (self_p);
             return NULL;
         }
 .   endfor
@@ -1162,10 +1159,10 @@ $(class.name)_encode ($(class.name)_t *self)
 .   endfor
 .endfor
     //  Destroy $(class.name) object
-    $(class.name)_destroy (&self);
+    $(class.name)_destroy (self_p);
     return msg;
-
 }
+
 
 //  --------------------------------------------------------------------------
 //  Send the $(class.name) to the socket, and destroy it
@@ -1178,12 +1175,21 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     assert (*self_p);
     assert (output);
 
+    //  Save routing_id if any, as encode will destroy it
     $(class.name)_t *self = *self_p;
-    zmsg_t *msg = $(class.name)_encode (self);
+    zframe_t *routing_id = self->routing_id;
+    self->routing_id = NULL;
+
+    //  Encode $(class.name) message to a single zmsg
+    zmsg_t *msg = $(class.name)_encode (&self);
     
     //  If we're sending to a ROUTER, send the routing_id first
-    if (zsocket_type (output) == ZMQ_ROUTER)
-        zmsg_prepend (msg, &self->routing_id);
+    if (zsocket_type (output) == ZMQ_ROUTER) {
+        assert (routing_id);
+        zmsg_prepend (msg, &routing_id);
+    }
+    else
+        zframe_destroy (&routing_id);
         
     if (msg && zmsg_send (&msg, output) == 0)
         return 0;
@@ -1270,7 +1276,7 @@ $(class.name)_encode_$(name) (
 .       endif
 .   endif
 .endfor
-    return $(class.name)_encode (self);
+    return $(class.name)_encode (&self);
 }
 
 
