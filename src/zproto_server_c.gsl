@@ -428,6 +428,7 @@ typedef struct {
     int expiry_timer;           //  zloop timer for client timeouts
     int wakeup_timer;           //  zloop timer for client alarms
     event_t wakeup_event;       //  Wake up with this event
+    char log_prefix [31];       //  Log prefix string
 } s_client_t;
 
 static int
@@ -521,6 +522,18 @@ engine_handle_socket (server_t *server, void *socket, zloop_fn handler)
     }
 }
 
+//  Set log file prefix; this string will be added to log data, to make
+//  log data more searchable. The string is truncated to ~20 chars.
+
+static void
+engine_set_log_prefix (client_t *client, const char *string)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        snprintf (self->log_prefix, sizeof (self->log_prefix) - 1, "%6d:%-20s", self->unique_id, string);
+    }
+}
+
 //  Pedantic compilers don't like unused functions, so we call the whole
 //  API, passing null references. It's nasty and horrid and sufficient.
 
@@ -532,6 +545,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_wakeup_event (NULL, 0, 0);
     engine_send_event (NULL, 0);
     engine_handle_socket (NULL, 0, NULL);
+    engine_set_log_prefix (NULL, NULL);
 }
 
 
@@ -571,7 +585,8 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     self->routing_id = zframe_dup (routing_id);
     self->mailbox = zlist_new ();
     self->unique_id = server->client_id++;
-    
+    engine_set_log_prefix (&self->client, "");
+
     self->client.server = (server_t *) server;
     self->client.reply = $(proto)_new (0);
     $(proto)_set_routing_id (self->client.reply, self->routing_id);
@@ -665,10 +680,10 @@ s_client_filter_mailbox (s_client_t *self)
 .           if name = "send"
                         //  send $(message:c)
                         if (self->server->animate)
-                            zclock_log ("%6d:         $ $(name) $(MESSAGE:c)", self->unique_id);
+                            zclock_log ("%s:         $ $(name) $(MESSAGE:c)", self->log_prefix);
                         $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
-                        zclock_log ("%6d: Send message to client", self->unique_id);
+                        zclock_log ("%s: Send message to client", self->log_prefix);
                         $(proto)_dump (self->client.reply);
 .               endif
                         $(proto)_send (&self->client.reply, self->server->router);
@@ -677,12 +692,12 @@ s_client_filter_mailbox (s_client_t *self)
 .           elsif name = "terminate"
                         //  terminate
                         if (self->server->animate)
-                            zclock_log ("%6d:         $ $(name)", self->unique_id);
+                            zclock_log ("%s:         $ $(name)", self->log_prefix);
                         self->next_event = terminate_event;
 .           else
                         //  $(name)
                         if (self->server->animate)
-                            zclock_log ("%6d:         $ $(name)", self->unique_id);
+                            zclock_log ("%s:         $ $(name)", self->log_prefix);
                         $(name:c) (&self->client);
 .           endif
                     }
@@ -709,8 +724,8 @@ s_client_execute (s_client_t *self, int event)
         self->next_event = NULL_event;
         self->exception = NULL_event;
         if (self->server->animate) {
-            zclock_log ("%6d: %s:", self->unique_id, s_state_name [self->state]);
-            zclock_log ("%6d:     %s", self->unique_id, s_event_name [self->event]);
+            zclock_log ("%s: %s:", self->log_prefix, s_state_name [self->state]);
+            zclock_log ("%s:     %s", self->log_prefix, s_event_name [self->event]);
         }
         switch (self->state) {
 .for class.state
@@ -738,8 +753,8 @@ s_client_execute (s_client_t *self, int event)
 .   else
                 else {
                     //  Handle unexpected internal events
-                    zlog_warning (self->server->log, "%6d: unhandled event %s in %s",
-                        self->unique_id,
+                    zlog_warning (self->server->log, "%s: unhandled event %s in %s",
+                        self->log_prefix,
                         s_event_name [self->event],
                         s_state_name [self->state]);
                     assert (false);
@@ -751,8 +766,8 @@ s_client_execute (s_client_t *self, int event)
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
             if (self->server->animate)
-                zclock_log ("%6d:         ! %s",
-                    self->unique_id, s_event_name [self->exception]);
+                zclock_log ("%s:         ! %s",
+                    self->log_prefix, s_event_name [self->exception]);
 
             self->next_event = self->exception;
         }
@@ -763,8 +778,8 @@ s_client_execute (s_client_t *self, int event)
         }
         else {
             if (self->server->animate)
-                zclock_log ("%6d:         > %s",
-                    self->unique_id, s_state_name [self->state]);
+                zclock_log ("%s:         > %s",
+                    self->log_prefix, s_state_name [self->state]);
 
             if (self->next_event == NULL_event)
                 //  Get next valid message from mailbox, if any
@@ -1025,7 +1040,7 @@ s_server_client_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     }
     free (hashkey);
 .if switches.trace ?= 1
-    zclock_log ("%6d: Client message", client->unique_id);
+    zclock_log ("%s: Client message", client->unique_id);
     $(proto)_dump (msg);
 .endif
 
