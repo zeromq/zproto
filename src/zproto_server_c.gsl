@@ -8,11 +8,6 @@ include "zproto_lib.gsl"
 resolve_includes ()
 set_defaults ()
 
-#   Prepare state machine stuff
-if defined (switches.animate)
-    switches.animate = switches.animate
-endif
-
 #   Load message structures for this engine
 global.proto = xml.load_file (class.proto + ".xml")
 
@@ -410,6 +405,7 @@ typedef struct {
     uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
     bool terminated;            //  Server is shutting down
+    bool animate;               //  Is animation enabled?
 } s_server_t;
 
 
@@ -668,9 +664,8 @@ s_client_filter_mailbox (s_client_t *self)
                     if (!self->exception) {
 .           if name = "send"
                         //  send $(message:c)
-.               if switches.animate ?= 1
-                        zclock_log ("%6d:         $ $(name) $(MESSAGE:c)", self->unique_id);
-.               endif
+                        if (self->server->animate)
+                            zclock_log ("%6d:         $ $(name) $(MESSAGE:c)", self->unique_id);
                         $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
                         zclock_log ("%6d: Send message to client", self->unique_id);
@@ -681,15 +676,13 @@ s_client_filter_mailbox (s_client_t *self)
                         $(proto)_set_routing_id (self->client.reply, self->routing_id);
 .           elsif name = "terminate"
                         //  terminate
-.               if switches.animate ?= 1
-                        zclock_log ("%6d:         $ $(name)", self->unique_id);
-.               endif
+                        if (self->server->animate)
+                            zclock_log ("%6d:         $ $(name)", self->unique_id);
                         self->next_event = terminate_event;
 .           else
                         //  $(name)
-.               if switches.animate ?= 1
-                        zclock_log ("%6d:         $ $(name)", self->unique_id);
-.               endif
+                        if (self->server->animate)
+                            zclock_log ("%6d:         $ $(name)", self->unique_id);
                         $(name:c) (&self->client);
 .           endif
                     }
@@ -715,13 +708,10 @@ s_client_execute (s_client_t *self, int event)
         self->event = self->next_event;
         self->next_event = NULL_event;
         self->exception = NULL_event;
-.if switches.animate ?= 1
-        zclock_log ("%6d: %s:",
-            self->unique_id, s_state_name [self->state]);
-        zclock_log ("%6d:     %s",
-            self->unique_id, s_event_name [self->event]);
-.endif
-
+        if (self->server->animate) {
+            zclock_log ("%6d: %s:", self->unique_id, s_state_name [self->state]);
+            zclock_log ("%6d:     %s", self->unique_id, s_event_name [self->event]);
+        }
         switch (self->state) {
 .for class.state
 .   if index () > 1
@@ -748,8 +738,7 @@ s_client_execute (s_client_t *self, int event)
 .   else
                 else {
                     //  Handle unexpected internal events
-                    zlog_warning (self->server->log,
-                        "%6d: unhandled event %s in %s",
+                    zlog_warning (self->server->log, "%6d: unhandled event %s in %s",
                         self->unique_id,
                         s_event_name [self->event],
                         s_state_name [self->state]);
@@ -761,10 +750,10 @@ s_client_execute (s_client_t *self, int event)
         }
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
-.if switches.animate ?= 1
-            zclock_log ("%6d:         ! %s",
-                self->unique_id, s_event_name [self->exception]);
-.endif
+            if (self->server->animate)
+                zclock_log ("%6d:         ! %s",
+                    self->unique_id, s_event_name [self->exception]);
+
             self->next_event = self->exception;
         }
         if (self->next_event == terminate_event) {
@@ -773,10 +762,10 @@ s_client_execute (s_client_t *self, int event)
             break;
         }
         else {
-.if switches.animate ?= 1
-            zclock_log ("%6d:         > %s",
-                self->unique_id, s_state_name [self->state]);
-.endif
+            if (self->server->animate)
+                zclock_log ("%6d:         > %s",
+                    self->unique_id, s_state_name [self->state]);
+
             if (self->next_event == NULL_event)
                 //  Get next valid message from mailbox, if any
                 self->next_event = s_client_filter_mailbox (self);
@@ -814,6 +803,10 @@ s_server_config_self (s_server_t *self)
 {
     //  Built-in server configuration options
     //  
+    //  Animation is disabled by default
+    self->animate = atoi (
+        zconfig_resolve (self->config, "server/animate", "0"));
+
     //  Default client timeout is 60 seconds
     self->timeout = atoi (
         zconfig_resolve (self->config, "server/timeout", "60000"));
