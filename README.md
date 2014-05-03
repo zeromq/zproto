@@ -196,6 +196,20 @@ Your server code (the actions) gets a small API to work with:
     static void
     engine_send_event (client_t *self, event_t event);
 
+    //  Send log data to the server log. Accepts a printf format.
+    static void
+    engine_log (client_t *client, const char format, ...);
+
+    //  Send log data to the server log. Accepts a printf format.
+    static void
+    engine_server_log (server_t *server, const char *format, ...);
+
+    //  Set log file prefix; this string will be added to log data, to make
+    //  log data more searchable. The string is truncated to ~20 chars.
+    static void
+    engine_set_log_prefix (client_t *client, const char *string);
+
+
 ### Message Filtering & Priorities
 
 The generated engine implements a simple yet useful form of message filtering:
