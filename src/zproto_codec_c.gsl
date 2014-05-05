@@ -145,13 +145,8 @@ CZMQ_EXPORT zmsg_t *
         zlist_t *$(name)\
 .       elsif type = "dictionary"
         zhash_t *$(name)\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame"
         z$(type)_t *$(name)\
-.       elsif type = "chunk"
-        zchunk_t *$(name)\
-.       elsif type = "frame"
-.       message.has_frame = 1
-        zframe_t *$(name)\
 .       elsif type = "msg"
         zmsg_t *$(name)\
 .       message.has_msg = name
@@ -196,14 +191,6 @@ CZMQ_EXPORT int
         zhash_t *$(name)\
 .       elsif type = "chunk" | type = "frame" | type = "msg"
         z$(type)_t *$(name)\
-.       elsif type = "chunk"
-        zchunk_t *$(name)\
-.       elsif type = "frame"
-.       message.has_frame = 1
-        zframe_t *$(name)\
-.       elsif type = "msg"
-        zmsg_t *$(name)\
-.       message.has_msg = name
 .       endif
 .   endif
 .endfor
@@ -816,64 +803,7 @@ $(class.name)_decode (zmsg_t **msg_p)
         $(class.name)_destroy (&self);
         return (NULL);
 }
-
-
-//  --------------------------------------------------------------------------
-//  Receive and parse a $(class.name) from the socket. Returns new object or
-//  NULL if error. Will block if there's no message waiting.
-
-$(class.name)_t *
-$(class.name)_recv (void *input)
-{
-    assert (input);
-    zmsg_t *msg = zmsg_recv (input);
-.if switches.trace ?= 1
-    zmsg_dump (msg);
-.endif
-    //  If message came from a router socket, first frame is routing_id
-    zframe_t *routing_id = NULL;
-    if (zsocket_type (input) == ZMQ_ROUTER) {
-        routing_id = zmsg_pop (msg);
-        //  If message was not valid, forget about it
-        if (!routing_id || !zmsg_next (msg))
-            return NULL;        //  Malformed or empty
-    }
-    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-    if (zsocket_type (input) == ZMQ_ROUTER)
-        $(class.name)->routing_id = routing_id;
-        
-    return $(class.name);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Receive and parse a $(class.name) from the socket. Returns new object, 
-//  or NULL either if there was no input waiting, or the recv was interrupted.
-
-$(class.name)_t *
-$(class.name)_recv_nowait (void *input)
-{
-    assert (input);
-    zmsg_t *msg = zmsg_recv_nowait (input);
-.if switches.trace ?= 1
-    zmsg_dump (msg);
-.endif
-    //  If message came from a router socket, first frame is routing_id
-    zframe_t *routing_id = NULL;
-    if (zsocket_type (input) == ZMQ_ROUTER) {
-        routing_id = zmsg_pop (msg);
-        //  If message was not valid, forget about it
-        if (!routing_id || !zmsg_next (msg))
-            return NULL;        //  Malformed or empty
-    }
-    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-    if (zsocket_type (input) == ZMQ_ROUTER)
-        $(class.name)->routing_id = routing_id;
-        
-    return $(class.name);
-}
 .for class.field where type = "dictionary"
-
 
 //  Count size of key/value pair for serialization
 //  Key is encoded as string, value as longstr
@@ -897,6 +827,7 @@ s_$(name)_write (const char *key, void *item, void *argument)
 .endfor
 
 
+//  --------------------------------------------------------------------------
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
 //  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
@@ -1161,6 +1092,62 @@ $(class.name)_encode ($(class.name)_t **self_p)
     //  Destroy $(class.name) object
     $(class.name)_destroy (self_p);
     return msg;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive and parse a $(class.name) from the socket. Returns new object or
+//  NULL if error. Will block if there's no message waiting.
+
+$(class.name)_t *
+$(class.name)_recv (void *input)
+{
+    assert (input);
+    zmsg_t *msg = zmsg_recv (input);
+.if switches.trace ?= 1
+    zmsg_dump (msg);
+.endif
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t *routing_id = NULL;
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg))
+            return NULL;        //  Malformed or empty
+    }
+    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
+    if (zsocket_type (input) == ZMQ_ROUTER)
+        $(class.name)->routing_id = routing_id;
+
+    return $(class.name);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive and parse a $(class.name) from the socket. Returns new object,
+//  or NULL either if there was no input waiting, or the recv was interrupted.
+
+$(class.name)_t *
+$(class.name)_recv_nowait (void *input)
+{
+    assert (input);
+    zmsg_t *msg = zmsg_recv_nowait (input);
+.if switches.trace ?= 1
+    zmsg_dump (msg);
+.endif
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t *routing_id = NULL;
+    if (zsocket_type (input) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg))
+            return NULL;        //  Malformed or empty
+    }
+    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
+    if (zsocket_type (input) == ZMQ_ROUTER)
+        $(class.name)->routing_id = routing_id;
+
+    return $(class.name);
 }
 
 
