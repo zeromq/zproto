@@ -25,7 +25,9 @@ endfunction
 function set_defaults ()
     resolve_types ()
     
+    class.signature ?= 0
     class.has_repeats = 0
+    
     for message
         message.name = "$(message.name:c)"
         for field
