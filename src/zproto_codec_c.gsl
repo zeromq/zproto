@@ -116,9 +116,6 @@ CZMQ_EXPORT int
 CZMQ_EXPORT zmsg_t *
     $(class.name)_encode_$(name) (
 .for field where !defined (value)
-.   if defined (message.has_msg)
-.       echo "E: 'msg' field must be last in the message"
-.   endif
 .   if !first ()
 ,
 .   endif 
@@ -149,7 +146,6 @@ CZMQ_EXPORT zmsg_t *
         z$(type)_t *$(name)\
 .       elsif type = "msg"
         zmsg_t *$(name)\
-.       message.has_msg = name
 .       endif
 .   endif
 .endfor
@@ -162,9 +158,6 @@ CZMQ_EXPORT zmsg_t *
 CZMQ_EXPORT int
     $(class.name)_send_$(name) (void *output\
 .for field where !defined (value)
-.   if defined (message.has_msg)
-.       echo "E: 'msg' field must be last in the message"
-.   endif
 ,
 .   if defined (repeat)
 .       if type = "number"
@@ -1109,14 +1102,14 @@ $(class.name)_recv (void *input)
 .endif
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
-    if (zsocket_type (input) == ZMQ_ROUTER) {
+    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
         routing_id = zmsg_pop (msg);
         //  If message was not valid, forget about it
         if (!routing_id || !zmsg_next (msg))
             return NULL;        //  Malformed or empty
     }
     $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-    if (zsocket_type (input) == ZMQ_ROUTER)
+    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
         $(class.name)->routing_id = routing_id;
 
     return $(class.name);
@@ -1137,14 +1130,14 @@ $(class.name)_recv_nowait (void *input)
 .endif
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
-    if (zsocket_type (input) == ZMQ_ROUTER) {
+    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
         routing_id = zmsg_pop (msg);
         //  If message was not valid, forget about it
         if (!routing_id || !zmsg_next (msg))
             return NULL;        //  Malformed or empty
     }
     $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-    if (zsocket_type (input) == ZMQ_ROUTER)
+    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
         $(class.name)->routing_id = routing_id;
 
     return $(class.name);
@@ -1171,7 +1164,7 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     zmsg_t *msg = $(class.name)_encode (&self);
     
     //  If we're sending to a ROUTER, send the routing_id first
-    if (zsocket_type (output) == ZMQ_ROUTER) {
+    if (zsocket_type (zsock_resolve (output)) == ZMQ_ROUTER) {
         assert (routing_id);
         zmsg_prepend (msg, &routing_id);
     }
@@ -2025,17 +2018,14 @@ $(class.name)_test (bool verbose)
     $(class.name)_destroy (&self);
 
     //  Create pair of sockets we can send through
-    zctx_t *ctx = zctx_new ();
-    assert (ctx);
-
-    void *output = zsocket_new (ctx, ZMQ_DEALER);
-    assert (output);
-    zsocket_bind (output, "inproc://selftest");
-
-    void *input = zsocket_new (ctx, ZMQ_ROUTER);
+    zsock_t *input = zsock_new (ZMQ_ROUTER);
     assert (input);
-    zsocket_connect (input, "inproc://selftest");
-    
+    zsock_connect (input, "inproc://selftest");
+
+    zsock_t *output = zsock_new (ZMQ_DEALER);
+    assert (output);
+    zsock_bind (output, "inproc://selftest");
+
     //  Encode/send/decode and verify each message type
     int instance;
     $(class.name)_t *copy;
@@ -2169,7 +2159,8 @@ $(class.name)_test (bool verbose)
     }
 .endfor
 
-    zctx_destroy (&ctx);
+    zsock_destroy (&input);
+    zsock_destroy (&output);
     //  @end
 
     printf ("OK\\n");
