@@ -196,7 +196,7 @@ CZMQ_EXPORT $(class.name)_t *
 
 //  Print contents of message to stdout
 CZMQ_EXPORT void
-    $(class.name)_dump ($(class.name)_t *self);
+    $(class.name)_print ($(class.name)_t *self);
 
 //  Get/set the message routing id
 CZMQ_EXPORT zframe_t *
@@ -1098,7 +1098,7 @@ $(class.name)_recv (void *input)
     assert (input);
     zmsg_t *msg = zmsg_recv (input);
 .if switches.trace ?= 1
-    zmsg_dump (msg);
+    zmsg_print (msg);
 .endif
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
@@ -1126,7 +1126,7 @@ $(class.name)_recv_nowait (void *input)
     assert (input);
     zmsg_t *msg = zmsg_recv_nowait (input);
 .if switches.trace ?= 1
-    zmsg_dump (msg);
+    zmsg_print (msg);
 .endif
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
@@ -1389,7 +1389,7 @@ $(class.name)_dup ($(class.name)_t *self)
 .for class.field where type = "dictionary"
 //  Dump $(name) key=value pair to stdout
 static int
-s_$(name)_dump (const char *key, void *item, void *argument)
+s_$(name)_print (const char *key, void *item, void *argument)
 {
     printf ("        %s=%s\\n", key, (char *) item);
     return 0;
@@ -1401,7 +1401,7 @@ s_$(name)_dump (const char *key, void *item, void *argument)
 //  Print contents of message to stdout
 
 void
-$(class.name)_dump ($(class.name)_t *self)
+$(class.name)_print ($(class.name)_t *self)
 {
     assert (self);
 .if class.has_repeats
@@ -1498,7 +1498,7 @@ $(class.name)_dump ($(class.name)_t *self)
 .       elsif type = "dictionary"
             printf ("    $(name)={\\n");
             if (self->$(name))
-                zhash_foreach (self->$(name), s_$(name)_dump, self);
+                zhash_foreach (self->$(name), s_$(name)_print, self);
             else
                 printf ("(NULL)\\n");
             printf ("    }\\n");
@@ -1532,7 +1532,7 @@ $(class.name)_dump ($(class.name)_t *self)
 .       elsif type = "msg"
             printf ("    $(name)={\\n");
             if (self->$(name))
-                zmsg_dump (self->$(name));
+                zmsg_print (self->$(name));
             else
                 printf ("(NULL)\\n");
             printf ("    }\\n");
