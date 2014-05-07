@@ -127,7 +127,7 @@ CZMQ_EXPORT zproto_example_t *
 //  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
 //  first frame of the resulting message.
 CZMQ_EXPORT zmsg_t *
-    zproto_example_encode (zproto_example_t *self);
+    zproto_example_encode (zproto_example_t **self_p);
 
 //  Receive and parse a zproto_example from the socket. Returns new object, 
 //  or NULL if error. Will block if there's no message waiting.
