@@ -25,6 +25,11 @@ for class.state
     endfor
 endfor
 
+#   Lowecase protocol message names
+for proto.message
+    message.name = "$(name)"
+endfor
+
 #   API methods that get passed to server task
 for class.method
    if return ?= "number"
@@ -688,18 +693,22 @@ s_client_filter_mailbox (s_client_t *self)
         //  Check whether current state can process event
         //  This should be changed to a pre-built lookup table
         event_t event = s_protocol_event (request);
-        bool event_is_valid = false;
+        bool event_is_valid;
 .for class.state
 .   if count (event, event.name = "*")
         if (self->state == $(state.name:c)_state)
             event_is_valid = true;
+        else
 .   else
 .       for event where defined (external)
         if (self->state == $(state.name:c)_state && event == $(name:c)_event)
             event_is_valid = true;
+        else
 .       endfor
 .   endif
 .endfor
+            event_is_valid = false;
+            
         if (event_is_valid) {
             zlist_remove (self->mailbox, request);
             $(proto)_destroy (&self->client.request);
@@ -723,7 +732,7 @@ s_client_filter_mailbox (s_client_t *self)
 .               if switches.trace ?= 1
                         zlog_debug (self->server->log,
                             "%s: Send message to client", self->log_prefix);
-                        $(proto)_dump (self->client.reply);
+                        $(proto)_print (self->client.reply);
 .               endif
                         $(proto)_send (&self->client.reply, self->server->router);
                         self->client.reply = $(proto)_new (0);
@@ -983,8 +992,8 @@ s_server_control_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     if (!msg)
         return -1;              //  Interrupted; exit zloop
 .if switches.trace ?= 1
-    zlog_debug (self->server->log, "API command:");
-    zmsg_dump (msg);
+    zlog_debug (self->log, "API command:");
+    zmsg_print (msg);
 .endif
 .for class.method
     if (streq (method, "$(NAME)")) {
@@ -1088,8 +1097,8 @@ s_server_client_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     }
     free (hashkey);
 .if switches.trace ?= 1
-    zlog_debug (self->server->log, "%s: Client message", client->unique_id);
-    $(proto)_dump (msg);
+    zlog_debug (self->log, "%d: Client message", client->unique_id);
+    $(proto)_print (msg);
 .endif
 
 .   if count (class.event, name = "expired")
