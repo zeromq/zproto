@@ -869,7 +869,7 @@ s_server_config_self (s_server_t *self)
 
     //  Default client timeout is 60 seconds
     self->timeout = atoi (
-        zconfig_resolve (self->config, "server/timeout", "60000"));
+        zconfig_resolve (self->config, "server/timeout", "60")) * 1000;
 
     //  Do we want to run server in the background?
     int background = atoi (
