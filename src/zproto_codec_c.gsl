@@ -10,7 +10,7 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.output "../include/$(class.name).h"
+.output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
@@ -154,7 +154,8 @@ CZMQ_EXPORT zmsg_t *
 .endfor
 
 .for message
-//  Send the $(message.NAME) to the output in one step
+//  Send the $(message.NAME) to the output in one step.
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     $(class.name)_send_$(name) (void *output\
 .for field where !defined (value)
@@ -348,7 +349,7 @@ CZMQ_EXPORT int
 #endif
 
 #endif
-.output "$(class.name).c"
+.output "$(class.source)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -378,7 +379,7 @@ CZMQ_EXPORT int
 */
 
 #include <czmq.h>
-#include "../include/$(class.name).h"
+#include "$(class.header)/$(class.name).h"
 
 //  Structure of our class
 

@@ -207,6 +207,7 @@ CZMQ_EXPORT zmsg_t *
 
 
 //  Send the LOG to the output in one step
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     zproto_example_send_log (void *output,
         uint16_t sequence,
@@ -219,6 +220,7 @@ CZMQ_EXPORT int
         const char *data);
     
 //  Send the STRUCTURES to the output in one step
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     zproto_example_send_structures (void *output,
         uint16_t sequence,
@@ -226,6 +228,7 @@ CZMQ_EXPORT int
         zhash_t *headers);
     
 //  Send the BINARY to the output in one step
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     zproto_example_send_binary (void *output,
         uint16_t sequence,
@@ -235,6 +238,7 @@ CZMQ_EXPORT int
         zmsg_t *content);
     
 //  Send the TYPES to the output in one step
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     zproto_example_send_types (void *output,
         uint16_t sequence,
@@ -248,6 +252,7 @@ CZMQ_EXPORT int
         const char *supplier_email);
     
 //  Send the REPEAT to the output in one step
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     zproto_example_send_repeat (void *output,
         uint16_t sequence,
@@ -270,7 +275,7 @@ CZMQ_EXPORT zproto_example_t *
 
 //  Print contents of message to stdout
 CZMQ_EXPORT void
-    zproto_example_dump (zproto_example_t *self);
+    zproto_example_print (zproto_example_t *self);
 
 //  Get/set the message routing id
 CZMQ_EXPORT zframe_t *
