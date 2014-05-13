@@ -10,7 +10,7 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.output "../include/$(class.name).h"
+.output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
@@ -348,7 +348,7 @@ CZMQ_EXPORT int
 #endif
 
 #endif
-.output "$(class.name).c"
+.output "$(class.source)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -378,7 +378,7 @@ CZMQ_EXPORT int
 */
 
 #include <czmq.h>
-#include "../include/$(class.name).h"
+#include "$(class.header)/$(class.name).h"
 
 //  Structure of our class
 

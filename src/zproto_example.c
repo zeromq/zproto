@@ -1672,7 +1672,7 @@ zproto_example_dup (zproto_example_t *self)
 
 //  Dump headers key=value pair to stdout
 static int
-s_headers_dump (const char *key, void *item, void *argument)
+s_headers_print (const char *key, void *item, void *argument)
 {
     printf ("        %s=%s\n", key, (char *) item);
     return 0;
@@ -1683,7 +1683,7 @@ s_headers_dump (const char *key, void *item, void *argument)
 //  Print contents of message to stdout
 
 void
-zproto_example_dump (zproto_example_t *self)
+zproto_example_print (zproto_example_t *self)
 {
     assert (self);
     int index;
@@ -1721,7 +1721,7 @@ zproto_example_dump (zproto_example_t *self)
             printf (" }\n");
             printf ("    headers={\n");
             if (self->headers)
-                zhash_foreach (self->headers, s_headers_dump, self);
+                zhash_foreach (self->headers, s_headers_print, self);
             else
                 printf ("(NULL)\n");
             printf ("    }\n");
@@ -1752,7 +1752,7 @@ zproto_example_dump (zproto_example_t *self)
             printf ("    }\n");
             printf ("    content={\n");
             if (self->content)
-                zmsg_dump (self->content);
+                zmsg_print (self->content);
             else
                 printf ("(NULL)\n");
             printf ("    }\n");

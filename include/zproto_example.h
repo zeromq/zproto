@@ -270,7 +270,7 @@ CZMQ_EXPORT zproto_example_t *
 
 //  Print contents of message to stdout
 CZMQ_EXPORT void
-    zproto_example_dump (zproto_example_t *self);
+    zproto_example_print (zproto_example_t *self);
 
 //  Get/set the message routing id
 CZMQ_EXPORT zframe_t *
