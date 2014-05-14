@@ -60,6 +60,7 @@
         sequence            number 2    
         flags               octets [4]  A set of flags
         public_key          chunk       Our public key
+        identifier          uuid        Unique identity
         address             frame       Return address as frame
         content             msg         Message to be delivered
 
@@ -84,6 +85,7 @@
         lstr                longstr     Repeating 4-byte string
         strs                strings     Repeating strings
         chunks              chunk       Repeating chunks
+        uuids               uuid        Repeating uuids
         persons_forename    string      Given name
         persons_surname     string      Family name
         persons_mobile      string      Mobile phone number
@@ -172,6 +174,7 @@ CZMQ_EXPORT zmsg_t *
         uint16_t sequence,
         byte *flags,
         zchunk_t *public_key,
+        zuuid_t *identifier,
         zframe_t *address,
         zmsg_t *content);
 
@@ -200,6 +203,7 @@ CZMQ_EXPORT zmsg_t *
         char **lstr, byte lstr_size,
         zlist_t **strs, byte strs_size,
         zchunk_t **chunks, byte chunks_size,
+        zuuid_t **uuids, byte uuids_size,
         char **persons_forename, byte persons_forename_size,
         char **persons_surname, byte persons_surname_size,
         char **persons_mobile, byte persons_mobile_size,
@@ -234,6 +238,7 @@ CZMQ_EXPORT int
         uint16_t sequence,
         byte *flags,
         zchunk_t *public_key,
+        zuuid_t *identifier,
         zframe_t *address,
         zmsg_t *content);
     
@@ -264,6 +269,7 @@ CZMQ_EXPORT int
         char **lstr, byte lstr_size,
         zlist_t **strs, byte strs_size,
         zchunk_t **chunks, byte chunks_size,
+        zuuid_t **uuids, byte uuids_size,
         char **persons_forename, byte persons_forename_size,
         char **persons_surname, byte persons_surname_size,
         char **persons_mobile, byte persons_mobile_size,
@@ -398,6 +404,16 @@ CZMQ_EXPORT zchunk_t *
 CZMQ_EXPORT void
     zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p);
 
+//  Get a copy of the identifier field
+CZMQ_EXPORT zuuid_t *
+    zproto_example_identifier (zproto_example_t *self);
+//  Get the identifier field and transfer ownership to caller
+CZMQ_EXPORT zuuid_t *
+    zproto_example_get_identifier (zproto_example_t *self);
+//  Set the identifier field, transferring ownership from caller
+CZMQ_EXPORT void
+    zproto_example_set_identifier (zproto_example_t *self, zuuid_t **uuid_p);
+
 //  Get a copy of the address field
 CZMQ_EXPORT zframe_t *
     zproto_example_address (zproto_example_t *self);
@@ -515,6 +531,13 @@ CZMQ_EXPORT zchunk_t *
 //  Set the chunks field, transferring ownership from caller
 CZMQ_EXPORT void
     zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size);
+
+//  Get a copy of the uuids field
+CZMQ_EXPORT zuuid_t *
+    zproto_example_uuids_index (zproto_example_t *self, byte index);
+//  Set the uuids field, transferring ownership from caller
+CZMQ_EXPORT void
+    zproto_example_set_uuids (zproto_example_t *self, zuuid_t **uuid, byte size);
 
 //  Get/set the persons_forename field
 CZMQ_EXPORT const char *

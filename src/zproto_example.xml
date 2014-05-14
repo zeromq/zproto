@@ -105,6 +105,8 @@ zproto supports several kinds of binary data:
 * You can define chunks, which are zchunk_t objects in the API. Chunks
   are encoded like longstr fields, a 4-octet length and a body.
 
+* You can define uuids, which are zuuid_t objects in the API.
+
 * You can define frames, which are zframe_t objects in the API. Frames
   are sent as separate ZeroMQ frames on the wire. This is ideal for
   variable-size binary data such as images, or other blobs.
@@ -117,6 +119,7 @@ zproto supports several kinds of binary data:
 <message name = "binary" id = "3">
     <field name = "flags" type = "octets" size = "4">A set of flags</field>
     <field name = "public key" type = "chunk">Our public key</field>
+    <field name = "identifier" type = "uuid">Unique identity</field>
     <field name = "address" type = "frame">Return address as frame</field>
     <field name = "content" type = "msg">Message to be delivered</field>
 Deliver a multi-part message.
@@ -156,6 +159,7 @@ equals 256.
     <field name = "lstr" type = "longstr" repeat = "n">Repeating 4-byte string</field>
     <field name = "strs" type = "strings" repeat = "n">Repeating strings</field>
     <field name = "chunks" type = "chunk" repeat = "2">Repeating chunks</field>
+    <field name = "uuids" type = "uuid" repeat = "2">Repeating uuids</field>
     <field name = "persons" type = "person" repeat = "n">Repeating person</field>
 Demonstrates repeating fields
 </message>

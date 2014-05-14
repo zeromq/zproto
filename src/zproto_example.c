@@ -67,6 +67,7 @@ struct _zproto_example_t {
     size_t headers_bytes;               //  Size of dictionary content
     byte flags [4];                     //  A set of flags
     zchunk_t *public_key;               //  Our public key
+    zuuid_t *identifier;                //  Unique identity
     zframe_t *address;                  //  Return address as frame
     zmsg_t *content;                    //  Message to be delivered
     char *client_forename;              //  Given name
@@ -102,6 +103,9 @@ struct _zproto_example_t {
     zchunk_t *chunks [2];               //  Repeating chunks
     byte chunks_index;
     size_t chunks_limit;
+    zuuid_t *uuids [2];                 //  Repeating uuids
+    byte uuids_index;
+    size_t uuids_limit;
     char *persons_forename [256];       //  Given name
     byte persons_forename_index;
     size_t persons_forename_limit;
@@ -276,6 +280,8 @@ zproto_example_new (int id)
     self->strs_limit = 256;
     self->chunks_index = 0;
     self->chunks_limit = 2;
+    self->uuids_index = 0;
+    self->uuids_limit = 2;
     self->persons_forename_index = 0;
     self->persons_forename_limit = 256;
     self->persons_surname_index = 0;
@@ -307,6 +313,7 @@ zproto_example_destroy (zproto_example_t **self_p)
             zlist_destroy (&self->aliases);
         zhash_destroy (&self->headers);
         zchunk_destroy (&self->public_key);
+        zuuid_destroy (&self->identifier);
         zframe_destroy (&self->address);
         zmsg_destroy (&self->content);
         free (self->client_forename);
@@ -334,6 +341,8 @@ zproto_example_destroy (zproto_example_t **self_p)
         }
         for (index = 0; index < self->chunks_index + 1; index++)
             zchunk_destroy (&self->chunks [index]);
+        for (index = 0; index < self->uuids_index + 1; index++)
+            zuuid_destroy (&self->uuids [index]);
         if (self->persons_forename) {
             for (index = 0; index < self->persons_forename_index + 1; index++)
                 if (self->persons_forename [index])
@@ -448,6 +457,13 @@ zproto_example_decode (zmsg_t **msg_p)
                     goto malformed;
                 self->public_key = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
+            }
+            {
+                if (self->needle + ZUUID_LEN > (self->ceiling))
+                    goto malformed;
+                self->identifier = zuuid_new ();
+                zuuid_set (self->identifier, self->needle);
+                self->needle += ZUUID_LEN;
             }
             {
                 //  Get next frame, leave current untouched
@@ -582,6 +598,23 @@ zproto_example_decode (zmsg_t **msg_p)
                 }
                 //  Decrement to last valid position
                 self->chunks_index--;   
+            }
+            {
+                size_t list_size;
+                GET_NUMBER1 (list_size);
+                self->uuids_index = 0;
+                while (self->uuids_index < list_size) {
+                    {
+                        if (self->needle + ZUUID_LEN > (self->ceiling))
+                           goto malformed;
+                        self->uuids [self->uuids_index] = zuuid_new ();
+                        zuuid_set (self->uuids [self->uuids_index], self->needle);
+                        self->needle += ZUUID_LEN;
+                    }
+                    self->uuids_index++;    
+                }
+                //  Decrement to last valid position
+                self->uuids_index--;    
             }
             {
                 size_t list_size;
@@ -742,6 +775,8 @@ zproto_example_encode (zproto_example_t **self_p)
             frame_size += 4;
             if (self->public_key)
                 frame_size += zchunk_size (self->public_key);
+            //  identifier is uuid with 16-byte length
+            frame_size += ZUUID_LEN;
             break;
             
         case ZPROTO_EXAMPLE_TYPES:
@@ -874,6 +909,15 @@ zproto_example_encode (zproto_example_t **self_p)
                 //  Array has 1-byte length
                 frame_size += 1;
                 int index;
+                for (index = 0; index < self->uuids_index + 1; index++) {
+                    //  uuids is uuid with 16-byte length
+                    frame_size += ZUUID_LEN;
+                }
+            }
+            {
+                //  Array has 1-byte length
+                frame_size += 1;
+                int index;
                 for (index = 0; index < self->persons_forename_index + 1; index++) {
                     //  persons_forename is a string with 1-byte length
                     frame_size++;       //  Size is one octet
@@ -980,6 +1024,10 @@ zproto_example_encode (zproto_example_t **self_p)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+            if (self->identifier) {
+                zuuid_export (self->identifier, self->needle);
+                self->needle += ZUUID_LEN;
+            }
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -1107,6 +1155,16 @@ zproto_example_encode (zproto_example_t **self_p)
                 }
                 else
                     PUT_NUMBER4 (0);    //  Empty chunk
+                }
+            }    
+            {
+                PUT_NUMBER1 (self->uuids_index + 1);
+                int index;
+                for (index = 0; index < self->uuids_index + 1; index++) {
+                if (self->uuids [index]) {
+                    zuuid_export (self->uuids [index], self->needle);
+                    self->needle += ZUUID_LEN;
+                }
                 }
             }    
             {
@@ -1338,6 +1396,7 @@ zproto_example_encode_binary (
     uint16_t sequence,
     byte *flags,
     zchunk_t *public_key,
+    zuuid_t *identifier,
     zframe_t *address,
     zmsg_t *content)
 {
@@ -1346,6 +1405,8 @@ zproto_example_encode_binary (
     zproto_example_set_flags (self, flags);
     zchunk_t *public_key_copy = zchunk_dup (public_key);
     zproto_example_set_public_key (self, &public_key_copy);
+    zuuid_t *identifier_copy = zuuid_dup (identifier);
+    zproto_example_set_identifier (self, &identifier_copy);
     zframe_t *address_copy = zframe_dup (address);
     zproto_example_set_address (self, &address_copy);
     zmsg_t *content_copy = zmsg_dup (content);
@@ -1397,6 +1458,7 @@ zproto_example_encode_repeat (
     char **lstr, byte lstr_size,
     zlist_t **strs, byte strs_size,
     zchunk_t **chunks, byte chunks_size,
+    zuuid_t **uuids, byte uuids_size,
     char **persons_forename, byte persons_forename_size,
     char **persons_surname, byte persons_surname_size,
     char **persons_mobile, byte persons_mobile_size,
@@ -1412,6 +1474,7 @@ zproto_example_encode_repeat (
     zproto_example_set_lstr (self, lstr, lstr_size);
     zproto_example_set_strs (self, strs, strs_size);
     zproto_example_set_chunks (self, chunks, chunks_size);
+    zproto_example_set_uuids (self, uuids, uuids_size);
     zproto_example_set_persons_forename (self, persons_forename, persons_forename_size);
     zproto_example_set_persons_surname (self, persons_surname, persons_surname_size);
     zproto_example_set_persons_mobile (self, persons_mobile, persons_mobile_size);
@@ -1477,6 +1540,7 @@ zproto_example_send_binary (
     uint16_t sequence,
     byte *flags,
     zchunk_t *public_key,
+    zuuid_t *identifier,
     zframe_t *address,
     zmsg_t *content)
 {
@@ -1485,6 +1549,8 @@ zproto_example_send_binary (
     zproto_example_set_flags (self, flags);
     zchunk_t *public_key_copy = zchunk_dup (public_key);
     zproto_example_set_public_key (self, &public_key_copy);
+    zuuid_t *identifier_copy = zuuid_dup (identifier);
+    zproto_example_set_identifier (self, &identifier_copy);
     zframe_t *address_copy = zframe_dup (address);
     zproto_example_set_address (self, &address_copy);
     zmsg_t *content_copy = zmsg_dup (content);
@@ -1538,6 +1604,7 @@ zproto_example_send_repeat (
     char **lstr, byte lstr_size,
     zlist_t **strs, byte strs_size,
     zchunk_t **chunks, byte chunks_size,
+    zuuid_t **uuids, byte uuids_size,
     char **persons_forename, byte persons_forename_size,
     char **persons_surname, byte persons_surname_size,
     char **persons_mobile, byte persons_mobile_size,
@@ -1553,6 +1620,7 @@ zproto_example_send_repeat (
     zproto_example_set_lstr (self, lstr, lstr_size);
     zproto_example_set_strs (self, strs, strs_size);
     zproto_example_set_chunks (self, chunks, chunks_size);
+    zproto_example_set_uuids (self, uuids, uuids_size);
     zproto_example_set_persons_forename (self, persons_forename, persons_forename_size);
     zproto_example_set_persons_surname (self, persons_surname, persons_surname_size);
     zproto_example_set_persons_mobile (self, persons_mobile, persons_mobile_size);
@@ -1597,6 +1665,7 @@ zproto_example_dup (zproto_example_t *self)
             copy->sequence = self->sequence;
             memcpy (copy->flags, self->flags, 4);
             copy->public_key = self->public_key? zchunk_dup (self->public_key): NULL;
+            copy->identifier = self->identifier? zuuid_dup (self->identifier): NULL;
             copy->address = self->address? zframe_dup (self->address): NULL;
             copy->content = self->content? zmsg_dup (self->content): NULL;
             break;
@@ -1646,6 +1715,10 @@ zproto_example_dup (zproto_example_t *self)
             copy->chunks_index = self->chunks_index;
             for (index = 0; index < self->chunks_index + 1; index++) {
                 copy->chunks [index] = self->chunks [index] ? zchunk_dup (self->chunks [index]): NULL;
+            }
+            copy->uuids_index = self->uuids_index;
+            for (index = 0; index < self->uuids_index + 1; index++) {
+                copy->uuids [index] = self->uuids [index] ? zuuid_dup (self->uuids [index]): NULL;
             }
             copy->persons_forename_index = self->persons_forename_index;
             for (index = 0; index < self->persons_forename_index + 1; index++) {
@@ -1741,6 +1814,13 @@ zproto_example_print (zproto_example_t *self)
             printf ("    public_key={\n");
             if (self->public_key)
                 zchunk_print (self->public_key);
+            else
+                printf ("(NULL)\n");
+            printf ("    }\n");
+            printf ("    identifier=[");
+            printf ("    identifier={\n");
+            if (self->identifier)
+                printf ("%s", zuuid_str (self->identifier));
             else
                 printf ("(NULL)\n");
             printf ("    }\n");
@@ -1864,6 +1944,16 @@ zproto_example_print (zproto_example_t *self)
                 printf ("    {\n");
                 if (self->chunks [index])
                     zchunk_print (self->chunks [index]);
+                else
+                    printf ("(NULL)\n");
+                printf ("    }\n");
+            }
+            printf ("]\n");
+            printf ("    uuids=[");
+            for (index = 0; index < self->uuids_index + 1; index++) {
+                printf ("    {\n");
+                if (self->uuids [index])
+                    printf ("%s", zuuid_str (self->uuids [index]));
                 else
                     printf ("(NULL)\n");
                 printf ("    }\n");
@@ -2353,6 +2443,39 @@ zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p)
 
 
 //  --------------------------------------------------------------------------
+//  Get the identifier field without transferring ownership
+
+zuuid_t *
+zproto_example_identifier (zproto_example_t *self)
+{
+    assert (self);
+    return self->identifier;
+}
+
+//  Get the identifier field and transfer ownership to caller
+
+zuuid_t *
+zproto_example_get_identifier (zproto_example_t *self)
+{
+    zuuid_t *identifier = self->identifier;
+    self->identifier = NULL;
+    return identifier;
+}
+
+//  Set the identifier field, transferring ownership from caller
+
+void
+zproto_example_set_identifier (zproto_example_t *self, zuuid_t **uuid_p)
+{
+    assert (self);
+    assert (uuid_p);
+    zuuid_destroy (&self->identifier);
+    self->identifier = *uuid_p;
+    *uuid_p = NULL;
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get the address field without transferring ownership
 
 zframe_t *
@@ -2811,6 +2934,35 @@ zproto_example_set_chunks (zproto_example_t *self, zchunk_t **chunk, byte size)
 
 
 //  --------------------------------------------------------------------------
+//  Get the uuids field without transferring ownership
+
+zuuid_t *
+zproto_example_uuids_index (zproto_example_t *self, byte index)
+{
+    assert (self);
+    if (index > self->uuids_index)
+        return NULL;
+    return self->uuids [index];
+}
+
+//  Set the uuids field, transferring ownership from caller
+
+void
+zproto_example_set_uuids (zproto_example_t *self, zuuid_t **uuid, byte size)
+{
+    assert (self);
+    assert (size <= self->uuids_limit);
+    self->uuids_index = size - 1;
+    int index;
+    for (index = 0; index < size; index++) {
+        zuuid_destroy (&self->uuids [index]);
+        self->uuids [index] = uuid [index];
+        uuid [index] = NULL;
+    }
+}
+
+
+//  --------------------------------------------------------------------------
 //  Get/set the persons_forename field
 
 const char *
@@ -3022,6 +3174,9 @@ zproto_example_test (bool verbose)
     zproto_example_set_flags (self, flags_data);
     zchunk_t *binary_public_key = zchunk_new ("Captcha Diem", 12);
     zproto_example_set_public_key (self, &binary_public_key);
+    zuuid_t *binary_identifier = zuuid_new ();
+    zuuid_t *binary_identifier_dup = zuuid_dup (binary_identifier);
+    zproto_example_set_identifier (self, &binary_identifier);
     zframe_t *binary_address = zframe_new ("Captcha Diem", 12);
     zproto_example_set_address (self, &binary_address);
     zmsg_t *binary_content = zmsg_new ();
@@ -3040,6 +3195,11 @@ zproto_example_test (bool verbose)
         assert (zproto_example_flags (self) [0] == 123);
         assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
+        zuuid_t *acutal_identifier = zproto_example_identifier (self);
+        assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
+        if (instance == 1) {
+            zuuid_destroy (&binary_identifier_dup);
+        }
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
         zproto_example_destroy (&self);
@@ -3138,6 +3298,15 @@ zproto_example_test (bool verbose)
     chunks [1] = repeat_chunks2;
     zproto_example_set_chunks (self, chunks, 2);
     free (chunks);
+    zuuid_t **uuids = malloc (sizeof (zuuid_t **));
+    zuuid_t *repeat_uuids1 = zuuid_new ();
+    zuuid_t *repeat_uuids_dup1 = zuuid_dup (repeat_uuids1);
+    uuids [0] = repeat_uuids1;
+    zuuid_t *repeat_uuids2 = zuuid_new ();
+    zuuid_t *repeat_uuids_dup2 = zuuid_dup (repeat_uuids2);
+    uuids [1] = repeat_uuids2;
+    zproto_example_set_uuids (self, uuids, 2);
+    free (uuids);
     char **persons_forename = malloc (sizeof (char**));
     persons_forename [0] = "Life is short"; 
     persons_forename [1] = "but Now lasts"; 
@@ -3202,6 +3371,12 @@ zproto_example_test (bool verbose)
         assert (memcmp (zchunk_data (chunks1), "Captcha Diem", 12) == 0);
         zchunk_t *chunks2 = zproto_example_chunks_index (self, 1);
         assert (memcmp (zchunk_data (chunks2), "Memento mori", 12) == 0);
+        assert (zuuid_eq (repeat_uuids_dup1, zuuid_data (zproto_example_uuids_index (self, 0))));
+        assert (zuuid_eq (repeat_uuids_dup2, zuuid_data (zproto_example_uuids_index (self, 1))));
+        if (instance == 1) {
+            zuuid_destroy (&repeat_uuids_dup1);
+            zuuid_destroy (&repeat_uuids_dup2);
+        }
         assert (streq (zproto_example_persons_forename_index (self, 0), "Life is short"));
         assert (streq (zproto_example_persons_forename_index (self, 1), "but Now lasts"));
         assert (streq (zproto_example_persons_forename_index (self, 2), "for ever"));

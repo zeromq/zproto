@@ -128,7 +128,7 @@ CZMQ_EXPORT zmsg_t *
         char **$(name), byte $(name)_size\
 .       elsif type = "strings"
         zlist_t **$(name), byte $(name)_size\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
         z$(type)_t **$(name), byte $(name)_size\
 .       endif
 .   else
@@ -142,7 +142,7 @@ CZMQ_EXPORT zmsg_t *
         zlist_t *$(name)\
 .       elsif type = "dictionary"
         zhash_t *$(name)\
-.       elsif type = "chunk" | type = "frame"
+.       elsif type = "chunk" | type = "frame" | type = "uuid"
         z$(type)_t *$(name)\
 .       elsif type = "msg"
         zmsg_t *$(name)\
@@ -154,7 +154,7 @@ CZMQ_EXPORT zmsg_t *
 .endfor
 
 .for message
-//  Send the $(message.NAME) to the output in one step.
+//  Send the $(message.NAME) to the output in one step
 //  WARNING, this call will fail if output is of type ZMQ_ROUTER.
 CZMQ_EXPORT int
     $(class.name)_send_$(name) (void *output\
@@ -169,7 +169,7 @@ CZMQ_EXPORT int
         char **$(name), byte $(name)_size\
 .       elsif type = "strings"
         zlist_t **$(name), byte $(name)_size\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
         z$(type)_t **$(name), byte $(name)_size\
 .       endif
 .   else
@@ -183,7 +183,7 @@ CZMQ_EXPORT int
         zlist_t *$(name)\
 .       elsif type = "dictionary"
         zhash_t *$(name)\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
         z$(type)_t *$(name)\
 .       endif
 .   endif
@@ -244,7 +244,7 @@ CZMQ_EXPORT zlist_t *
 CZMQ_EXPORT void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name), byte size);
 .#
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
 //  Get a copy of the $(name) field
 CZMQ_EXPORT z$(type)_t *
     $(class.name)_$(name)_index ($(class.name)_t *self, byte index);
@@ -322,7 +322,7 @@ CZMQ_EXPORT void
 CZMQ_EXPORT size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
 //  Get a copy of the $(name) field
 CZMQ_EXPORT z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -399,7 +399,7 @@ struct _$(class.name)_t {
 .       elsif type = "strings"
     zlist_t *$(name) [$(repeat)];       //  $(field.?'':)
     size_t $(name)_bytes [$(repeat)];   //  Size of dictionary content
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
     z$(type)_t *$(name) [$(repeat)];    //  $(field.?'':)
 .       endif
 .   else 
@@ -414,7 +414,7 @@ struct _$(class.name)_t {
 .       elsif type = "dictionary"
     zhash_t *$(name);                   //  $(field.?'':)
     size_t $(name)_bytes;               //  Size of dictionary content
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
     z$(type)_t *$(name);                //  $(field.?'':)
 .       endif
 .   endif
@@ -606,7 +606,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
                 if (self->$(name) [index])
                     zlist_destroy (&self->$(name) [index]);
         }
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
         for (index = 0; index < self->$(name)_index + 1; index++)
             z$(type)_destroy (&self->$(name) [index]);
 .       endif
@@ -618,7 +618,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
             zlist_destroy (&self->$(name));
 .       elsif type = "dictionary"
         zhash_destroy (&self->$(name));
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
         z$(type)_destroy (&self->$(name));
 .       endif
 .   endif
@@ -702,6 +702,14 @@ $(class.name)_decode (zmsg_t **msg_p)
                         self->$(name) [self->$(name)_index] = zchunk_new (self->needle, chunk_size);
                         self->needle += chunk_size;
                     }
+.               elsif type = "uuid"
+                    {
+                        if (self->needle + ZUUID_LEN > (self->ceiling))
+                           goto malformed;
+                        self->$(name) [self->$(name)_index] = zuuid_new ();
+                        zuuid_set (self->$(name) [self->$(name)_index], self->needle);
+                        self->needle += ZUUID_LEN;
+                    }
 .               endif            
                     self->$(name)_index++;  
                 }
@@ -760,6 +768,14 @@ $(class.name)_decode (zmsg_t **msg_p)
                     goto malformed;
                 self->$(name) = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
+            }
+.       elsif type = "uuid"
+            {
+                if (self->needle + ZUUID_LEN > (self->ceiling))
+                    goto malformed;
+                self->$(name) = zuuid_new ();
+                zuuid_set (self->$(name), self->needle);
+                self->needle += ZUUID_LEN;
             }
 .       elsif type = "frame"
             {
@@ -879,6 +895,9 @@ $(class.name)_encode ($(class.name)_t **self_p)
                     frame_size += 4;
                     if (self->$(name) [index])
                         frame_size += zchunk_size (self->$(name) [index]);
+.           elsif type = "uuid"
+                    //  $(name) is uuid with 16-byte length
+                    frame_size += ZUUID_LEN;
 .           endif
                 }
             }
@@ -927,6 +946,9 @@ $(class.name)_encode ($(class.name)_t **self_p)
             frame_size += 4;
             if (self->$(name))
                 frame_size += zchunk_size (self->$(name));
+.       elsif type = "uuid"
+            //  $(name) is uuid with 16-byte length
+            frame_size += ZUUID_LEN;
 .       endif
 .   endfor
             break;
@@ -989,6 +1011,11 @@ $(class.name)_encode ($(class.name)_t **self_p)
                 }
                 else
                     PUT_NUMBER4 (0);    //  Empty chunk
+.           elsif type = "uuid"
+                if (self->$(name) [index]) {
+                    zuuid_export (self->$(name) [index], self->needle);
+                    self->needle += ZUUID_LEN;
+                }
 .           endif                    
                 }
             }    
@@ -1044,6 +1071,11 @@ $(class.name)_encode ($(class.name)_t **self_p)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
+.       elsif type = "uuid"
+            if (self->$(name)) {
+                zuuid_export (self->$(name), self->needle);
+                self->needle += ZUUID_LEN;
+            }
 .       endif
 .   endfor
             break;
@@ -1211,7 +1243,7 @@ $(class.name)_encode_$(name) (
     char **$(name), byte $(name)_size\
 .       elsif type = "strings"
     zlist_t **$(name), byte $(name)_size\
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
     z$(type)_t **$(name), byte $(name)_size\
 .       endif
 .   else
@@ -1225,7 +1257,7 @@ $(class.name)_encode_$(name) (
     zlist_t *$(name)\
 .       elsif type = "dictionary"
     zhash_t *$(name)\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
     z$(type)_t *$(name)\
 .       endif
 .   endif
@@ -1239,7 +1271,7 @@ $(class.name)_encode_$(name) (
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       elsif type = "strings"
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       endif
 .   else
@@ -1251,7 +1283,7 @@ $(class.name)_encode_$(name) (
 .       elsif type = "dictionary"
     zhash_t *$(name)_copy = zhash_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
     z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
 .       endif
@@ -1280,7 +1312,7 @@ $(class.name)_send_$(name) (
     char **$(name), byte $(name)_size\
 .       elsif type = "strings"
     zlist_t **$(name), byte $(name)_size\
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
     z$(type)_t **$(name), byte $(name)_size\
 .       endif
 .   else
@@ -1294,7 +1326,7 @@ $(class.name)_send_$(name) (
     zlist_t *$(name)\
 .       elsif type = "dictionary"
     zhash_t *$(name)\
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
     z$(type)_t *$(name)\
 .       endif
 .   endif
@@ -1308,7 +1340,7 @@ $(class.name)_send_$(name) (
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       elsif type = "strings"
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
-.       elsif type = "chunk"
+.       elsif type = "chunk" | type = "uuid"
     $(class.name)_set_$(name) (self, $(name), $(name)_size);
 .       endif
 .   else
@@ -1320,7 +1352,7 @@ $(class.name)_send_$(name) (
 .       elsif type = "dictionary"
     zhash_t *$(name)_copy = zhash_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
     z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
 .       endif
@@ -1361,7 +1393,7 @@ $(class.name)_dup ($(class.name)_t *self)
                 copy->$(name) [index] = self->$(name) [index] ? strdup (self->$(name) [index]): NULL;
 .           elsif type = "strings"
                 copy->$(name) [index] = self->$(name) [index] ? zlist_dup (self->$(name) [index]): NULL;
-.           elsif type = "chunk"
+.           elsif type = "chunk" | type = "uuid"
                 copy->$(name) [index] = self->$(name) [index] ? z$(type)_dup (self->$(name) [index]): NULL;
 .           endif
             }
@@ -1375,7 +1407,7 @@ $(class.name)_dup ($(class.name)_t *self)
             copy->$(name) = self->$(name)? zlist_dup (self->$(name)): NULL;
 .       elsif type = "dictionary"
             copy->$(name) = self->$(name)? zhash_dup (self->$(name)): NULL;
-.       elsif type = "chunk" | type = "frame" | type = "msg"
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
             copy->$(name) = self->$(name)? z$(type)_dup (self->$(name)): NULL;
 .       endif
 .   endfor
@@ -1519,6 +1551,26 @@ $(class.name)_print ($(class.name)_t *self)
             printf ("    $(name)={\\n");
             if (self->$(name))
                 zchunk_print (self->$(name));
+            else
+                printf ("(NULL)\\n");
+            printf ("    }\\n");
+.           endif            
+.       elsif type = "uuid"
+            printf ("    $(name)=[");
+.           if defined (repeat)
+            for (index = 0; index < self->$(name)_index + 1; index++) {
+                printf ("    {\\n");
+                if (self->$(name) [index])
+                    printf ("%s", zuuid_str (self->$(name) [index]));
+                else
+                    printf ("(NULL)\\n");
+                printf ("    }\\n");
+            }
+            printf ("]\\n");
+.           else            
+            printf ("    $(name)={\\n");
+            if (self->$(name))
+                printf ("%s", zuuid_str (self->$(name)));
             else
                 printf ("(NULL)\\n");
             printf ("    }\\n");
@@ -1937,12 +1989,12 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
     return zhash_size (self->$(name));
 }
 
-.   elsif type = "chunk" | type = "frame" | type = "msg"
-.       if defined (repeat) & type = "chunk"
+.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+.       if defined (repeat) & (type = "chunk" | type = "uuid")
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
-zchunk_t *
+z$(type)_t *
 $(class.name)_$(name)_index ($(class.name)_t *self, byte index)
 {
     assert (self);
@@ -1954,7 +2006,7 @@ $(class.name)_$(name)_index ($(class.name)_t *self, byte index)
 //  Set the $(name) field, transferring ownership from caller
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, zchunk_t **$(type), byte size)
+$(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type), byte size)
 {
     assert (self);
     assert (size <= self->$(name)_limit);
@@ -2073,6 +2125,16 @@ $(class.name)_test (bool verbose)
     $(name) [1] = $(message.name)_$(name)2;
     $(class.name)_set_$(name) (self, $(name), 2);
     free ($(name));
+.       elsif type = "uuid"
+    zuuid_t **$(name) = malloc (sizeof (zuuid_t **));
+    zuuid_t *$(message.name)_$(name)1 = zuuid_new ();
+    zuuid_t *$(message.name)_$(name)_dup1 = zuuid_dup ($(message.name)_$(name)1);
+    $(name) [0] = $(message.name)_$(name)1;
+    zuuid_t *$(message.name)_$(name)2 = zuuid_new ();
+    zuuid_t *$(message.name)_$(name)_dup2 = zuuid_dup ($(message.name)_$(name)2);
+    $(name) [1] = $(message.name)_$(name)2;
+    $(class.name)_set_$(name) (self, $(name), 2);
+    free ($(name));
 .           endif 
 .       elsif type = "number"
     $(class.name)_set_$(name) (self, 123);
@@ -2090,6 +2152,10 @@ $(class.name)_test (bool verbose)
     $(class.name)_$(name)_insert (self, "Age", "%d", 43);
 .       elsif type = "chunk" | type = "frame"
     z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
+    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
+.       elsif type = "uuid"
+    zuuid_t *$(message.name)_$(name) = zuuid_new ();
+    zuuid_t *$(message.name)_$(name)_dup = zuuid_dup ($(message.name)_$(name));
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "msg"
     zmsg_t *$(message.name)_$(name) = zmsg_new ();
@@ -2130,6 +2196,13 @@ $(class.name)_test (bool verbose)
         assert (memcmp (zchunk_data ($(name)1), "Captcha Diem", 12) == 0);
         zchunk_t *$(name)2 = $(class.name)_$(name)_index (self, 1);
         assert (memcmp (zchunk_data ($(name)2), "Memento mori", 12) == 0);
+.           elsif type = "uuid"
+        assert (zuuid_eq ($(message.name)_$(name)_dup1, zuuid_data ($(class.name)_$(name)_index (self, 0))));
+        assert (zuuid_eq ($(message.name)_$(name)_dup2, zuuid_data ($(class.name)_$(name)_index (self, 1))));
+        if (instance == 1) {
+            zuuid_destroy (&$(message.name)_$(name)_dup1);
+            zuuid_destroy (&$(message.name)_$(name)_dup2);
+        }
 .           endif
 .       else
 .           if type = "number"
@@ -2149,6 +2222,12 @@ $(class.name)_test (bool verbose)
         assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);
 .           elsif type = "chunk"
         assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "Captcha Diem", 12) == 0);
+.           elsif type = "uuid"
+        zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
+        assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
+        if (instance == 1) {
+            zuuid_destroy (&$(message.name)_$(name)_dup);
+        }
 .           elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .           elsif type = "msg"

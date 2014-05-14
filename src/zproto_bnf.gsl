@@ -120,6 +120,11 @@ function generate_bnf
     >    chunk           = number-4 *OCTET
         class.use_number_4 = 1
     endif
+    if defined (class.use_uuid)
+    >
+    >    ; A uuid is 16-octet binary content 
+    >    uuid            = 16OCTET
+    endif
     if defined (class.use_frame)
     >
     >    ; A frame is zero or more octets encoded as a ZeroMQ frame
