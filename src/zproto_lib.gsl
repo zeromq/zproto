@@ -27,7 +27,9 @@ function set_defaults ()
     
     class.signature ?= 0
     class.has_repeats = 0
-    
+    class.header ?= "../include/"
+    class.source ?= "."
+
     for message
         message.name = "$(message.name:c)"
         for field

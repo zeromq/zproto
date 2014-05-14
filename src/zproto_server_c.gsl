@@ -1133,6 +1133,23 @@ s_server_client_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
     return 0;
 }
 
+//  Watch server config file and reload if changed
+
+static int
+s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
+{
+    server_t *self = (server_t *) argument;
+    if (zconfig_has_changed (self->config)
+    &&  zconfig_reload (&self->config) == 0) {
+        s_server_apply_config (self);
+        self->server.config = self->config;
+        zlog_notice (self->log, "reloaded configuration from %s",
+            zconfig_filename (self->config));
+    }
+    return 0;
+}
+
+
 //  Finally here's the server thread itself, which polls its two
 //  sockets and processes incoming messages
 
@@ -1144,10 +1161,16 @@ s_server_task (void *args, zctx_t *ctx, void *pipe)
     zlog_notice (self->log, "starting $(class.name) service");
     zstr_send (self->pipe, "OK");
 
+    //  Set-up server monitor to watch for config file changes
+    engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);
+    //  Set up handler for the two main sockets the server uses
     engine_handle_socket ((server_t *) self, self->pipe, s_server_control_message);
     engine_handle_socket ((server_t *) self, self->router, s_server_client_message);
+
+    //  Run reactor until there's a termination signal
     zloop_start (self->loop);
-    
+
+    //  Reactor has ended
     zlog_notice (self->log, "terminating $(class.name) service");
     s_server_destroy (&self);
 }
