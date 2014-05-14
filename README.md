@@ -338,7 +338,6 @@ The generated engine offers zloop integration so you can monitor your own socket
 
     //  Poll socket for activity, invoke handler on any received message.
     //  Handler must be a CZMQ zloop_fn function; receives server as arg.
-
     static void
     engine_handle_socket (server_t *server, void *socket, zloop_fn handler);
 
@@ -357,6 +356,27 @@ Where 'some_socket' is a ZeroMQ socket, and where 'some_handler' looks like this
             return 0;               //  Interrupted; do nothing
         zmsg_dump (msg);            //  Nice during development
         ... process the message
+        return 0;                   //  0 = continue, -1 = end reactor
+    }
+
+Similarly you can tell the engine to call a 'monitor' function at some specific interval, e.g. once per second. Use this API method:
+
+    //  Register monitor function that will be called at regular intervals
+    //  by the server engine
+    static void
+    engine_set_monitor (server_t *server, size_t interval, zloop_timer_fn monitor);
+
+Call this in the 'server_initialize' function:
+
+    engine_set_monitor (self, 1000, some_monitor);
+
+Were 'some_monitor' looks like this:
+
+    static int
+    some_monitor (zloop_t *loop, int timer_id, void *argument)
+    {
+        server_t *self = (server_t *) argument;
+        ... do regular server maintenance
         return 0;                   //  0 = continue, -1 = end reactor
     }
 

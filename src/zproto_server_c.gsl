@@ -528,6 +528,19 @@ engine_handle_socket (server_t *server, void *socket, zloop_fn handler)
     }
 }
 
+//  Register monitor function that will be called at regular intervals
+//  by the server engine
+
+static void
+engine_set_monitor (server_t *server, size_t interval, zloop_timer_fn monitor)
+{
+    if (server) {
+        s_server_t *self = (s_server_t *) server;
+        int rc = zloop_timer (self->loop, interval, 0, monitor, self);
+        assert (rc >= 0);
+    }
+}
+
 //  Send log data for a specific client to the server log. Accepts a
 //  printf format.
 
@@ -585,6 +598,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_wakeup_event (NULL, 0, 0);
     engine_send_event (NULL, 0);
     engine_handle_socket (NULL, 0, NULL);
+    engine_set_monitor (NULL, 0, NULL);
     engine_log (NULL, NULL);
     engine_server_log (NULL, NULL);
     engine_set_log_prefix (NULL, NULL);
