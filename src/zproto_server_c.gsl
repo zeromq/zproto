@@ -1138,10 +1138,10 @@ s_server_client_message (zloop_t *loop, zmq_pollitem_t *item, void *argument)
 static int
 s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
 {
-    server_t *self = (server_t *) argument;
+    s_server_t *self = (s_server_t *) argument;
     if (zconfig_has_changed (self->config)
     &&  zconfig_reload (&self->config) == 0) {
-        s_server_apply_config (self);
+        s_server_config_self (self);
         self->server.config = self->config;
         zlog_notice (self->log, "reloaded configuration from %s",
             zconfig_filename (self->config));
