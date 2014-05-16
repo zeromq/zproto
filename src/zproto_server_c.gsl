@@ -1285,12 +1285,12 @@ $(class.name)_test (bool verbose)
 
     $(class.name)_t *self = $(class.name)_new ();
     assert (self);
-    $(class.name)_bind (self, "tcp://localhost:5670");
+    $(class.name)_bind (self, "tcp://127.0.0.1:5670");
 
     void *dealer = zsocket_new (ctx, ZMQ_DEALER);
     assert (dealer);
     zsocket_set_rcvtimeo (dealer, 2000);
-    zsocket_connect (dealer, "tcp://localhost:5670");
+    zsocket_connect (dealer, "tcp://127.0.0.1:5670");
 
     $(proto)_t *request, *reply;
     request = $(proto)_new ($(PROTO)_something);
