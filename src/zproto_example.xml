@@ -3,8 +3,6 @@
     signature = "0"
     title = "zproto example protocol"
     script = "zproto_codec_c"
-    header = "../include"
-    source = "."
     >
 This is an example protocol designed to teach you how this stuff works.
 
