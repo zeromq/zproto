@@ -341,6 +341,9 @@ CZMQ_EXPORT int
     $(class.name)_test (bool verbose);
 //  @end
 
+//  For backwards compatibility with old codecs
+#define $(class.name)_dump  $(class.name)_print
+
 #ifdef __cplusplus
 }
 #endif
@@ -1626,7 +1629,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name))
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
-byte * 
+byte *
 $(class.name)_$(name)_index ($(class.name)_t *self, byte index)
 {
     assert (self);
@@ -1650,7 +1653,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, byte **$(name), byte size)
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
-byte * 
+byte *
 $(class.name)_$(name) ($(class.name)_t *self)
 {
     assert (self);
