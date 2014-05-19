@@ -39,7 +39,7 @@ And then manually change all references to 'myproj' to your own project prefix, 
 
 Goals of the codec generator:
 
-* Very good performance on little-changing data.
+* Best performance on high-volume low-complexity data.
 * Full flexibility on often-changing data (headers).
 * Portable to any programming language.
 * Built for ZeroMQ.
@@ -100,33 +100,21 @@ State machines are a little unusual, conceptually. If you're not familiar with t
 
 The zproto_server_c.gsl code generator outputs a single .h file called an *engine* that does the hard work. If needed, it'll also generate you a skeleton .c file for your server, which you edit and build. It doesn't re-create that file again, though it will append new action stubs.
 
-The server is a class that exposes an API like this (taken from the [zeromq/zbroker](https://github.com/zeromq/zbroker/tree/master/src) zpipes_server, a good example):
+The server is a "actor" built on the CZMQ/zactor class. CZMQ zactors use a simple, consistent API based on message passing:
 
-    //  Create a new zpipes_server
-    zpipes_server_t *
-        zpipes_server_new (void);
+    zactor_t *server = zactor_new (zpipes_server, NULL);
+    zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
+    zstr_sendx (server, "BIND", "ipc://@/zpipes/local", NULL);
+    ...
+    zactor_destroy (&server);
 
-    //  Destroy the zpipes_server
-    void
-        zpipes_server_destroy (zpipes_server_t **self_p);
+Note that a zactor is effectively a background thread with a socket API, and you can pass zactor_t instances to all CZMQ message passing methods. The generated zactor accepts these messages:
 
-    //  Load server configuration data
-    void
-        zpipes_server_configure (zpipes_server_t *self, const char *config_file);
-
-    //  Set one configuration option value
-    void
-        zpipes_server_set (zpipes_server_t *self, const char *path, const char *value);
-
-    //  Binds the server to an endpoint, formatted as printf string
-    long
-        zpipes_server_bind (zpipes_server_t *self, const char *format, ...);
-
-    //  Self test of this class
-    void
-        zpipes_server_test (bool verbose);
-
-Rather than run the server as a main program, you write a main program that creates and works with server objects. These run as background services, accepting clients on a ZMQ ROUTER port. The bind method exposes that port to the outside world.
+    CONFIGURE configfile
+    SET configpath value
+    BIND localendpoint
+    
+Rather than run the server as a main program, you write a main program that creates and works with server actors. These run as background services, accepting clients on a ZMQ ROUTER port. The bind method exposes that port to the outside world.
 
 Your input to the code generator is two XML files (without schemas, DTDs, entity encodings!) that defines a set of 'states', and the protocol messages as used to generate the codec. Here is a minimal 'hello_server.xml' example that defines a Hello, World server:
 
