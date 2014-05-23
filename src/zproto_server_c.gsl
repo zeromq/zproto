@@ -922,9 +922,6 @@ s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
 }
 
 
-
-
-
 //  ---------------------------------------------------------------------
 //  This is the server actor, which polls its two sockets and processes
 //  incoming messages
@@ -936,7 +933,7 @@ $(class.name) (zsock_t *pipe, void *args)
     s_server_t *self = s_server_new (pipe);
     assert (self);
     zlog_notice (self->log, "starting $(class.name) service");
-    zsock_signal (pipe);
+    zsock_signal (pipe, 0);
 
     //  Set-up server monitor to watch for config file changes
     engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);
