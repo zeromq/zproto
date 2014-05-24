@@ -216,7 +216,7 @@ typedef struct {
     int expiry_timer;           //  zloop timer for client timeouts
     int wakeup_timer;           //  zloop timer for client alarms
     event_t wakeup_event;       //  Wake up with this event
-    char log_prefix [31];       //  Log prefix string
+    char log_prefix [41];       //  Log prefix string
 } s_client_t;
 
 static int
@@ -370,7 +370,7 @@ engine_set_log_prefix (client_t *client, const char *string)
     if (client) {
         s_client_t *self = (s_client_t *) client;
         snprintf (self->log_prefix, sizeof (self->log_prefix) - 1,
-            "%6d:%-20s", self->unique_id, string);
+            "%6d:%-33s", self->unique_id, string);
     }
 }
 
