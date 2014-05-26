@@ -30,27 +30,6 @@ for proto.message
     message.name = "$(name)"
 endfor
 
-#   API methods that get passed to server task
-for class.method
-   if return ?= "number"
-       method.ctype = "long"
-   elsif return ?= "string"
-       method.ctype = "char *"
-   else
-       method.ctype = "void"
-   endif
-   method.args = ""
-   for argument
-       if type = "string"
-           method.args += ", const char *$(name:c)"
-       elsif type = "number"
-           method.args += ", long $(name:c)"
-       else
-           echo "E: we didn't add support for $(type)s in methods"
-       endif
-   endfor
-endfor
-
 #  Collect all events and actions at class level
 for class.state
     state.comma = last()?? ""? ","
@@ -81,14 +60,6 @@ for class.state where defined (inherit)
 endfor
 
 #   Collect prototypes that we need
-for class.method
-    new class.prototype
-        prototype.name = "$(method.name:c)_method"
-        prototype.ctype = method.ctype
-        prototype.exists = 0
-        prototype.args = "server_t *self" + method.args
-    endnew
-endfor
 for class.action
     if name <> "send" \
     &  name <> "terminate"
@@ -245,13 +216,15 @@ typedef struct {
     int expiry_timer;           //  zloop timer for client timeouts
     int wakeup_timer;           //  zloop timer for client alarms
     event_t wakeup_event;       //  Wake up with this event
-    char log_prefix [31];       //  Log prefix string
+    char log_prefix [41];       //  Log prefix string
 } s_client_t;
 
 static int
     server_initialize (server_t *self);
 static void
     server_terminate (server_t *self);
+static zmsg_t *
+    server_method (server_t *self, const char *method, zmsg_t *msg);
 static int
     client_initialize (client_t *self);
 static void
@@ -332,9 +305,13 @@ engine_handle_socket (server_t *server, zsock_t *socket, zloop_reader_fn handler
 {
     if (server) {
         s_server_t *self = (s_server_t *) server;
-        int rc = zloop_reader (self->loop, socket, handler, self);
-        assert (rc == 0);
-        zloop_reader_set_tolerant (self->loop, socket);
+        if (handler) {
+            int rc = zloop_reader (self->loop, socket, handler, self);
+            assert (rc == 0);
+            zloop_reader_set_tolerant (self->loop, socket);
+        }
+        else
+            zloop_reader_end (self->loop, socket);
     }
 }
 
@@ -393,7 +370,7 @@ engine_set_log_prefix (client_t *client, const char *string)
     if (client) {
         s_client_t *self = (s_client_t *) client;
         snprintf (self->log_prefix, sizeof (self->log_prefix) - 1,
-            "%6d:%-20s", self->unique_id, string);
+            "%6d:%-33s", self->unique_id, string);
     }
 }
 
@@ -779,26 +756,6 @@ s_server_apply_config (s_server_t *self)
             int rc = zsock_bind (self->router, "%s", endpoint);
             assert (rc != -1);
         }
-.for class.method where count (argument) > 0
-        else
-        if (streq (zconfig_name (section), "$(name:c)")) {
-.   for argument
-.       if type = "string"
-            char *$(name) = zconfig_resolve (section, "$(name:c)", "?");
-.       elsif type = "number"
-            long $(name) = atoi (zconfig_resolve (section, "$(name:c)", ""));
-.       endif
-.   endfor
-            $(name:c)_method (&self->server\
-.   for argument
-, $(name)\
-.   endfor
-);
-        }
-.   if !last ()
-        else
-.   endif
-.endfor
         section = zconfig_next (section);
     }
     s_server_config_self (self);
@@ -807,14 +764,14 @@ s_server_apply_config (s_server_t *self)
 //  Process message from pipe
 
 static int
-s_server_control_message (zloop_t *loop, zsock_t *reader, void *argument)
+s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
 {
     s_server_t *self = (s_server_t *) argument;
     zmsg_t *msg = zmsg_recv (self->pipe);
     if (!msg)
         return -1;              //  Interrupted; exit zloop
 .if switches.trace ?= 1
-    zlog_debug (self->log, "API command:");
+    zlog_debug (self->log, "API message:");
     zmsg_print (msg);
 .endif
     char *method = zmsg_popstr (msg);
@@ -856,9 +813,12 @@ s_server_control_message (zloop_t *loop, zsock_t *reader, void *argument)
         free (path);
         free (value);
     }
-    else
-        zlog_error (self->log, "Invalid API method: %s", method);
-
+    else {
+        //  Execute custom method
+        zmsg_t *reply = server_method (&self->server, method, msg);
+        //  If reply isn't null, send it to caller
+        zmsg_send (&reply, self->pipe);
+    }
     free (method);
     zmsg_destroy (&msg);
     return 0;
@@ -922,9 +882,6 @@ s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
 }
 
 
-
-
-
 //  ---------------------------------------------------------------------
 //  This is the server actor, which polls its two sockets and processes
 //  incoming messages
@@ -936,12 +893,12 @@ $(class.name) (zsock_t *pipe, void *args)
     s_server_t *self = s_server_new (pipe);
     assert (self);
     zlog_notice (self->log, "starting $(class.name) service");
-    zsock_signal (pipe);
+    zsock_signal (pipe, 0);
 
     //  Set-up server monitor to watch for config file changes
     engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);
     //  Set up handler for the two main sockets the server uses
-    engine_handle_socket ((server_t *) self, self->pipe, s_server_control_message);
+    engine_handle_socket ((server_t *) self, self->pipe, s_server_api_message);
     engine_handle_socket ((server_t *) self, self->router, s_server_client_message);
 
     //  Run reactor until there's a termination signal
@@ -1027,6 +984,14 @@ static void
 server_terminate (server_t *self)
 {
     //  Destroy properties here
+}
+
+//  Process server API method, return reply message if any
+
+static zmsg_t *
+server_method (server_t *self, const char *method, zmsg_t *msg)
+{
+    return NULL;
 }
 
 

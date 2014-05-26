@@ -44,7 +44,7 @@
 */
 
 #include <czmq.h>
-#include "../include/zproto_example.h"
+#include "../include//zproto_example.h"
 
 //  Structure of our class
 
@@ -3088,11 +3088,11 @@ zproto_example_test (bool verbose)
     //  Create pair of sockets we can send through
     zsock_t *input = zsock_new (ZMQ_ROUTER);
     assert (input);
-    zsock_connect (input, "inproc://selftest");
+    zsock_connect (input, "inproc://selftest-zproto_example");
 
     zsock_t *output = zsock_new (ZMQ_DEALER);
     assert (output);
-    zsock_bind (output, "inproc://selftest");
+    zsock_bind (output, "inproc://selftest-zproto_example");
 
     //  Encode/send/decode and verify each message type
     int instance;
