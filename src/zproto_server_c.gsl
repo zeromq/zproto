@@ -1022,14 +1022,17 @@ $(class.name)_test (bool verbose)
     printf (" * $(class.name): \\n");
     
     //  @selftest
-    $(class.name)_t *self = $(class.name)_new ();
-    assert (self);
-    $(class.name)_bind (self, "tcp://127.0.0.1:5670");
+    zactor_t *server = zactor_new ($(class.name), NULL);
+    zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
+    zstr_sendx (server, "BIND", "ipc://@/$(class.name)", NULL);
+    char *reply = zstr_recv (server);   //  Port number, if any
+    assert (streq (reply, "0"));
+    free (reply);
 
     void *dealer = zsock_new (ZMQ_DEALER);
     assert (dealer);
     zsock_set_rcvtimeo (dealer, 2000);
-    zsock_connect (dealer, "tcp://127.0.0.1:5670");
+    zsock_connect (dealer, "ipc://@/$(class.name)");
 
     $(proto)_t *request, *reply;
     request = $(proto)_new ($(PROTO)_something);
@@ -1042,12 +1045,8 @@ $(class.name)_test (bool verbose)
     $(class.name)_destroy (&self);
     
     zsock_destroy (&dealer);
+    zactor_destroy (&server);
     //  @end
-
-    //  No clean way to wait for a background thread to exit
-    //  Under valgrind this will randomly show as leakage
-    //  Reduce this by giving server thread time to exit
-    zclock_sleep (200);
     printf ("OK\\n");
 }
 .endif
