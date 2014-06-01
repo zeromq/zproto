@@ -9,7 +9,7 @@ function generate_bnf
 
     class.signature ?= 0
     for class.grammar
-        >$(string.trim (grammar.):)
+        >$(string.trim (grammar.?''):)
     else
         >    $(class.name)   = *(\
         for message
