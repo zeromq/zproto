@@ -1025,26 +1025,26 @@ $(class.name)_test (bool verbose)
     zactor_t *server = zactor_new ($(class.name), NULL);
     zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
     zstr_sendx (server, "BIND", "ipc://@/$(class.name)", NULL);
-    char *reply = zstr_recv (server);   //  Port number, if any
-    assert (streq (reply, "0"));
-    free (reply);
+    char *port_str = zstr_recv (server);
+    assert (streq (port_str, "0"));
+    free (port_str);
 
-    void *dealer = zsock_new (ZMQ_DEALER);
-    assert (dealer);
-    zsock_set_rcvtimeo (dealer, 2000);
-    zsock_connect (dealer, "ipc://@/$(class.name)");
+    zsock_t *client = zsock_new (ZMQ_DEALER);
+    assert (client);
+    zsock_set_rcvtimeo (client, 2000);
+    zsock_connect (client, "ipc://@/$(class.name)");
 
     $(proto)_t *request, *reply;
     request = $(proto)_new ($(PROTO)_something);
     //  Set properties for test request
-    $(proto)_send (&request, dealer);
-    reply = $(proto)_recv (dealer);
+    $(proto)_send (&request, client);
+    reply = $(proto)_recv (client);
     assert (reply);
     assert ($(proto)_id (reply) == $(PROTO)_something);
     $(proto)_destroy (&reply);
-    $(class.name)_destroy (&self);
+    $(class.name)_destroy (&server);
     
-    zsock_destroy (&dealer);
+    zsock_destroy (&client);
     zactor_destroy (&server);
     //  @end
     printf ("OK\\n");
