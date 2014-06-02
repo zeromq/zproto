@@ -907,7 +907,6 @@ $(class.name) (zsock_t *pipe, void *args)
     //  Initialize
     s_server_t *self = s_server_new (pipe);
     assert (self);
-    zlog_notice (self->log, "starting $(class.name) service");
     zsock_signal (pipe, 0);
 
     //  Set-up server monitor to watch for config file changes
@@ -920,7 +919,6 @@ $(class.name) (zsock_t *pipe, void *args)
     zloop_start (self->loop);
 
     //  Reactor has ended
-    zlog_notice (self->log, "terminating $(class.name) service");
     s_server_destroy (&self);
 }
 .#  Generate source file first time only
