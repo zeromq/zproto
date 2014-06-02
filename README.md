@@ -197,6 +197,12 @@ Your server code (the actions) gets a small API to work with:
     static void
     engine_set_log_prefix (client_t *client, const char *string);
 
+    //  Set a configuration value in the server's configuration tree.
+    //  The properties this engine uses are: server/animate,
+    //  server/timeout, and server/background. You can also configure
+    //  other abitrary properties.
+    static void
+    engine_configure (server_t *server, const char *path, const char *value);
 
 ### Message Filtering & Priorities
 

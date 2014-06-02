@@ -374,6 +374,20 @@ engine_set_log_prefix (client_t *client, const char *string)
     }
 }
 
+//  Set a configuration value in the server's configuration tree.
+//  The properties this engine uses are: server/animate,
+//  server/timeout, and server/background. You can also configure
+//  other abitrary properties.
+
+static void
+engine_configure (server_t *server, const char *path, const char *value)
+{
+    if (server) {
+        s_server_t *self = (s_server_t *) server;
+        zconfig_put (self->config, path, value);
+    }
+}
+
 //  Pedantic compilers don't like unused functions, so we call the whole
 //  API, passing null references. It's nasty and horrid and sufficient.
 
@@ -389,6 +403,7 @@ s_satisfy_pedantic_compilers (void)
     engine_log (NULL, NULL);
     engine_server_log (NULL, NULL);
     engine_set_log_prefix (NULL, NULL);
+    engine_configure (NULL, NULL, NULL);
 }
 
 
