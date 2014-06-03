@@ -297,20 +297,20 @@ engine_send_event (client_t *client, event_t event)
     }
 }
 
-//  Execute 'event' on all other clients. If you want to pass any arguments
-//  to a broadcast you have to store them in the server context.
+//  Execute 'event' on all clients known to the server. If you pass a
+//  client argument, that client will not receive the broadcast. If you
+//  want to pass any arguments, store them in the server context.
 
 static void
-engine_broadcast_event (client_t *client, event_t event)
+engine_broadcast_event (server_t *server, client_t *client, event_t event)
 {
-    if (client) {
-        s_client_t *self = (s_client_t *) client;
-        zlist_t *keys = zhash_keys (self->server->clients);
+    if (server) {
+        s_server_t *self = (s_server_t *) server;
+        zlist_t *keys = zhash_keys (self->clients);
         char *key = (char *) zlist_first (keys);
         while (key) {
-            s_client_t *target = (s_client_t *)
-                zhash_lookup (self->server->clients, key);
-            if (target != self)
+            s_client_t *target = (s_client_t *) zhash_lookup (self->clients, key);
+            if (client && target != (s_client_t *) client)
                 s_client_execute (target, event);
             key = (char *) zlist_next (keys);
         }
@@ -419,7 +419,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_exception (NULL, 0);
     engine_set_wakeup_event (NULL, 0, 0);
     engine_send_event (NULL, 0);
-    engine_broadcast_event (NULL, 0);
+    engine_broadcast_event (NULL, NULL, 0);
     engine_handle_socket (NULL, 0, NULL);
     engine_set_monitor (NULL, 0, NULL);
     engine_log (NULL, NULL);
