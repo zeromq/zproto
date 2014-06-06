@@ -194,6 +194,7 @@ typedef struct {
     uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
     bool animate;               //  Is animation enabled?
+    char *log_prefix;           //  Default log prefix
 } s_server_t;
 
 
@@ -465,7 +466,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     self->routing_id = zframe_dup (routing_id);
     self->mailbox = zlist_new ();
     self->unique_id = server->client_id++;
-    engine_set_log_prefix (&self->client, "");
+    engine_set_log_prefix (&self->client, server->log_prefix);
 
     self->client.server = (server_t *) server;
     self->client.reply = $(proto)_new (0);
@@ -930,6 +931,8 @@ $(class.name) (zsock_t *pipe, void *args)
     s_server_t *self = s_server_new (pipe);
     assert (self);
     zsock_signal (pipe, 0);
+    //  Actor argument may be a string used for logging
+    self->log_prefix = args? (char *) args: "";
 
     //  Set-up server monitor to watch for config file changes
     engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);
@@ -1057,7 +1060,7 @@ $(class.name)_test (bool verbose)
     printf (" * $(class.name): \\n");
     
     //  @selftest
-    zactor_t *server = zactor_new ($(class.name), NULL);
+    zactor_t *server = zactor_new ($(class.name), "server");
     zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
     zstr_sendx (server, "BIND", "ipc://@/$(class.name)", NULL);
     char *port_str = zstr_recv (server);
