@@ -806,35 +806,13 @@ $(class.name)_decode (zmsg_t **msg_p)
 
     //  Error returns
     malformed:
-        printf ("E: malformed message '%d'\\n", self->id);
+        zsys_error ("malformed message '%d'\\n", self->id);
     empty:
         zframe_destroy (&frame);
         zmsg_destroy (msg_p);
         $(class.name)_destroy (&self);
         return (NULL);
 }
-.for class.field where type = "dictionary"
-
-//  Count size of key/value pair for serialization
-//  Key is encoded as string, value as longstr
-static int
-s_$(name)_count (const char *key, void *item, void *argument)
-{
-    $(class.name)_t *self = ($(class.name)_t *) argument;
-    self->$(name)_bytes += 1 + strlen (key) + 4 + strlen ((char *) item);
-    return 0;
-}
-
-//  Serialize $(name) key=value pair
-static int
-s_$(name)_write (const char *key, void *item, void *argument)
-{
-    $(class.name)_t *self = ($(class.name)_t *) argument;
-    PUT_STRING (key);
-    PUT_LONGSTR ((char *) item);
-    return 0;
-}
-.endfor
 
 
 //  --------------------------------------------------------------------------
@@ -938,7 +916,12 @@ $(class.name)_encode ($(class.name)_t **self_p)
             if (self->$(name)) {
                 self->$(name)_bytes = 0;
                 //  Add up size of dictionary contents
-                zhash_foreach (self->$(name), s_$(name)_count, self);
+                char *item = (char *) zhash_first (self->$(name));
+                while (item) {
+                    self->$(name)_bytes += 1 + strlen (zhash_cursor (self->$(name)));
+                    self->$(name)_bytes += 4 + strlen (item);
+                    item = (char *) zhash_next (self->$(name));
+                }
             }
             frame_size += self->$(name)_bytes;
 .       elsif type = "chunk"
@@ -955,7 +938,7 @@ $(class.name)_encode ($(class.name)_t **self_p)
             
 .endfor
         default:
-            printf ("E: bad message type '%d', not sent\\n", self->id);
+            zsys_error ("bad message type '%d', not sent\\n", self->id);
             //  No recovery, this is a fatal application error
             assert (false);
     }
@@ -1057,7 +1040,12 @@ $(class.name)_encode ($(class.name)_t **self_p)
 .       elsif type = "dictionary"
             if (self->$(name)) {
                 PUT_NUMBER4 (zhash_size (self->$(name)));
-                zhash_foreach (self->$(name), s_$(name)_write, self);
+                char *item = (char *) zhash_first (self->$(name));
+                while (item) {
+                    PUT_STRING (zhash_cursor (self->$(name)));
+                    PUT_LONGSTR (item);
+                    item = (char *) zhash_next (self->$(name));
+                }
             }
             else
                 PUT_NUMBER4 (0);    //  Empty dictionary
@@ -1419,17 +1407,6 @@ $(class.name)_dup ($(class.name)_t *self)
 }
 
 
-.for class.field where type = "dictionary"
-//  Dump $(name) key=value pair to stdout
-static int
-s_$(name)_print (const char *key, void *item, void *argument)
-{
-    printf ("        %s=%s\\n", key, (char *) item);
-    return 0;
-}
-
-.endfor
-
 //  --------------------------------------------------------------------------
 //  Print contents of message to stdout
 
@@ -1447,148 +1424,127 @@ $(class.name)_print ($(class.name)_t *self)
 .   for field
 .       if type = "number"
 .           if defined (field.value)
-            printf ("    $(name)=$(field.value)\\n");
+            zsys_debug ("    $(name)=$(field.value)");
 .           elsif defined (repeat)
-            printf ("   $(name)=[");
-            for (index = 0; index < self->$(name)_index + 1; index++) {
-                printf ("%ld", (long) self->$(name));
-                if (index < self->$(name)_index - 1)
-                    printf (",");
-            }
-            printf ("]\\n");
+            zsys_debug ("   $(name)=[");
+            for (index = 0; index < self->$(name)_index + 1; index++)
+                zsys_debug ("%ld", (long) self->$(name));
+            zsys_debug ("]");
 .           else
-            printf ("    $(name)=%ld\\n", (long) self->$(name));
+            zsys_debug ("    $(name)=%ld", (long) self->$(name));
 .           endif
 .       elsif type = "octets"
-            printf ("    $(name)=[");
-.           if defined (repeat)
-            for (index = 0; index < self->$(name)_index + 1; index++) {
-                int $(name)_index;
-                printf ("{");
-                for ($(name)_index = 0; $(name)_index < $(size); $(name)_index++) {
-                    if ($(name)_index && ($(name)_index % 4 == 0))
-                        printf ("-");
-                    printf ("%02X", self->$(name) [index] [$(name)_index]);
-                }
-                printf ("}");
-            }
-            printf (" ]\\n");
-.           else
-            int $(name)_index;
-            for ($(name)_index = 0; $(name)_index < $(size); $(name)_index++) {
-                if ($(name)_index && ($(name)_index % 4 == 0))
-                    printf ("-");
-                printf ("%02X", self->$(name) [$(name)_index]);
-            }
-        printf ("\\n");
-.           endif           
+            zsys_debug ("    $(name)=[ ... ]");
 .       elsif type = "string" | type = "longstr"
 .           if defined (field.value)
-            printf ("    $(name)=$(field.value)\\n");
+            zsys_debug ("    $(name)=$(field.value)");
 .           elsif defined (repeat)
-            printf ("$(name)=[");
+            zsys_debug ("$(name)=[");
             for (index = 0; index < self->$(name)_index + 1; index++) {
                 if (self->$(name) [index])
-                    printf (" '%s'", self->$(name) [index]);
+                    zsys_debug (" '%s'", self->$(name) [index]);
                 else
-                    printf (" ");
-                if (index < self->$(name)_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\\n");
+            zsys_debug (" ]");
 .           else
             if (self->$(name))
-                printf ("    $(name)='%s'\\n", self->$(name));
+                zsys_debug ("    $(name)='%s'", self->$(name));
             else
-                printf ("    $(name)=\\n");
+                zsys_debug ("    $(name)=");
 .           endif
 .       elsif type = "strings"
 .           if defined (repeat)
-            printf ("    $(name)=[");
+            zsys_debug ("    $(name)=[");
             for (index = 0; index < self->$(name)_index + 1; index++) {
-                printf ("{");
+                zsys_debug ("{");
                 if (self->$(name) [index]) {
                     char *$(name) = (char *) zlist_first (self->$(name) [index]);
                     while ($(name)) {
-                        printf (" '%s'", $(name));
+                        zsys_debug (" '%s'", $(name));
                         $(name) = (char *) zlist_next (self->$(name) [index]);
                     }
                 }
-                printf (" }\\n");
+                zsys_debug (" }");
             }
-            printf ("]\\n");
+            zsys_debug ("]");
 .           else                
-            printf ("    $(name)={");
+            zsys_debug ("    $(name)={");
             if (self->$(name)) {
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
-                    printf (" '%s'", $(name));
+                    zsys_debug (" '%s'", $(name));
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
-            printf (" }\\n");
+            zsys_debug (" }");
 .           endif            
 .       elsif type = "dictionary"
-            printf ("    $(name)={\\n");
-            if (self->$(name))
-                zhash_foreach (self->$(name), s_$(name)_print, self);
+            zsys_debug ("    $(name)={");
+            if (self->$(name)) {
+                char *item = (char *) zhash_first (self->$(name));
+                while (item) {
+                    zsys_debug ("        %s=%s", zhash_cursor (self->$(name)), item);
+                    item = (char *) zhash_next (self->$(name));
+                }
+            }
             else
-                printf ("(NULL)\\n");
-            printf ("    }\\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
 .       elsif type = "chunk"
 .           if defined (repeat)
-            printf ("    $(name)=[");
+            zsys_debug ("    $(name)=[");
             for (index = 0; index < self->$(name)_index + 1; index++) {
-                printf ("    {\\n");
+                zsys_debug ("    {");
                 if (self->$(name) [index])
                     zchunk_print (self->$(name) [index]);
                 else
-                    printf ("(NULL)\\n");
-                printf ("    }\\n");
+                    zsys_debug ("(NULL)");
+                zsys_debug ("    }");
             }
-            printf ("]\\n");
+            zsys_debug ("]");
 .           else            
-            printf ("    $(name)={\\n");
+            zsys_debug ("    $(name)={");
             if (self->$(name))
                 zchunk_print (self->$(name));
             else
-                printf ("(NULL)\\n");
-            printf ("    }\\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
 .           endif            
 .       elsif type = "uuid"
-            printf ("    $(name)=[");
+            zsys_debug ("    $(name)=[");
 .           if defined (repeat)
             for (index = 0; index < self->$(name)_index + 1; index++) {
-                printf ("    {\\n");
+                zsys_debug ("    {");
                 if (self->$(name) [index])
-                    printf ("%s", zuuid_str (self->$(name) [index]));
+                    zsys_debug ("%s", zuuid_str (self->$(name) [index]));
                 else
-                    printf ("(NULL)\\n");
-                printf ("    }\\n");
+                    zsys_debug ("(NULL)");
+                zsys_debug ("    }");
             }
-            printf ("]\\n");
+            zsys_debug ("]");
 .           else            
-            printf ("    $(name)={\\n");
+            zsys_debug ("    $(name)={");
             if (self->$(name))
-                printf ("%s", zuuid_str (self->$(name)));
+                zsys_debug ("%s", zuuid_str (self->$(name)));
             else
-                printf ("(NULL)\\n");
-            printf ("    }\\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
 .           endif            
 .       elsif type = "frame"
-            printf ("    $(name)={\\n");
+            zsys_debug ("    $(name)={");
             if (self->$(name))
                 zframe_print (self->$(name), NULL);
             else
-                printf ("(NULL)\\n");
-            printf ("    }\\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
 .       elsif type = "msg"
-            printf ("    $(name)={\\n");
+            zsys_debug ("    $(name)={");
             if (self->$(name))
                 zmsg_print (self->$(name));
             else
-                printf ("(NULL)\\n");
-            printf ("    }\\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
 .       endif
 .   endfor
             break;
