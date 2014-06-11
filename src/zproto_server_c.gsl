@@ -190,7 +190,6 @@ typedef struct {
     zloop_t *loop;              //  Reactor for server sockets
     zhash_t *clients;           //  Clients we're connected to
     zconfig_t *config;          //  Configuration tree
-    zlog_t *log;                //  Server logger
     uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
     bool animate;               //  Is animation enabled?
@@ -350,39 +349,6 @@ engine_set_monitor (server_t *server, size_t interval, zloop_timer_fn monitor)
     }
 }
 
-//  Send log data for a specific client to the server log. Accepts a
-//  printf format.
-
-static void
-engine_log (client_t *client, const char *format, ...)
-{
-    if (client) {
-        s_client_t *self = (s_client_t *) client;
-        va_list argptr;
-        va_start (argptr, format);
-        char *string = zsys_vprintf (format, argptr);
-        va_end (argptr);
-        zlog_debug (self->server->log, "%s: %s", self->log_prefix, string);
-        free (string);
-    }
-}
-
-//  Send log data to the server log. Accepts a printf format.
-
-static void
-engine_server_log (server_t *server, const char *format, ...)
-{
-    if (server) {
-        s_server_t *self = (s_server_t *) server;
-        va_list argptr;
-        va_start (argptr, format);
-        char *string = zsys_vprintf (format, argptr);
-        va_end (argptr);
-        zlog_debug (self->log, "%s", string);
-        free (string);
-    }
-}
-
 //  Set log file prefix; this string will be added to log data, to make
 //  log data more searchable. The string is truncated to ~20 chars.
 
@@ -423,8 +389,6 @@ s_satisfy_pedantic_compilers (void)
     engine_broadcast_event (NULL, NULL, 0);
     engine_handle_socket (NULL, 0, NULL);
     engine_set_monitor (NULL, 0, NULL);
-    engine_log (NULL, NULL);
-    engine_server_log (NULL, NULL);
     engine_set_log_prefix (NULL, NULL);
     engine_configure (NULL, NULL, NULL);
 }
@@ -565,12 +529,11 @@ s_client_filter_mailbox (s_client_t *self)
 .           if name = "send"
                         //  send $(message:c)
                         if (self->server->animate)
-                            zlog_debug (self->server->log,
-                                "%s:         $ $(name) $(MESSAGE:c)", self->log_prefix);
+                            zsys_debug ("%s:         $ $(name) $(MESSAGE:c)",
+                                self->log_prefix);
                         $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
-                        zlog_debug (self->server->log,
-                            "%s: Send message to client", self->log_prefix);
+                        zsys_debug ("%s: Send message to client", self->log_prefix);
                         $(proto)_print (self->client.reply);
 .               endif
                         $(proto)_send (&self->client.reply, self->server->router);
@@ -579,14 +542,12 @@ s_client_filter_mailbox (s_client_t *self)
 .           elsif name = "terminate"
                         //  terminate
                         if (self->server->animate)
-                            zlog_debug (self->server->log,
-                                "%s:         $ $(name)", self->log_prefix);
+                            zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         self->next_event = terminate_event;
 .           else
                         //  $(name)
                         if (self->server->animate)
-                            zlog_debug (self->server->log,
-                                "%s:         $ $(name)", self->log_prefix);
+                            zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         $(name:c) (&self->client);
 .           endif
                     }
@@ -613,10 +574,10 @@ s_client_execute (s_client_t *self, int event)
         self->next_event = NULL_event;
         self->exception = NULL_event;
         if (self->server->animate) {
-            zlog_debug (self->server->log,
-                "%s: %s:", self->log_prefix, s_state_name [self->state]);
-            zlog_debug (self->server->log,
-                "%s:     %s", self->log_prefix, s_event_name [self->event]);
+            zsys_debug ("%s: %s:",
+                self->log_prefix, s_state_name [self->state]);
+            zsys_debug ("%s:     %s",
+                self->log_prefix, s_event_name [self->event]);
         }
         switch (self->state) {
 .for class.state
@@ -644,7 +605,7 @@ s_client_execute (s_client_t *self, int event)
 .   else
                 else {
                     //  Handle unexpected internal events
-                    zlog_warning (self->server->log, "%s: unhandled event %s in %s",
+                    zsys_warning ("%s: unhandled event %s in %s",
                         self->log_prefix,
                         s_event_name [self->event],
                         s_state_name [self->state]);
@@ -657,8 +618,7 @@ s_client_execute (s_client_t *self, int event)
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
             if (self->server->animate)
-                zlog_debug (self->server->log,
-                    "%s:         ! %s",
+                zsys_debug ("%s:         ! %s",
                     self->log_prefix, s_event_name [self->exception]);
 
             self->next_event = self->exception;
@@ -670,8 +630,7 @@ s_client_execute (s_client_t *self, int event)
         }
         else {
             if (self->server->animate)
-                zlog_debug (self->server->log,
-                    "%s:         > %s",
+                zsys_debug ("%s:         > %s",
                     self->log_prefix, s_state_name [self->state]);
 
             if (self->next_event == NULL_event)
@@ -723,7 +682,7 @@ s_server_config_self (s_server_t *self)
     int background = atoi (
         zconfig_resolve (self->config, "server/background", "0"));
     if (!background)
-        zlog_set_foreground (self->log, true);
+        zsys_set_logstream (stdout);
 }
 
 static s_server_t *
@@ -736,7 +695,6 @@ s_server_new (zsock_t *pipe)
     self->pipe = pipe;
     self->router = zsock_new (ZMQ_ROUTER);
     self->clients = zhash_new ();
-    self->log = zlog_new ("$(class.name)");
     self->config = zconfig_new ("root", NULL);
     self->loop = zloop_new ();
     srandom ((unsigned int) zclock_time ());
@@ -747,7 +705,6 @@ s_server_new (zsock_t *pipe)
     s_server_config_self (self);
 
     //  Initialize application server context
-    self->server.log = self->log;
     self->server.config = self->config;
     server_initialize (&self->server);
 
@@ -766,7 +723,6 @@ s_server_destroy (s_server_t **self_p)
         zconfig_destroy (&self->config);
         zhash_destroy (&self->clients);
         zloop_destroy (&self->loop);
-        zlog_destroy (&self->log);
         free (self);
         *self_p = NULL;
     }
@@ -787,7 +743,7 @@ s_server_apply_config (s_server_t *self)
 
     while (section) {
         if (streq (zconfig_name (section), "echo"))
-            zlog_notice (self->log, "%s", zconfig_value (section));
+            zsys_notice ("%s", zconfig_value (section));
         else
         if (streq (zconfig_name (section), "bind")) {
             char *endpoint = zconfig_resolve (section, "endpoint", "?");
@@ -809,7 +765,7 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
     if (!msg)
         return -1;              //  Interrupted; exit zloop
 .if switches.trace ?= 1
-    zlog_debug (self->log, "API message:");
+    zsys_debug ("API message:");
     zmsg_print (msg);
 .endif
     char *method = zmsg_popstr (msg);
@@ -836,8 +792,7 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
             self->server.config = self->config;
         }
         else {
-            zlog_warning (self->log,
-                "cannot load config file '%s'\\n", config_file);
+            zsys_warning ("cannot load config file '%s'\\n", config_file);
             self->config = zconfig_new ("root", NULL);
         }
         free (config_file);
@@ -881,7 +836,7 @@ s_server_client_message (zloop_t *loop, zsock_t *reader, void *argument)
     }
     free (hashkey);
 .if switches.trace ?= 1
-    zlog_debug (self->log, "%d: Client message", client->unique_id);
+    zsys_debug ("%d: Client message", client->unique_id);
     $(proto)_print (msg);
 .endif
 
@@ -913,7 +868,7 @@ s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
     &&  zconfig_reload (&self->config) == 0) {
         s_server_config_self (self);
         self->server.config = self->config;
-        zlog_notice (self->log, "reloaded configuration from %s",
+        zsys_notice ("reloaded configuration from %s",
             zconfig_filename (self->config));
     }
     return 0;
@@ -983,7 +938,6 @@ typedef struct _client_t client_t;
 struct _server_t {
     //  These properties must always be present in the server_t
     //  and are set by the generated engine; do not modify them!
-    zlog_t *log;                //  For any logging needed
     zconfig_t *config;          //  Current loaded configuration
     
     //  Add any properties you need here

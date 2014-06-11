@@ -672,32 +672,12 @@ zproto_example_decode (zmsg_t **msg_p)
 
     //  Error returns
     malformed:
-        printf ("E: malformed message '%d'\n", self->id);
+        zsys_error ("malformed message '%d'\n", self->id);
     empty:
         zframe_destroy (&frame);
         zmsg_destroy (msg_p);
         zproto_example_destroy (&self);
         return (NULL);
-}
-
-//  Count size of key/value pair for serialization
-//  Key is encoded as string, value as longstr
-static int
-s_headers_count (const char *key, void *item, void *argument)
-{
-    zproto_example_t *self = (zproto_example_t *) argument;
-    self->headers_bytes += 1 + strlen (key) + 4 + strlen ((char *) item);
-    return 0;
-}
-
-//  Serialize headers key=value pair
-static int
-s_headers_write (const char *key, void *item, void *argument)
-{
-    zproto_example_t *self = (zproto_example_t *) argument;
-    PUT_STRING (key);
-    PUT_LONGSTR ((char *) item);
-    return 0;
 }
 
 
@@ -761,7 +741,12 @@ zproto_example_encode (zproto_example_t **self_p)
             if (self->headers) {
                 self->headers_bytes = 0;
                 //  Add up size of dictionary contents
-                zhash_foreach (self->headers, s_headers_count, self);
+                char *item = (char *) zhash_first (self->headers);
+                while (item) {
+                    self->headers_bytes += 1 + strlen (zhash_cursor (self->headers));
+                    self->headers_bytes += 4 + strlen (item);
+                    item = (char *) zhash_next (self->headers);
+                }
             }
             frame_size += self->headers_bytes;
             break;
@@ -961,7 +946,7 @@ zproto_example_encode (zproto_example_t **self_p)
             break;
             
         default:
-            printf ("E: bad message type '%d', not sent\n", self->id);
+            zsys_error ("bad message type '%d', not sent\n", self->id);
             //  No recovery, this is a fatal application error
             assert (false);
     }
@@ -1006,7 +991,12 @@ zproto_example_encode (zproto_example_t **self_p)
                 PUT_NUMBER4 (0);    //  Empty string array
             if (self->headers) {
                 PUT_NUMBER4 (zhash_size (self->headers));
-                zhash_foreach (self->headers, s_headers_write, self);
+                char *item = (char *) zhash_first (self->headers);
+                while (item) {
+                    PUT_STRING (zhash_cursor (self->headers));
+                    PUT_LONGSTR (item);
+                    item = (char *) zhash_next (self->headers);
+                }
             }
             else
                 PUT_NUMBER4 (0);    //  Empty dictionary
@@ -1743,15 +1733,6 @@ zproto_example_dup (zproto_example_t *self)
 }
 
 
-//  Dump headers key=value pair to stdout
-static int
-s_headers_print (const char *key, void *item, void *argument)
-{
-    printf ("        %s=%s\n", key, (char *) item);
-    return 0;
-}
-
-
 //  --------------------------------------------------------------------------
 //  Print contents of message to stdout
 
@@ -1763,242 +1744,216 @@ zproto_example_print (zproto_example_t *self)
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             puts ("LOG:");
-            printf ("    sequence=%ld\n", (long) self->sequence);
-            printf ("    version=3\n");
-            printf ("    level=%ld\n", (long) self->level);
-            printf ("    event=%ld\n", (long) self->event);
-            printf ("    node=%ld\n", (long) self->node);
-            printf ("    peer=%ld\n", (long) self->peer);
-            printf ("    time=%ld\n", (long) self->time);
+            zsys_debug ("    sequence=%ld", (long) self->sequence);
+            zsys_debug ("    version=3");
+            zsys_debug ("    level=%ld", (long) self->level);
+            zsys_debug ("    event=%ld", (long) self->event);
+            zsys_debug ("    node=%ld", (long) self->node);
+            zsys_debug ("    peer=%ld", (long) self->peer);
+            zsys_debug ("    time=%ld", (long) self->time);
             if (self->host)
-                printf ("    host='%s'\n", self->host);
+                zsys_debug ("    host='%s'", self->host);
             else
-                printf ("    host=\n");
+                zsys_debug ("    host=");
             if (self->data)
-                printf ("    data='%s'\n", self->data);
+                zsys_debug ("    data='%s'", self->data);
             else
-                printf ("    data=\n");
+                zsys_debug ("    data=");
             break;
             
         case ZPROTO_EXAMPLE_STRUCTURES:
             puts ("STRUCTURES:");
-            printf ("    sequence=%ld\n", (long) self->sequence);
-            printf ("    aliases={");
+            zsys_debug ("    sequence=%ld", (long) self->sequence);
+            zsys_debug ("    aliases={");
             if (self->aliases) {
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    printf (" '%s'", aliases);
+                    zsys_debug (" '%s'", aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
-            printf (" }\n");
-            printf ("    headers={\n");
-            if (self->headers)
-                zhash_foreach (self->headers, s_headers_print, self);
+            zsys_debug (" }");
+            zsys_debug ("    headers={");
+            if (self->headers) {
+                char *item = (char *) zhash_first (self->headers);
+                while (item) {
+                    zsys_debug ("        %s=%s", zhash_cursor (self->headers), item);
+                    item = (char *) zhash_next (self->headers);
+                }
+            }
             else
-                printf ("(NULL)\n");
-            printf ("    }\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
             break;
             
         case ZPROTO_EXAMPLE_BINARY:
             puts ("BINARY:");
-            printf ("    sequence=%ld\n", (long) self->sequence);
-            printf ("    flags=[");
-            int flags_index;
-            for (flags_index = 0; flags_index < 4; flags_index++) {
-                if (flags_index && (flags_index % 4 == 0))
-                    printf ("-");
-                printf ("%02X", self->flags [flags_index]);
-            }
-        printf ("\n");
-            printf ("    public_key={\n");
+            zsys_debug ("    sequence=%ld", (long) self->sequence);
+            zsys_debug ("    flags=[ ... ]");
+            zsys_debug ("    public_key={");
             if (self->public_key)
                 zchunk_print (self->public_key);
             else
-                printf ("(NULL)\n");
-            printf ("    }\n");
-            printf ("    identifier=[");
-            printf ("    identifier={\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
+            zsys_debug ("    identifier=[");
+            zsys_debug ("    identifier={");
             if (self->identifier)
-                printf ("%s", zuuid_str (self->identifier));
+                zsys_debug ("%s", zuuid_str (self->identifier));
             else
-                printf ("(NULL)\n");
-            printf ("    }\n");
-            printf ("    address={\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
+            zsys_debug ("    address={");
             if (self->address)
                 zframe_print (self->address, NULL);
             else
-                printf ("(NULL)\n");
-            printf ("    }\n");
-            printf ("    content={\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
+            zsys_debug ("    content={");
             if (self->content)
                 zmsg_print (self->content);
             else
-                printf ("(NULL)\n");
-            printf ("    }\n");
+                zsys_debug ("(NULL)");
+            zsys_debug ("    }");
             break;
             
         case ZPROTO_EXAMPLE_TYPES:
             puts ("TYPES:");
-            printf ("    sequence=%ld\n", (long) self->sequence);
+            zsys_debug ("    sequence=%ld", (long) self->sequence);
             if (self->client_forename)
-                printf ("    client_forename='%s'\n", self->client_forename);
+                zsys_debug ("    client_forename='%s'", self->client_forename);
             else
-                printf ("    client_forename=\n");
+                zsys_debug ("    client_forename=");
             if (self->client_surname)
-                printf ("    client_surname='%s'\n", self->client_surname);
+                zsys_debug ("    client_surname='%s'", self->client_surname);
             else
-                printf ("    client_surname=\n");
+                zsys_debug ("    client_surname=");
             if (self->client_mobile)
-                printf ("    client_mobile='%s'\n", self->client_mobile);
+                zsys_debug ("    client_mobile='%s'", self->client_mobile);
             else
-                printf ("    client_mobile=\n");
+                zsys_debug ("    client_mobile=");
             if (self->client_email)
-                printf ("    client_email='%s'\n", self->client_email);
+                zsys_debug ("    client_email='%s'", self->client_email);
             else
-                printf ("    client_email=\n");
+                zsys_debug ("    client_email=");
             if (self->supplier_forename)
-                printf ("    supplier_forename='%s'\n", self->supplier_forename);
+                zsys_debug ("    supplier_forename='%s'", self->supplier_forename);
             else
-                printf ("    supplier_forename=\n");
+                zsys_debug ("    supplier_forename=");
             if (self->supplier_surname)
-                printf ("    supplier_surname='%s'\n", self->supplier_surname);
+                zsys_debug ("    supplier_surname='%s'", self->supplier_surname);
             else
-                printf ("    supplier_surname=\n");
+                zsys_debug ("    supplier_surname=");
             if (self->supplier_mobile)
-                printf ("    supplier_mobile='%s'\n", self->supplier_mobile);
+                zsys_debug ("    supplier_mobile='%s'", self->supplier_mobile);
             else
-                printf ("    supplier_mobile=\n");
+                zsys_debug ("    supplier_mobile=");
             if (self->supplier_email)
-                printf ("    supplier_email='%s'\n", self->supplier_email);
+                zsys_debug ("    supplier_email='%s'", self->supplier_email);
             else
-                printf ("    supplier_email=\n");
+                zsys_debug ("    supplier_email=");
             break;
             
         case ZPROTO_EXAMPLE_REPEAT:
             puts ("REPEAT:");
-            printf ("    sequence=%ld\n", (long) self->sequence);
-            printf ("   no1=[");
-            for (index = 0; index < self->no1_index + 1; index++) {
-                printf ("%ld", (long) self->no1);
-                if (index < self->no1_index - 1)
-                    printf (",");
-            }
-            printf ("]\n");
-            printf ("   no2=[");
-            for (index = 0; index < self->no2_index + 1; index++) {
-                printf ("%ld", (long) self->no2);
-                if (index < self->no2_index - 1)
-                    printf (",");
-            }
-            printf ("]\n");
-            printf ("   no4=[");
-            for (index = 0; index < self->no4_index + 1; index++) {
-                printf ("%ld", (long) self->no4);
-                if (index < self->no4_index - 1)
-                    printf (",");
-            }
-            printf ("]\n");
-            printf ("   no8=[");
-            for (index = 0; index < self->no8_index + 1; index++) {
-                printf ("%ld", (long) self->no8);
-                if (index < self->no8_index - 1)
-                    printf (",");
-            }
-            printf ("]\n");
-            printf ("str=[");
+            zsys_debug ("    sequence=%ld", (long) self->sequence);
+            zsys_debug ("   no1=[");
+            for (index = 0; index < self->no1_index + 1; index++)
+                zsys_debug ("%ld", (long) self->no1);
+            zsys_debug ("]");
+            zsys_debug ("   no2=[");
+            for (index = 0; index < self->no2_index + 1; index++)
+                zsys_debug ("%ld", (long) self->no2);
+            zsys_debug ("]");
+            zsys_debug ("   no4=[");
+            for (index = 0; index < self->no4_index + 1; index++)
+                zsys_debug ("%ld", (long) self->no4);
+            zsys_debug ("]");
+            zsys_debug ("   no8=[");
+            for (index = 0; index < self->no8_index + 1; index++)
+                zsys_debug ("%ld", (long) self->no8);
+            zsys_debug ("]");
+            zsys_debug ("str=[");
             for (index = 0; index < self->str_index + 1; index++) {
                 if (self->str [index])
-                    printf (" '%s'", self->str [index]);
+                    zsys_debug (" '%s'", self->str [index]);
                 else
-                    printf (" ");
-                if (index < self->str_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\n");
-            printf ("lstr=[");
+            zsys_debug (" ]");
+            zsys_debug ("lstr=[");
             for (index = 0; index < self->lstr_index + 1; index++) {
                 if (self->lstr [index])
-                    printf (" '%s'", self->lstr [index]);
+                    zsys_debug (" '%s'", self->lstr [index]);
                 else
-                    printf (" ");
-                if (index < self->lstr_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\n");
-            printf ("    strs=[");
+            zsys_debug (" ]");
+            zsys_debug ("    strs=[");
             for (index = 0; index < self->strs_index + 1; index++) {
-                printf ("{");
+                zsys_debug ("{");
                 if (self->strs [index]) {
                     char *strs = (char *) zlist_first (self->strs [index]);
                     while (strs) {
-                        printf (" '%s'", strs);
+                        zsys_debug (" '%s'", strs);
                         strs = (char *) zlist_next (self->strs [index]);
                     }
                 }
-                printf (" }\n");
+                zsys_debug (" }");
             }
-            printf ("]\n");
-            printf ("    chunks=[");
+            zsys_debug ("]");
+            zsys_debug ("    chunks=[");
             for (index = 0; index < self->chunks_index + 1; index++) {
-                printf ("    {\n");
+                zsys_debug ("    {");
                 if (self->chunks [index])
                     zchunk_print (self->chunks [index]);
                 else
-                    printf ("(NULL)\n");
-                printf ("    }\n");
+                    zsys_debug ("(NULL)");
+                zsys_debug ("    }");
             }
-            printf ("]\n");
-            printf ("    uuids=[");
+            zsys_debug ("]");
+            zsys_debug ("    uuids=[");
             for (index = 0; index < self->uuids_index + 1; index++) {
-                printf ("    {\n");
+                zsys_debug ("    {");
                 if (self->uuids [index])
-                    printf ("%s", zuuid_str (self->uuids [index]));
+                    zsys_debug ("%s", zuuid_str (self->uuids [index]));
                 else
-                    printf ("(NULL)\n");
-                printf ("    }\n");
+                    zsys_debug ("(NULL)");
+                zsys_debug ("    }");
             }
-            printf ("]\n");
-            printf ("persons_forename=[");
+            zsys_debug ("]");
+            zsys_debug ("persons_forename=[");
             for (index = 0; index < self->persons_forename_index + 1; index++) {
                 if (self->persons_forename [index])
-                    printf (" '%s'", self->persons_forename [index]);
+                    zsys_debug (" '%s'", self->persons_forename [index]);
                 else
-                    printf (" ");
-                if (index < self->persons_forename_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\n");
-            printf ("persons_surname=[");
+            zsys_debug (" ]");
+            zsys_debug ("persons_surname=[");
             for (index = 0; index < self->persons_surname_index + 1; index++) {
                 if (self->persons_surname [index])
-                    printf (" '%s'", self->persons_surname [index]);
+                    zsys_debug (" '%s'", self->persons_surname [index]);
                 else
-                    printf (" ");
-                if (index < self->persons_surname_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\n");
-            printf ("persons_mobile=[");
+            zsys_debug (" ]");
+            zsys_debug ("persons_mobile=[");
             for (index = 0; index < self->persons_mobile_index + 1; index++) {
                 if (self->persons_mobile [index])
-                    printf (" '%s'", self->persons_mobile [index]);
+                    zsys_debug (" '%s'", self->persons_mobile [index]);
                 else
-                    printf (" ");
-                if (index < self->persons_mobile_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\n");
-            printf ("persons_email=[");
+            zsys_debug (" ]");
+            zsys_debug ("persons_email=[");
             for (index = 0; index < self->persons_email_index + 1; index++) {
                 if (self->persons_email [index])
-                    printf (" '%s'", self->persons_email [index]);
+                    zsys_debug (" '%s'", self->persons_email [index]);
                 else
-                    printf (" ");
-                if (index < self->persons_email_index - 1)
-                    printf (",");
+                    zsys_debug (" ");
             }
-            printf (" ]\n");
+            zsys_debug (" ]");
             break;
             
     }
