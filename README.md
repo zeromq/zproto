@@ -102,13 +102,13 @@ The zproto_server_c.gsl code generator outputs a single .h file called an *engin
 
 The server is a "actor" built on the CZMQ/zactor class. CZMQ zactors use a simple, consistent API based on message passing:
 
-    zactor_t *server = zactor_new (zpipes_server, NULL);
+    zactor_t *server = zactor_new (zpipes_server, "myserver");
     zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
     zstr_sendx (server, "BIND", "ipc://@/zpipes/local", NULL);
     ...
     zactor_destroy (&server);
 
-Note that a zactor is effectively a background thread with a socket API, and you can pass zactor_t instances to all CZMQ message passing methods. The generated zactor accepts these messages:
+Where "myserver" is used in logging. Note that a zactor is effectively a background thread with a socket API, and you can pass zactor_t instances to all CZMQ message passing methods. The generated zactor accepts these messages:
 
     CONFIGURE configfile
     SET configpath value
@@ -184,6 +184,12 @@ Your server code (the actions) gets a small API to work with:
     static void
     engine_send_event (client_t *self, event_t event);
 
+    //  Execute 'event' on all clients known to the server. If you pass a
+    //  client argument, that client will not receive the broadcast. If you
+    //  want to pass any arguments, store them in the server context.
+    static void
+    engine_broadcast_event (server_t *server, client_t *client, event_t event);
+
     //  Send log data to the server log. Accepts a printf format.
     static void
     engine_log (client_t *client, const char format, ...);
@@ -197,7 +203,13 @@ Your server code (the actions) gets a small API to work with:
     static void
     engine_set_log_prefix (client_t *client, const char *string);
 
-
+    //  Set a configuration value in the server's configuration tree.
+    //  The properties this engine uses are: server/animate,
+    //  server/timeout, and server/background. You can also configure
+    //  other abitrary properties.
+    static void
+    engine_configure (server_t *server, const char *path, const char *value);
+    
 ### Message Filtering & Priorities
 
 The generated engine implements a simple yet useful form of message filtering:
