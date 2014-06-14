@@ -1420,7 +1420,7 @@ $(class.name)_print ($(class.name)_t *self)
     switch (self->id) {
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
-            puts ("$(MESSAGE.NAME):");
+            zsys_debug ("$(CLASS.NAME)_$(MESSAGE.NAME):");
 .   for field
 .       if type = "number"
 .           if defined (field.value)
@@ -1455,32 +1455,28 @@ $(class.name)_print ($(class.name)_t *self)
 .           endif
 .       elsif type = "strings"
 .           if defined (repeat)
-            zsys_debug ("    $(name)=[");
+            zsys_debug ("    $(name)=");
             for (index = 0; index < self->$(name)_index + 1; index++) {
-                zsys_debug ("{");
                 if (self->$(name) [index]) {
                     char *$(name) = (char *) zlist_first (self->$(name) [index]);
                     while ($(name)) {
-                        zsys_debug (" '%s'", $(name));
+                        zsys_debug ("        %d '%s'", index, $(name));
                         $(name) = (char *) zlist_next (self->$(name) [index]);
                     }
                 }
-                zsys_debug (" }");
             }
-            zsys_debug ("]");
 .           else                
-            zsys_debug ("    $(name)={");
+            zsys_debug ("    $(name)=");
             if (self->$(name)) {
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
-                    zsys_debug (" '%s'", $(name));
+                    zsys_debug ("        '%s'", $(name));
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
-            zsys_debug (" }");
 .           endif            
 .       elsif type = "dictionary"
-            zsys_debug ("    $(name)={");
+            zsys_debug ("    $(name)=");
             if (self->$(name)) {
                 char *item = (char *) zhash_first (self->$(name));
                 while (item) {
@@ -1490,61 +1486,36 @@ $(class.name)_print ($(class.name)_t *self)
             }
             else
                 zsys_debug ("(NULL)");
-            zsys_debug ("    }");
 .       elsif type = "chunk"
-.           if defined (repeat)
-            zsys_debug ("    $(name)=[");
-            for (index = 0; index < self->$(name)_index + 1; index++) {
-                zsys_debug ("    {");
-                if (self->$(name) [index])
-                    zchunk_print (self->$(name) [index]);
-                else
-                    zsys_debug ("(NULL)");
-                zsys_debug ("    }");
-            }
-            zsys_debug ("]");
-.           else            
-            zsys_debug ("    $(name)={");
-            if (self->$(name))
-                zchunk_print (self->$(name));
-            else
-                zsys_debug ("(NULL)");
-            zsys_debug ("    }");
-.           endif            
+            zsys_debug ("    $(name)=[ ... ]");
 .       elsif type = "uuid"
-            zsys_debug ("    $(name)=[");
+            zsys_debug ("    $(name)=");
 .           if defined (repeat)
             for (index = 0; index < self->$(name)_index + 1; index++) {
-                zsys_debug ("    {");
                 if (self->$(name) [index])
-                    zsys_debug ("%s", zuuid_str (self->$(name) [index]));
+                    zsys_debug ("        %d %s", index, zuuid_str (self->$(name) [index]));
                 else
-                    zsys_debug ("(NULL)");
-                zsys_debug ("    }");
+                    zsys_debug ("        (NULL)");
             }
-            zsys_debug ("]");
 .           else            
-            zsys_debug ("    $(name)={");
+            zsys_debug ("    $(name)=");
             if (self->$(name))
-                zsys_debug ("%s", zuuid_str (self->$(name)));
+                zsys_debug ("        %s", zuuid_str (self->$(name)));
             else
-                zsys_debug ("(NULL)");
-            zsys_debug ("    }");
+                zsys_debug ("        (NULL)");
 .           endif            
 .       elsif type = "frame"
-            zsys_debug ("    $(name)={");
+            zsys_debug ("    $(name)=");
             if (self->$(name))
                 zframe_print (self->$(name), NULL);
             else
                 zsys_debug ("(NULL)");
-            zsys_debug ("    }");
 .       elsif type = "msg"
-            zsys_debug ("    $(name)={");
+            zsys_debug ("    $(name)=");
             if (self->$(name))
                 zmsg_print (self->$(name));
             else
                 zsys_debug ("(NULL)");
-            zsys_debug ("    }");
 .       endif
 .   endfor
             break;
