@@ -378,7 +378,11 @@ CZMQ_EXPORT int
 @end
 */
 
-#include <czmq.h>
+.if file.exists ("../include/czmq.h")
+#include "../include/czmq.h"
+.else
+#include czmq.h>
+.endif
 #include "$(class.header)/$(class.name).h"
 
 //  Structure of our class
