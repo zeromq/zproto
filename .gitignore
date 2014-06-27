@@ -3,6 +3,8 @@
 *.so
 *.log
 *.trs
+*.swp
+*.swo
 Makefile
 Makefile.in
 aclocal.m4
