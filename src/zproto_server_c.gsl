@@ -102,11 +102,11 @@ extern "C" {
 
 //  @interface
 //  This is $(class.name), implemented as a CZMQ zactor task
-void
+CZMQ_EXPORT void
     $(class.name) (zsock_t *pipe, void *args);
 
 //  Self test of this class
-void
+CZMQ_EXPORT void
     $(class.name)_test (bool verbose);
 //  @end
 
@@ -310,7 +310,7 @@ engine_broadcast_event (server_t *server, client_t *client, event_t event)
         char *key = (char *) zlist_first (keys);
         while (key) {
             s_client_t *target = (s_client_t *) zhash_lookup (self->clients, key);
-            if (client && target != (s_client_t *) client)
+            if (target != (s_client_t *) client)
                 s_client_execute (target, event);
             key = (char *) zlist_next (keys);
         }
@@ -386,7 +386,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_exception (NULL, NULL_event);
     engine_set_wakeup_event (NULL, 0, NULL_event);
     engine_send_event (NULL, NULL_event);
-    engine_broadcast_event (NULL, NULL,  NULL_event);
+    engine_broadcast_event (NULL, NULL, NULL_event);
     engine_handle_socket (NULL, 0, NULL);
     engine_set_monitor (NULL, 0, NULL);
     engine_set_log_prefix (NULL, NULL);
