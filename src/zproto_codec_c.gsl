@@ -684,7 +684,7 @@ $(class.name)_decode (zmsg_t **msg_p)
                     GET_STRING (self->$(name) [self->$(name)_index]);
 .               elsif type = "longstr"
                     GET_LONGSTR (self->$(name) [self->$(name)_index]);
-.              elsif type = "strings"
+.               elsif type = "strings"
                     {
                         size_t list_size;
                         GET_NUMBER4 (list_size);
