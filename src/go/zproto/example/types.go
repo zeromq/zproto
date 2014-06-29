@@ -1,0 +1,218 @@
+package example
+
+import (
+	zmq "github.com/pebbe/zmq4"
+
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+)
+
+// Demonstrate custom-defined types
+type Types struct {
+	routingId        []byte
+	Sequence         uint16
+	ClientForename   string
+	ClientSurname    string
+	ClientMobile     string
+	ClientEmail      string
+	SupplierForename string
+	SupplierSurname  string
+	SupplierMobile   string
+	SupplierEmail    string
+}
+
+// New creates new Types message.
+func NewTypes() *Types {
+	types := &Types{}
+	return types
+}
+
+// String returns print friendly name.
+func (t *Types) String() string {
+	str := "ZPROTO_EXAMPLE_TYPES:\n"
+	str += fmt.Sprintf("    Sequence = %v\n", t.Sequence)
+	str += fmt.Sprintf("    ClientForename = %v\n", t.ClientForename)
+	str += fmt.Sprintf("    ClientSurname = %v\n", t.ClientSurname)
+	str += fmt.Sprintf("    ClientMobile = %v\n", t.ClientMobile)
+	str += fmt.Sprintf("    ClientEmail = %v\n", t.ClientEmail)
+	str += fmt.Sprintf("    SupplierForename = %v\n", t.SupplierForename)
+	str += fmt.Sprintf("    SupplierSurname = %v\n", t.SupplierSurname)
+	str += fmt.Sprintf("    SupplierMobile = %v\n", t.SupplierMobile)
+	str += fmt.Sprintf("    SupplierEmail = %v\n", t.SupplierEmail)
+	return str
+}
+
+// Marshal serializes the message.
+func (t *Types) Marshal() ([]byte, error) {
+	// Calculate size of serialized data
+	bufferSize := 2 + 1 // Signature and message ID
+
+	// Sequence is a 2-byte integer
+	bufferSize += 2
+
+	// ClientForename is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.ClientForename)
+
+	// ClientSurname is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.ClientSurname)
+
+	// ClientMobile is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.ClientMobile)
+
+	// ClientEmail is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.ClientEmail)
+
+	// SupplierForename is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.SupplierForename)
+
+	// SupplierSurname is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.SupplierSurname)
+
+	// SupplierMobile is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.SupplierMobile)
+
+	// SupplierEmail is a string with 1-byte length
+	bufferSize++ // Size is one byte
+	bufferSize += len(t.SupplierEmail)
+
+	// Now serialize the message
+	tmpBuf := make([]byte, bufferSize)
+	tmpBuf = tmpBuf[:0]
+	buffer := bytes.NewBuffer(tmpBuf)
+	binary.Write(buffer, binary.BigEndian, Signature)
+	binary.Write(buffer, binary.BigEndian, TypesId)
+
+	// Sequence
+	binary.Write(buffer, binary.BigEndian, t.Sequence)
+
+	// ClientForename
+	putString(buffer, t.ClientForename)
+
+	// ClientSurname
+	putString(buffer, t.ClientSurname)
+
+	// ClientMobile
+	putString(buffer, t.ClientMobile)
+
+	// ClientEmail
+	putString(buffer, t.ClientEmail)
+
+	// SupplierForename
+	putString(buffer, t.SupplierForename)
+
+	// SupplierSurname
+	putString(buffer, t.SupplierSurname)
+
+	// SupplierMobile
+	putString(buffer, t.SupplierMobile)
+
+	// SupplierEmail
+	putString(buffer, t.SupplierEmail)
+
+	return buffer.Bytes(), nil
+}
+
+// Unmarshals the message.
+func (t *Types) Unmarshal(frames ...[]byte) error {
+	if frames == nil {
+		return errors.New("Can't unmarshal empty message")
+	}
+
+	frame := frames[0]
+	frames = frames[1:]
+
+	buffer := bytes.NewBuffer(frame)
+
+	// Get and check protocol signature
+	var signature uint16
+	binary.Read(buffer, binary.BigEndian, &signature)
+	if signature != Signature {
+		return errors.New("invalid signature")
+	}
+
+	// Get message id and parse per message type
+	var id uint8
+	binary.Read(buffer, binary.BigEndian, &id)
+	if id != TypesId {
+		return errors.New("malformed Types message")
+	}
+
+	// Sequence
+	binary.Read(buffer, binary.BigEndian, &t.Sequence)
+
+	// ClientForename
+	t.ClientForename = getString(buffer)
+
+	// ClientSurname
+	t.ClientSurname = getString(buffer)
+
+	// ClientMobile
+	t.ClientMobile = getString(buffer)
+
+	// ClientEmail
+	t.ClientEmail = getString(buffer)
+
+	// SupplierForename
+	t.SupplierForename = getString(buffer)
+
+	// SupplierSurname
+	t.SupplierSurname = getString(buffer)
+
+	// SupplierMobile
+	t.SupplierMobile = getString(buffer)
+
+	// SupplierEmail
+	t.SupplierEmail = getString(buffer)
+
+	return nil
+}
+
+// Sends marshaled data through 0mq socket.
+func (t *Types) Send(socket *zmq.Socket) (err error) {
+	frame, err := t.Marshal()
+	if err != nil {
+		return err
+	}
+
+	socType, err := socket.GetType()
+	if err != nil {
+		return err
+	}
+
+	// If we're sending to a ROUTER, we send the routingId first
+	if socType == zmq.ROUTER {
+		_, err = socket.SendBytes(t.routingId, zmq.SNDMORE)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Now send the data frame
+	_, err = socket.SendBytes(frame, 0)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+// RoutingId returns the routingId for this message, routingId should be set
+// whenever talking to a ROUTER.
+func (t *Types) RoutingId() []byte {
+	return t.routingId
+}
+
+// SetRoutingId sets the routingId for this message, routingId should be set
+// whenever talking to a ROUTER.
+func (t *Types) SetRoutingId(routingId []byte) {
+	t.routingId = routingId
+}
