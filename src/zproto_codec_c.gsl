@@ -381,7 +381,7 @@ CZMQ_EXPORT int
 .if file.exists ("../include/czmq.h")
 #include "../include/czmq.h"
 .else
-#include czmq.h>
+#include <czmq.h>
 .endif
 #include "$(class.header)/$(class.name).h"
 
