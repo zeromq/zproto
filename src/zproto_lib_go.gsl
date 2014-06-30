@@ -1,0 +1,115 @@
+.template 0
+#  Library functions
+
+function expand_headers ()
+    for message
+        if !defined (message.id)
+            message.id = item ()
+        endif
+        for field where item () = 1
+            for class.header
+                for field as hfield
+                    hfield.in_header = "true"
+                    copy hfield before field
+                endfor
+            endfor
+        else
+            for class.header
+                for field as hfield
+                    hfield.in_header = "true"
+                    copy hfield to message
+                endfor
+            endfor
+        endfor
+    endfor
+endfunction
+
+function set_defaults ()
+    resolve_types ()
+    
+    class.signature ?= 0
+    class.has_repeats = 0
+    class.header ?= "go"
+    class.source ?= "."
+
+    for message
+        message.name = "$(message.name:c)"
+        # 9 = number of characters of "routingId". maxlen is used to format structure fields correctly.
+        message.field_maxlen = 9
+        for field
+            field.name = go_name(field.name)
+            if defined (repeat)
+                message.has_repeats = 1
+                if repeat = "n"
+                    repeat = "256"
+                endif
+            endif
+            if type = "number"
+                if defined (value)
+                    # strconv package is needed if the number has a constant value
+                    message.strconv = 1
+                endif
+                field.size ?= 1
+                if size = 1
+                    field.gotype = defined (repeat) ?? "[]byte" ? "byte"
+                elsif size = 2
+                    field.gotype = defined (repeat) ?? "[]uint16" ? "uint16"
+                elsif size = 4
+                    field.gotype = defined (repeat) ?? "[]uint32" ? "uint32"
+                elsif size = 8
+                    field.gotype = defined (repeat) ?? "[]uint64" ? "uint64"
+                else
+                    echo "E: bad size $(size) for $(name)"
+                endif
+            elsif type = "octets"
+                if defined(size)
+                    field.gotype = "[$(size)]byte"
+                else
+                    field.gotype = "[]byte"
+                endif
+            elsif type = "strings"
+                field.gotype = "[]string"
+            elsif type = "dictionary"
+                field.gotype = "map[string]string"
+            elsif type = "string" | type = "longstr"
+                field.gotype = "string"
+            elsif type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
+                field.gotype = "[]byte"
+            else
+                echo "E: unknown type '$(type)'"
+            endif
+            if message.field_maxlen < string.length(field.name)
+                message.field_maxlen = string.length(field.name)
+            endif
+            for class.field as cfield where cfield.name = field.name
+                if cfield.type <> field.type
+                    echo "E: field '$(name)' must have same type everywhere"
+                endif
+            else
+                copy field to class
+            endfor
+        endfor
+    endfor
+endfunction
+
+function go_name (name)
+    my.name = "$(name:c)"
+    my.name = "$(my.Name)"
+    return string.replace(my.name,'_')
+endfunction
+
+function go_package_name ()
+    if string.matchpat(class.name, "*_*")
+        return string.substr(class.name, string.locate_last(class.name, "_") + 1)
+    endif
+    return class.name
+endfunction
+
+function go_package_path ()
+    my.name = string.replace(class.name, "_|/")
+    my.path = directory.resolve(class.header + "/" + my.name)
+    directory.create(my.path)
+    return my.path
+endfunction
+
+.endtemplate
