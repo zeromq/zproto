@@ -1133,8 +1133,8 @@ $(class.name)_recv (void *input)
         if (!routing_id || !zmsg_next (msg))
             return NULL;        //  Malformed or empty
     }
-    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
+    $(class.name)_t *$(class.name) = $(class.name)_decode (&msg);
+    if ($(class.name) && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
         $(class.name)->routing_id = routing_id;
 
     return $(class.name);
@@ -1161,8 +1161,8 @@ $(class.name)_recv_nowait (void *input)
         if (!routing_id || !zmsg_next (msg))
             return NULL;        //  Malformed or empty
     }
-    $(class.name)_t * $(class.name) = $(class.name)_decode (&msg);
-    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
+    $(class.name)_t *$(class.name) = $(class.name)_decode (&msg);
+    if ($(class.name) && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
         $(class.name)->routing_id = routing_id;
 
     return $(class.name);

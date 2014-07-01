@@ -1252,8 +1252,8 @@ zproto_example_recv (void *input)
         if (!routing_id || !zmsg_next (msg))
             return NULL;        //  Malformed or empty
     }
-    zproto_example_t * zproto_example = zproto_example_decode (&msg);
-    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
+    zproto_example_t *zproto_example = zproto_example_decode (&msg);
+    if (zproto_example && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
         zproto_example->routing_id = routing_id;
 
     return zproto_example;
@@ -1277,8 +1277,8 @@ zproto_example_recv_nowait (void *input)
         if (!routing_id || !zmsg_next (msg))
             return NULL;        //  Malformed or empty
     }
-    zproto_example_t * zproto_example = zproto_example_decode (&msg);
-    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
+    zproto_example_t *zproto_example = zproto_example_decode (&msg);
+    if (zproto_example && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
         zproto_example->routing_id = routing_id;
 
     return zproto_example;
@@ -1743,7 +1743,7 @@ zproto_example_print (zproto_example_t *self)
     int index;
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
-            puts ("LOG:");
+            zsys_debug ("ZPROTO_EXAMPLE_LOG:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
             zsys_debug ("    version=3");
             zsys_debug ("    level=%ld", (long) self->level);
@@ -1762,18 +1762,17 @@ zproto_example_print (zproto_example_t *self)
             break;
             
         case ZPROTO_EXAMPLE_STRUCTURES:
-            puts ("STRUCTURES:");
+            zsys_debug ("ZPROTO_EXAMPLE_STRUCTURES:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
-            zsys_debug ("    aliases={");
+            zsys_debug ("    aliases=");
             if (self->aliases) {
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    zsys_debug (" '%s'", aliases);
+                    zsys_debug ("        '%s'", aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
-            zsys_debug (" }");
-            zsys_debug ("    headers={");
+            zsys_debug ("    headers=");
             if (self->headers) {
                 char *item = (char *) zhash_first (self->headers);
                 while (item) {
@@ -1783,42 +1782,33 @@ zproto_example_print (zproto_example_t *self)
             }
             else
                 zsys_debug ("(NULL)");
-            zsys_debug ("    }");
             break;
             
         case ZPROTO_EXAMPLE_BINARY:
-            puts ("BINARY:");
+            zsys_debug ("ZPROTO_EXAMPLE_BINARY:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
             zsys_debug ("    flags=[ ... ]");
-            zsys_debug ("    public_key={");
-            if (self->public_key)
-                zchunk_print (self->public_key);
-            else
-                zsys_debug ("(NULL)");
-            zsys_debug ("    }");
-            zsys_debug ("    identifier=[");
-            zsys_debug ("    identifier={");
+            zsys_debug ("    public_key=[ ... ]");
+            zsys_debug ("    identifier=");
+            zsys_debug ("    identifier=");
             if (self->identifier)
-                zsys_debug ("%s", zuuid_str (self->identifier));
+                zsys_debug ("        %s", zuuid_str (self->identifier));
             else
-                zsys_debug ("(NULL)");
-            zsys_debug ("    }");
-            zsys_debug ("    address={");
+                zsys_debug ("        (NULL)");
+            zsys_debug ("    address=");
             if (self->address)
                 zframe_print (self->address, NULL);
             else
                 zsys_debug ("(NULL)");
-            zsys_debug ("    }");
-            zsys_debug ("    content={");
+            zsys_debug ("    content=");
             if (self->content)
                 zmsg_print (self->content);
             else
                 zsys_debug ("(NULL)");
-            zsys_debug ("    }");
             break;
             
         case ZPROTO_EXAMPLE_TYPES:
-            puts ("TYPES:");
+            zsys_debug ("ZPROTO_EXAMPLE_TYPES:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
             if (self->client_forename)
                 zsys_debug ("    client_forename='%s'", self->client_forename);
@@ -1855,7 +1845,7 @@ zproto_example_print (zproto_example_t *self)
             break;
             
         case ZPROTO_EXAMPLE_REPEAT:
-            puts ("REPEAT:");
+            zsys_debug ("ZPROTO_EXAMPLE_REPEAT:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
             zsys_debug ("   no1=[");
             for (index = 0; index < self->no1_index + 1; index++)
@@ -1889,39 +1879,24 @@ zproto_example_print (zproto_example_t *self)
                     zsys_debug (" ");
             }
             zsys_debug (" ]");
-            zsys_debug ("    strs=[");
+            zsys_debug ("    strs=");
             for (index = 0; index < self->strs_index + 1; index++) {
-                zsys_debug ("{");
                 if (self->strs [index]) {
                     char *strs = (char *) zlist_first (self->strs [index]);
                     while (strs) {
-                        zsys_debug (" '%s'", strs);
+                        zsys_debug ("        %d '%s'", index, strs);
                         strs = (char *) zlist_next (self->strs [index]);
                     }
                 }
-                zsys_debug (" }");
             }
-            zsys_debug ("]");
-            zsys_debug ("    chunks=[");
-            for (index = 0; index < self->chunks_index + 1; index++) {
-                zsys_debug ("    {");
-                if (self->chunks [index])
-                    zchunk_print (self->chunks [index]);
-                else
-                    zsys_debug ("(NULL)");
-                zsys_debug ("    }");
-            }
-            zsys_debug ("]");
-            zsys_debug ("    uuids=[");
+            zsys_debug ("    chunks=[ ... ]");
+            zsys_debug ("    uuids=");
             for (index = 0; index < self->uuids_index + 1; index++) {
-                zsys_debug ("    {");
                 if (self->uuids [index])
-                    zsys_debug ("%s", zuuid_str (self->uuids [index]));
+                    zsys_debug ("        %d %s", index, zuuid_str (self->uuids [index]));
                 else
-                    zsys_debug ("(NULL)");
-                zsys_debug ("    }");
+                    zsys_debug ("        (NULL)");
             }
-            zsys_debug ("]");
             zsys_debug ("persons_forename=[");
             for (index = 0; index < self->persons_forename_index + 1; index++) {
                 if (self->persons_forename [index])
