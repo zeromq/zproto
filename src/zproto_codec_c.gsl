@@ -999,11 +999,12 @@ $(class.name)_encode ($(class.name)_t **self_p)
                 else
                     PUT_NUMBER4 (0);    //  Empty chunk
 .           elsif type = "uuid"
-                if (self->$(name) [index]) {
+                if (self->$(name) [index])
                     zuuid_export (self->$(name) [index], self->needle);
-                    self->needle += ZUUID_LEN;
-                }
-.           endif                    
+                else
+                    memset (self->needle, 0, ZUUID_LEN);
+                self->needle += ZUUID_LEN;
+.           endif
                 }
             }    
 .       elsif type = "number"
@@ -1064,10 +1065,11 @@ $(class.name)_encode ($(class.name)_t **self_p)
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
 .       elsif type = "uuid"
-            if (self->$(name)) {
+            if (self->$(name))
                 zuuid_export (self->$(name), self->needle);
-                self->needle += ZUUID_LEN;
-            }
+            else
+                memset (self->needle, 0, ZUUID_LEN);
+            self->needle += ZUUID_LEN;
 .       endif
 .   endfor
             break;
