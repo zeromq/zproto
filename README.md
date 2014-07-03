@@ -33,7 +33,11 @@ Finally, to use zproto as the base for your own projects, copy the skeleton dire
 
     git init .
 
-And then manually change all references to 'myproj' to your own project prefix, both in filenames, and inside the sources. We may script this, later.
+And then manually change all references to 'myproj' to your own project prefix, both in filenames, and inside the sources. On linux you can also use the create script:
+
+    scripts/create_project.sh <project directory>
+
+The name of the project directory equals your project's name which will be used to initialize the configuration.
 
 ## The Codec Generator
 
