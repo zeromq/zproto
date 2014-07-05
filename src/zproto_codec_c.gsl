@@ -80,16 +80,13 @@ CZMQ_EXPORT void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
-//  and nullifies the msg refernce.
+//  the message could not be parsed, or was NULL. Destroys msg and 
+//  nullifies the msg reference.
 CZMQ_EXPORT $(class.name)_t *
     $(class.name)_decode (zmsg_t **msg_p);
 
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
-//  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
-//  first frame of the resulting message.
 CZMQ_EXPORT zmsg_t *
     $(class.name)_encode ($(class.name)_t **self_p);
 
@@ -637,9 +634,8 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
 //  --------------------------------------------------------------------------
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
-//  and nullifies the msg refernce.
+//  the message could not be parsed, or was NULL. Destroys msg and 
+//  nullifies the msg reference.
 
 $(class.name)_t *
 $(class.name)_decode (zmsg_t **msg_p)
@@ -822,8 +818,6 @@ $(class.name)_decode (zmsg_t **msg_p)
 //  --------------------------------------------------------------------------
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
-//  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
-//  first frame of the resulting message.
 
 zmsg_t *
 $(class.name)_encode ($(class.name)_t **self_p)
