@@ -25,7 +25,7 @@ cp -r $PROJECT_DIR/skeleton/* "$1"/ || exit 2
 cd "$1" || exit 3
 git init || exit 4
 
-find ./ -type f -exec sed -i -e 's/myproj/'$MY_PROJ_NAME'/g' {} \; || exti 5
+find ./ -type f -exec sed -i -e 's/myproj/'$MY_PROJ_NAME'/g' {} \; || exit 5
 
 for f in $(find ./ -type f -name "*myproj*" -exec echo {} \;); do
 	mv $f ${f/myproj/$MY_PROJ_NAME} || exit 6
