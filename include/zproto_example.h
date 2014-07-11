@@ -118,16 +118,13 @@ CZMQ_EXPORT void
     zproto_example_destroy (zproto_example_t **self_p);
 
 //  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
-//  and nullifies the msg refernce.
+//  the message could not be parsed, or was NULL. Destroys msg and 
+//  nullifies the msg reference.
 CZMQ_EXPORT zproto_example_t *
     zproto_example_decode (zmsg_t **msg_p);
 
 //  Encode zproto_example into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
-//  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
-//  first frame of the resulting message.
 CZMQ_EXPORT zmsg_t *
     zproto_example_encode (zproto_example_t **self_p);
 

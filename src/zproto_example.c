@@ -373,9 +373,8 @@ zproto_example_destroy (zproto_example_t **self_p)
 
 //  --------------------------------------------------------------------------
 //  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. If the socket type is
-//  ZMQ_ROUTER, then parses the first frame as a routing_id. Destroys msg
-//  and nullifies the msg refernce.
+//  the message could not be parsed, or was NULL. Destroys msg and 
+//  nullifies the msg reference.
 
 zproto_example_t *
 zproto_example_decode (zmsg_t **msg_p)
@@ -684,8 +683,6 @@ zproto_example_decode (zmsg_t **msg_p)
 //  --------------------------------------------------------------------------
 //  Encode zproto_example into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
-//  If the socket_type is ZMQ_ROUTER, then stores the routing_id as the
-//  first frame of the resulting message.
 
 zmsg_t *
 zproto_example_encode (zproto_example_t **self_p)
@@ -1014,10 +1011,11 @@ zproto_example_encode (zproto_example_t **self_p)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty chunk
-            if (self->identifier) {
+            if (self->identifier)
                 zuuid_export (self->identifier, self->needle);
-                self->needle += ZUUID_LEN;
-            }
+            else
+                memset (self->needle, 0, ZUUID_LEN);
+            self->needle += ZUUID_LEN;
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -1151,10 +1149,11 @@ zproto_example_encode (zproto_example_t **self_p)
                 PUT_NUMBER1 (self->uuids_index + 1);
                 int index;
                 for (index = 0; index < self->uuids_index + 1; index++) {
-                if (self->uuids [index]) {
+                if (self->uuids [index])
                     zuuid_export (self->uuids [index], self->needle);
-                    self->needle += ZUUID_LEN;
-                }
+                else
+                    memset (self->needle, 0, ZUUID_LEN);
+                self->needle += ZUUID_LEN;
                 }
             }    
             {
