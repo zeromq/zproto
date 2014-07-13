@@ -1,0 +1,9 @@
+.template 0
+#  Library functions
+
+function java_class_name (name)
+    neatName = "$(Name)"
+    return "$(string.replace (neatName, '_'))"
+endfunction
+
+.endtemplate
