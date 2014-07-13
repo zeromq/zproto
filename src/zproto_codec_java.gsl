@@ -32,52 +32,20 @@ set_defaults ()
     =========================================================================
 */
 
-/*  These are the $(class.name) messages
+/*  These are the $(ClassName) messages:
 .for message
-.   message.name = "$(message.name:c)"
-.   for field where item() = 1
-.       for class.header
-.           for field as hfield
-.              copy hfield before field
-.           endfor
-.       endfor
-.   else
-.       for class.header
-.           for field as hfield
-.              copy hfield to message
-.           endfor
-.       endfor
-.   endfor
-.
+
     $(NAME) - $(string.trim (.?''):left)
 .   for field
 .       if type = "number"
-.           size ?= 8
-        $(name)       $(type) $(size)
-.           if size = 1
-.               field.ctype = "int"
-.           elsif size = 2
-.               field.ctype = "int"
-.           elsif size = 4
-.               field.ctype = "long"
-.           elsif size = 8
-.               field.ctype = "long"
-.           else
-.               echo "E: bad size $(size) for $(name)"
-.           endif
+        $(name)             $(type) $(size)\
+                                        $(field.?'':)
 .       elsif type = "octets"
-        $(name)       $(type) [$(size)]
+        $(name)             $(type) [$(size)]\
+                                        $(field.?'':)
 .       else
-        $(name)       $(type)
+        $(name)             $(type)     $(field.?'':)
 .       endif
-.       field.name = "$(field.name:c)"
-.       for class.field as cfield where cfield.name = field.name
-.           if cfield.type <> field.type
-.               echo "E: field '$(name)' must have same type everywhere"
-.           endif
-.       else
-.           copy field to class
-.       endfor
 .   endfor
 .endfor
 */
@@ -105,9 +73,10 @@ public class $(ClassName) implements java.io.Closeable
 .endfor
 
     //  Structure of our class
-    private ZFrame address;             //  Address of peer if any
+    private ZFrame routingId;           // Routing_id from ROUTER, if any
     private int id;                     //  $(ClassName) message ID
     private ByteBuffer needle;          //  Read/write pointer for serialization
+
 .for class.field
 .   if type = "number"
 .       if size = 1
@@ -143,7 +112,12 @@ public class $(ClassName) implements java.io.Closeable
         this.id = id;
     }
 
-    #Override
+    public void destroy()
+    {
+        close();
+    }
+
+    @Override
     public void close()
     {
         //  Destroy frame fields
@@ -261,10 +235,10 @@ public class $(ClassName) implements java.io.Closeable
             //  Read valid message frame from socket; we loop over any
             //  garbage data we might receive from badly-connected peers
             while (true) {
-                //  If we're reading from a ROUTER socket, get address
+                //  If we're reading from a ROUTER socket, get routingId
                 if (input.getType () == ZMQ.ROUTER) {
-                    self.address = ZFrame.recvFrame (input);
-                    if (self.address == null)
+                    self.routingId = ZFrame.recvFrame (input);
+                    if (self.routingId == null)
                         return null;         //  Interrupted
                     if (!input.hasReceiveMore ())
                         throw new IllegalArgumentException ();
@@ -485,10 +459,10 @@ public class $(ClassName) implements java.io.Closeable
 
 .endfor
         }
-        //  If we're sending to a ROUTER, we send the address first
+        //  If we're sending to a ROUTER, we send the routingId first
         if (socket.getType () == ZMQ.ROUTER) {
-            assert (address != null);
-            if (!address.send (socket, ZMQ.SNDMORE)) {
+            assert (routingId != null);
+            if (!routingId.send (socket, ZMQ.SNDMORE)) {
                 destroy ();
                 return false;
             }
@@ -536,7 +510,17 @@ public class $(ClassName) implements java.io.Closeable
 .for field where !defined (value)
 ,
 .   if type = "number"
-        $(ctype) $(name)\
+.       if size = 1
+        int $(name)\
+.       elsif size = 2
+        int $(name)\
+.       elsif size = 4
+        long $(name)\
+.       elsif size = 8
+        long $(name)\
+.       else
+.           echo "E: bad size $(size) for $(name)"
+.       endif
 .   elsif type = "octets"
         byte [] $(name)\
 .   elsif type = "string" | type = "longstr"
@@ -576,8 +560,8 @@ public class $(ClassName) implements java.io.Closeable
     public $(ClassName) dup ()
     {
         $(ClassName) copy = new $(ClassName) (this.id);
-        if (this.address != null)
-            copy.address = this.address.duplicate ();
+        if (this.routingId != null)
+            copy.routingId = this.routingId.duplicate ();
         switch (this.id) {
 .for class.message
         case $(MESSAGE.NAME):
@@ -686,18 +670,18 @@ public class $(ClassName) implements java.io.Closeable
 
 
     //  --------------------------------------------------------------------------
-    //  Get/set the message address
+    //  Get/set the message routing id
 
-    public ZFrame address ()
+    public ZFrame routingId ()
     {
-        return address;
+        return routingId;
     }
 
-    public void setAddress (ZFrame address)
+    public void setRoutingId (ZFrame routingId)
     {
-        if (this.address != null)
-            this.address.destroy ();
-        this.address = address.duplicate ();
+        if (this.routingId != null)
+            this.routingId.destroy ();
+        this.routingId = routingId.duplicate ();
     }
 
 
@@ -752,7 +736,7 @@ public class $(ClassName) implements java.io.Closeable
         return $(name);
     }
 
-    public void set$(Name) (String format, Object[] args)
+    public void set$(Name) (String format, Object ... args)
     {
         //  Format into newly allocated string
         $(name) = String.format (format, args);
@@ -767,7 +751,7 @@ public class $(ClassName) implements java.io.Closeable
         return $(name);
     }
 
-    public void append$(Name) (String format, Object[] args)
+    public void append$(Name) (String format, Object ... args)
     {
         //  Format into newly allocated string
 
@@ -815,7 +799,7 @@ public class $(ClassName) implements java.io.Closeable
         return value;
     }
 
-    public void insert$(Name) (String key, String format, Object[] args)
+    public void insert$(Name) (String key, String format, Object ... args)
     {
         //  Format string into buffer
         String string = String.format (format, args);

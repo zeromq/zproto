@@ -34,7 +34,6 @@ public class TestZprotoExample
 
         self = new ZprotoExample (ZprotoExample.LOG);
         self.setSequence ((byte) 123);
-        self.setSequence ((byte) 123);
         self.setLevel ((byte) 123);
         self.setEvent ((byte) 123);
         self.setNode ((byte) 123);
@@ -47,7 +46,6 @@ public class TestZprotoExample
         self = ZprotoExample.recv (input);
         assert (self != null);
         assertEquals (self.sequence (), 123);
-        assertEquals (self.sequence (), 123);
         assertEquals (self.level (), 123);
         assertEquals (self.event (), 123);
         assertEquals (self.node (), 123);
@@ -59,7 +57,6 @@ public class TestZprotoExample
 
         self = new ZprotoExample (ZprotoExample.STRUCTURES);
         self.setSequence ((byte) 123);
-        self.setSequence ((byte) 123);
         self.appendAliases ("Name: %s", "Brutus");
         self.appendAliases ("Age: %d", 43);
         self.insertHeaders ("Name", "Brutus");
@@ -68,7 +65,6 @@ public class TestZprotoExample
 
         self = ZprotoExample.recv (input);
         assert (self != null);
-        assertEquals (self.sequence (), 123);
         assertEquals (self.sequence (), 123);
         assertEquals (self.aliases ().size (), 2);
         assertEquals (self.aliases ().get (0), "Name: Brutus");
@@ -80,7 +76,6 @@ public class TestZprotoExample
 
         self = new ZprotoExample (ZprotoExample.BINARY);
         self.setSequence ((byte) 123);
-        self.setSequence ((byte) 123);
         byte [] flagsData = new byte [ZprotoExample.FLAGS_SIZE];
         for (int i=0; i < ZprotoExample.FLAGS_SIZE; i++)
             flagsData [i] = 123;
@@ -91,14 +86,12 @@ public class TestZprotoExample
         self = ZprotoExample.recv (input);
         assert (self != null);
         assertEquals (self.sequence (), 123);
-        assertEquals (self.sequence (), 123);
         assertEquals (self.flags () [0], 123);
         assertEquals (self.flags () [ZprotoExample.FLAGS_SIZE - 1], 123);
         assertTrue (self.address ().streq ("Captcha Diem"));
         self.destroy ();
 
         self = new ZprotoExample (ZprotoExample.TYPES);
-        self.setSequence ((byte) 123);
         self.setSequence ((byte) 123);
         self.setClient_Forename ("Life is short but Now lasts for ever");
         self.setClient_Surname ("Life is short but Now lasts for ever");
@@ -113,7 +106,6 @@ public class TestZprotoExample
         self = ZprotoExample.recv (input);
         assert (self != null);
         assertEquals (self.sequence (), 123);
-        assertEquals (self.sequence (), 123);
         assertEquals (self.client_forename (), "Life is short but Now lasts for ever");
         assertEquals (self.client_surname (), "Life is short but Now lasts for ever");
         assertEquals (self.client_mobile (), "Life is short but Now lasts for ever");
@@ -125,7 +117,6 @@ public class TestZprotoExample
         self.destroy ();
 
         self = new ZprotoExample (ZprotoExample.REPEAT);
-        self.setSequence ((byte) 123);
         self.setSequence ((byte) 123);
         self.setNo1 ((byte) 123);
         self.setNo2 ((byte) 123);
@@ -143,7 +134,6 @@ public class TestZprotoExample
 
         self = ZprotoExample.recv (input);
         assert (self != null);
-        assertEquals (self.sequence (), 123);
         assertEquals (self.sequence (), 123);
         assertEquals (self.no1 (), 123);
         assertEquals (self.no2 (), 123);

@@ -33,58 +33,58 @@
     =========================================================================
 */
 
-/*  These are the zproto_example messages
+/*  These are the ZprotoExample messages:
+
     LOG - Log an event.
-        sequence      number 2
-        sequence      number 2
-        version       number 2
-        level         number 1
-        event         number 1
-        node          number 2
-        peer          number 2
-        time          number 8
-        host          string
-        data          longstr
+        sequence            number 2    
+        version             number 2    Version
+        level               number 1    Log severity level
+        event               number 1    Type of event
+        node                number 2    Sending node
+        peer                number 2    Refers to this peer
+        time                number 8    Log date/time
+        host                string      Originating hostname
+        data                longstr     Actual log message
+
     STRUCTURES - This message contains a list and a hash.
-        sequence      number 2
-        sequence      number 2
-        aliases       strings
-        headers       dictionary
+        sequence            number 2    
+        aliases             strings     List of strings
+        headers             dictionary  Other random properties
+
     BINARY - Deliver a multi-part message.
-        sequence      number 2
-        sequence      number 2
-        flags         octets [4]
-        public_key    chunk
-        identifier    uuid
-        address       frame
-        content       msg
+        sequence            number 2    
+        flags               octets [4]  A set of flags
+        public_key          chunk       Our public key
+        identifier          uuid        Unique identity
+        address             frame       Return address as frame
+        content             msg         Message to be delivered
+
     TYPES - Demonstrate custom-defined types
-        sequence      number 2
-        sequence      number 2
-        client_forename  string
-        client_surname  string
-        client_mobile  string
-        client_email  string
-        supplier_forename  string
-        supplier_surname  string
-        supplier_mobile  string
-        supplier_email  string
+        sequence            number 2    
+        client_forename     string      Given name
+        client_surname      string      Family name
+        client_mobile       string      Mobile phone number
+        client_email        string      Email address
+        supplier_forename   string      Given name
+        supplier_surname    string      Family name
+        supplier_mobile     string      Mobile phone number
+        supplier_email      string      Email address
+
     REPEAT - Demonstrates repeating fields
-        sequence      number 2
-        sequence      number 2
-        no1           number 1
-        no2           number 2
-        no4           number 4
-        no8           number 8
-        str           string
-        lstr          longstr
-        strs          strings
-        chunks        chunk
-        uuids         uuid
-        persons_forename  string
-        persons_surname  string
-        persons_mobile  string
-        persons_email  string
+        sequence            number 2    
+        no1                 number 1    Repeating byte
+        no2                 number 2    Repeating 2-bytes
+        no4                 number 4    Repeating 4-bytes
+        no8                 number 8    Repeating 8-bytes
+        str                 string      Repeating 1-byte string
+        lstr                longstr     Repeating 4-byte string
+        strs                strings     Repeating strings
+        chunks              chunk       Repeating chunks
+        uuids               uuid        Repeating uuids
+        persons_forename    string      Given name
+        persons_surname     string      Family name
+        persons_mobile      string      Mobile phone number
+        persons_email       string      Email address
 */
 
 package org.zproto;
@@ -108,9 +108,10 @@ public class ZprotoExample implements java.io.Closeable
     public static final int FLAGS_SIZE            = 4;
 
     //  Structure of our class
-    private ZFrame address;             //  Address of peer if any
+    private ZFrame routingId;           // Routing_id from ROUTER, if any
     private int id;                     //  ZprotoExample message ID
     private ByteBuffer needle;          //  Read/write pointer for serialization
+
     private int sequence;
     private int version;
     private int level;
@@ -150,7 +151,12 @@ public class ZprotoExample implements java.io.Closeable
         this.id = id;
     }
 
-    #Override
+    public void destroy()
+    {
+        close();
+    }
+
+    @Override
     public void close()
     {
         //  Destroy frame fields
@@ -266,10 +272,10 @@ public class ZprotoExample implements java.io.Closeable
             //  Read valid message frame from socket; we loop over any
             //  garbage data we might receive from badly-connected peers
             while (true) {
-                //  If we're reading from a ROUTER socket, get address
+                //  If we're reading from a ROUTER socket, get routingId
                 if (input.getType () == ZMQ.ROUTER) {
-                    self.address = ZFrame.recvFrame (input);
-                    if (self.address == null)
+                    self.routingId = ZFrame.recvFrame (input);
+                    if (self.routingId == null)
                         return null;         //  Interrupted
                     if (!input.hasReceiveMore ())
                         throw new IllegalArgumentException ();
@@ -301,7 +307,6 @@ public class ZprotoExample implements java.io.Closeable
             switch (self.id) {
             case LOG:
                 self.sequence = self.getNumber2 ();
-                self.sequence = self.getNumber2 ();
                 self.version = self.getNumber2 ();
                 if (self.version != 3)
                     throw new IllegalArgumentException ();
@@ -315,7 +320,6 @@ public class ZprotoExample implements java.io.Closeable
                 break;
 
             case STRUCTURES:
-                self.sequence = self.getNumber2 ();
                 self.sequence = self.getNumber2 ();
                 listSize = self.getNumber1 ();
                 self.aliases = new ArrayList<String> ();
@@ -335,7 +339,6 @@ public class ZprotoExample implements java.io.Closeable
 
             case BINARY:
                 self.sequence = self.getNumber2 ();
-                self.sequence = self.getNumber2 ();
                 self.flags = self.getBlock (4);
                 //  Get next frame, leave current untouched
                 if (!input.hasReceiveMore ())
@@ -344,7 +347,6 @@ public class ZprotoExample implements java.io.Closeable
                 break;
 
             case TYPES:
-                self.sequence = self.getNumber2 ();
                 self.sequence = self.getNumber2 ();
                 self.client_forename = self.getString ();
                 self.client_surname = self.getString ();
@@ -357,7 +359,6 @@ public class ZprotoExample implements java.io.Closeable
                 break;
 
             case REPEAT:
-                self.sequence = self.getNumber2 ();
                 self.sequence = self.getNumber2 ();
                 self.no1 = self.getNumber1 ();
                 self.no2 = self.getNumber2 ();
@@ -424,8 +425,6 @@ public class ZprotoExample implements java.io.Closeable
         case LOG:
             //  sequence is a 2-byte integer
             frameSize += 2;
-            //  sequence is a 2-byte integer
-            frameSize += 2;
             //  version is a 2-byte integer
             frameSize += 2;
             //  level is a 1-byte integer
@@ -451,8 +450,6 @@ public class ZprotoExample implements java.io.Closeable
         case STRUCTURES:
             //  sequence is a 2-byte integer
             frameSize += 2;
-            //  sequence is a 2-byte integer
-            frameSize += 2;
             //  aliases is an array of strings
             frameSize++;       //  Size is one octet
             if (aliases != null) {
@@ -473,15 +470,11 @@ public class ZprotoExample implements java.io.Closeable
         case BINARY:
             //  sequence is a 2-byte integer
             frameSize += 2;
-            //  sequence is a 2-byte integer
-            frameSize += 2;
             //  flags is a block of 4 bytes
             frameSize += 4;
             break;
 
         case TYPES:
-            //  sequence is a 2-byte integer
-            frameSize += 2;
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  client_forename is a string with 1-byte length
@@ -519,8 +512,6 @@ public class ZprotoExample implements java.io.Closeable
             break;
 
         case REPEAT:
-            //  sequence is a 2-byte integer
-            frameSize += 2;
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  no1 is a 1-byte integer
@@ -577,7 +568,6 @@ public class ZprotoExample implements java.io.Closeable
         switch (id) {
         case LOG:
             putNumber2 (sequence);
-            putNumber2 (sequence);
             putNumber2 (3);
             putNumber1 (level);
             putNumber1 (event);
@@ -595,7 +585,6 @@ public class ZprotoExample implements java.io.Closeable
             break;
 
         case STRUCTURES:
-            putNumber2 (sequence);
             putNumber2 (sequence);
             if (aliases != null) {
                 putNumber1 ((byte) aliases.size ());
@@ -617,13 +606,11 @@ public class ZprotoExample implements java.io.Closeable
 
         case BINARY:
             putNumber2 (sequence);
-            putNumber2 (sequence);
             putBlock (flags, 4);
             frameFlags = ZMQ.SNDMORE;
             break;
 
         case TYPES:
-            putNumber2 (sequence);
             putNumber2 (sequence);
             if (client_forename != null)
                 putString (client_forename);
@@ -660,7 +647,6 @@ public class ZprotoExample implements java.io.Closeable
             break;
 
         case REPEAT:
-            putNumber2 (sequence);
             putNumber2 (sequence);
             putNumber1 (no1);
             putNumber2 (no2);
@@ -701,10 +687,10 @@ public class ZprotoExample implements java.io.Closeable
             break;
 
         }
-        //  If we're sending to a ROUTER, we send the address first
+        //  If we're sending to a ROUTER, we send the routingId first
         if (socket.getType () == ZMQ.ROUTER) {
-            assert (address != null);
-            if (!address.send (socket, ZMQ.SNDMORE)) {
+            assert (routingId != null);
+            if (!routingId.send (socket, ZMQ.SNDMORE)) {
                 destroy ();
                 return false;
             }
@@ -741,7 +727,6 @@ public class ZprotoExample implements java.io.Closeable
     public static void sendLog (
         Socket output,
         int sequence,
-        int sequence,
         int level,
         int event,
         int node,
@@ -751,7 +736,6 @@ public class ZprotoExample implements java.io.Closeable
         String data)
     {
         ZprotoExample self = new ZprotoExample (ZprotoExample.LOG);
-        self.setSequence (sequence);
         self.setSequence (sequence);
         self.setLevel (level);
         self.setEvent (event);
@@ -769,12 +753,10 @@ public class ZprotoExample implements java.io.Closeable
     public static void sendStructures (
         Socket output,
         int sequence,
-        int sequence,
         List <String> aliases,
         Map <String, String> headers)
     {
         ZprotoExample self = new ZprotoExample (ZprotoExample.STRUCTURES);
-        self.setSequence (sequence);
         self.setSequence (sequence);
         self.setAliases (new ArrayList <String> (aliases));
         self.setHeaders (new HashMap <String, String> (headers));
@@ -787,7 +769,6 @@ public class ZprotoExample implements java.io.Closeable
     public static void sendBinary (
         Socket output,
         int sequence,
-        int sequence,
         byte [] flags,
         chunk public_key,
         uuid identifier,
@@ -795,7 +776,6 @@ public class ZprotoExample implements java.io.Closeable
         msg content)
     {
         ZprotoExample self = new ZprotoExample (ZprotoExample.BINARY);
-        self.setSequence (sequence);
         self.setSequence (sequence);
         self.setFlags (flags);
         self.setAddress (address.duplicate ());
@@ -808,7 +788,6 @@ public class ZprotoExample implements java.io.Closeable
     public static void sendTypes (
         Socket output,
         int sequence,
-        int sequence,
         String client_forename,
         String client_surname,
         String client_mobile,
@@ -819,7 +798,6 @@ public class ZprotoExample implements java.io.Closeable
         String supplier_email)
     {
         ZprotoExample self = new ZprotoExample (ZprotoExample.TYPES);
-        self.setSequence (sequence);
         self.setSequence (sequence);
         self.setClient_Forename (client_forename);
         self.setClient_Surname (client_surname);
@@ -838,7 +816,6 @@ public class ZprotoExample implements java.io.Closeable
     public static void sendRepeat (
         Socket output,
         int sequence,
-        int sequence,
         int no1,
         int no2,
         long no4,
@@ -854,7 +831,6 @@ public class ZprotoExample implements java.io.Closeable
         String persons_email)
     {
         ZprotoExample self = new ZprotoExample (ZprotoExample.REPEAT);
-        self.setSequence (sequence);
         self.setSequence (sequence);
         self.setNo1 (no1);
         self.setNo2 (no2);
@@ -877,11 +853,10 @@ public class ZprotoExample implements java.io.Closeable
     public ZprotoExample dup ()
     {
         ZprotoExample copy = new ZprotoExample (this.id);
-        if (this.address != null)
-            copy.address = this.address.duplicate ();
+        if (this.routingId != null)
+            copy.routingId = this.routingId.duplicate ();
         switch (this.id) {
         case LOG:
-            copy.sequence = this.sequence;
             copy.sequence = this.sequence;
             copy.version = this.version;
             copy.level = this.level;
@@ -894,18 +869,15 @@ public class ZprotoExample implements java.io.Closeable
         break;
         case STRUCTURES:
             copy.sequence = this.sequence;
-            copy.sequence = this.sequence;
             copy.aliases = new ArrayList <String> (this.aliases);
             copy.headers = new HashMap <String, String> (this.headers);
         break;
         case BINARY:
             copy.sequence = this.sequence;
-            copy.sequence = this.sequence;
             System.arraycopy (copy.flags, 0, this.flags, 0, 4);
             copy.address = this.address.duplicate ();
         break;
         case TYPES:
-            copy.sequence = this.sequence;
             copy.sequence = this.sequence;
             copy.client_forename = this.client_forename;
             copy.client_surname = this.client_surname;
@@ -917,7 +889,6 @@ public class ZprotoExample implements java.io.Closeable
             copy.supplier_email = this.supplier_email;
         break;
         case REPEAT:
-            copy.sequence = this.sequence;
             copy.sequence = this.sequence;
             copy.no1 = this.no1;
             copy.no2 = this.no2;
@@ -951,7 +922,6 @@ public class ZprotoExample implements java.io.Closeable
         case LOG:
             System.out.println ("LOG:");
             System.out.printf ("    sequence=%d\n", (long)sequence);
-            System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    version=3\n");
             System.out.printf ("    level=%d\n", (long)level);
             System.out.printf ("    event=%d\n", (long)event);
@@ -971,7 +941,6 @@ public class ZprotoExample implements java.io.Closeable
         case STRUCTURES:
             System.out.println ("STRUCTURES:");
             System.out.printf ("    sequence=%d\n", (long)sequence);
-            System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    aliases={");
             if (aliases != null) {
                 for (String value : aliases) {
@@ -989,7 +958,6 @@ public class ZprotoExample implements java.io.Closeable
 
         case BINARY:
             System.out.println ("BINARY:");
-            System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    flags=");
             int flagsIndex;
@@ -1018,7 +986,6 @@ public class ZprotoExample implements java.io.Closeable
 
         case TYPES:
             System.out.println ("TYPES:");
-            System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    sequence=%d\n", (long)sequence);
             if (client_forename != null)
                 System.out.printf ("    client_forename='%s'\n", client_forename);
@@ -1056,7 +1023,6 @@ public class ZprotoExample implements java.io.Closeable
 
         case REPEAT:
             System.out.println ("REPEAT:");
-            System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    no1=%d\n", (long)no1);
             System.out.printf ("    no2=%d\n", (long)no2);
@@ -1100,18 +1066,18 @@ public class ZprotoExample implements java.io.Closeable
 
 
     //  --------------------------------------------------------------------------
-    //  Get/set the message address
+    //  Get/set the message routing id
 
-    public ZFrame address ()
+    public ZFrame routingId ()
     {
-        return address;
+        return routingId;
     }
 
-    public void setAddress (ZFrame address)
+    public void setRoutingId (ZFrame routingId)
     {
-        if (this.address != null)
-            this.address.destroy ();
-        this.address = address.duplicate ();
+        if (this.routingId != null)
+            this.routingId.destroy ();
+        this.routingId = routingId.duplicate ();
     }
 
 
@@ -1220,7 +1186,7 @@ public class ZprotoExample implements java.io.Closeable
         return host;
     }
 
-    public void setHost (String format, Object[] args)
+    public void setHost (String format, Object ... args)
     {
         //  Format into newly allocated string
         host = String.format (format, args);
@@ -1235,7 +1201,7 @@ public class ZprotoExample implements java.io.Closeable
         return data;
     }
 
-    public void setData (String format, Object[] args)
+    public void setData (String format, Object ... args)
     {
         //  Format into newly allocated string
         data = String.format (format, args);
@@ -1250,7 +1216,7 @@ public class ZprotoExample implements java.io.Closeable
         return aliases;
     }
 
-    public void appendAliases (String format, Object[] args)
+    public void appendAliases (String format, Object ... args)
     {
         //  Format into newly allocated string
 
@@ -1298,7 +1264,7 @@ public class ZprotoExample implements java.io.Closeable
         return value;
     }
 
-    public void insertHeaders (String key, String format, Object[] args)
+    public void insertHeaders (String key, String format, Object ... args)
     {
         //  Format string into buffer
         String string = String.format (format, args);
@@ -1360,7 +1326,7 @@ public class ZprotoExample implements java.io.Closeable
         return client_forename;
     }
 
-    public void setClient_Forename (String format, Object[] args)
+    public void setClient_Forename (String format, Object ... args)
     {
         //  Format into newly allocated string
         client_forename = String.format (format, args);
@@ -1375,7 +1341,7 @@ public class ZprotoExample implements java.io.Closeable
         return client_surname;
     }
 
-    public void setClient_Surname (String format, Object[] args)
+    public void setClient_Surname (String format, Object ... args)
     {
         //  Format into newly allocated string
         client_surname = String.format (format, args);
@@ -1390,7 +1356,7 @@ public class ZprotoExample implements java.io.Closeable
         return client_mobile;
     }
 
-    public void setClient_Mobile (String format, Object[] args)
+    public void setClient_Mobile (String format, Object ... args)
     {
         //  Format into newly allocated string
         client_mobile = String.format (format, args);
@@ -1405,7 +1371,7 @@ public class ZprotoExample implements java.io.Closeable
         return client_email;
     }
 
-    public void setClient_Email (String format, Object[] args)
+    public void setClient_Email (String format, Object ... args)
     {
         //  Format into newly allocated string
         client_email = String.format (format, args);
@@ -1420,7 +1386,7 @@ public class ZprotoExample implements java.io.Closeable
         return supplier_forename;
     }
 
-    public void setSupplier_Forename (String format, Object[] args)
+    public void setSupplier_Forename (String format, Object ... args)
     {
         //  Format into newly allocated string
         supplier_forename = String.format (format, args);
@@ -1435,7 +1401,7 @@ public class ZprotoExample implements java.io.Closeable
         return supplier_surname;
     }
 
-    public void setSupplier_Surname (String format, Object[] args)
+    public void setSupplier_Surname (String format, Object ... args)
     {
         //  Format into newly allocated string
         supplier_surname = String.format (format, args);
@@ -1450,7 +1416,7 @@ public class ZprotoExample implements java.io.Closeable
         return supplier_mobile;
     }
 
-    public void setSupplier_Mobile (String format, Object[] args)
+    public void setSupplier_Mobile (String format, Object ... args)
     {
         //  Format into newly allocated string
         supplier_mobile = String.format (format, args);
@@ -1465,7 +1431,7 @@ public class ZprotoExample implements java.io.Closeable
         return supplier_email;
     }
 
-    public void setSupplier_Email (String format, Object[] args)
+    public void setSupplier_Email (String format, Object ... args)
     {
         //  Format into newly allocated string
         supplier_email = String.format (format, args);
@@ -1536,7 +1502,7 @@ public class ZprotoExample implements java.io.Closeable
         return str;
     }
 
-    public void setStr (String format, Object[] args)
+    public void setStr (String format, Object ... args)
     {
         //  Format into newly allocated string
         str = String.format (format, args);
@@ -1551,7 +1517,7 @@ public class ZprotoExample implements java.io.Closeable
         return lstr;
     }
 
-    public void setLstr (String format, Object[] args)
+    public void setLstr (String format, Object ... args)
     {
         //  Format into newly allocated string
         lstr = String.format (format, args);
@@ -1566,7 +1532,7 @@ public class ZprotoExample implements java.io.Closeable
         return strs;
     }
 
-    public void appendStrs (String format, Object[] args)
+    public void appendStrs (String format, Object ... args)
     {
         //  Format into newly allocated string
 
@@ -1593,7 +1559,7 @@ public class ZprotoExample implements java.io.Closeable
         return persons_forename;
     }
 
-    public void setPersons_Forename (String format, Object[] args)
+    public void setPersons_Forename (String format, Object ... args)
     {
         //  Format into newly allocated string
         persons_forename = String.format (format, args);
@@ -1608,7 +1574,7 @@ public class ZprotoExample implements java.io.Closeable
         return persons_surname;
     }
 
-    public void setPersons_Surname (String format, Object[] args)
+    public void setPersons_Surname (String format, Object ... args)
     {
         //  Format into newly allocated string
         persons_surname = String.format (format, args);
@@ -1623,7 +1589,7 @@ public class ZprotoExample implements java.io.Closeable
         return persons_mobile;
     }
 
-    public void setPersons_Mobile (String format, Object[] args)
+    public void setPersons_Mobile (String format, Object ... args)
     {
         //  Format into newly allocated string
         persons_mobile = String.format (format, args);
@@ -1638,7 +1604,7 @@ public class ZprotoExample implements java.io.Closeable
         return persons_email;
     }
 
-    public void setPersons_Email (String format, Object[] args)
+    public void setPersons_Email (String format, Object ... args)
     {
         //  Format into newly allocated string
         persons_email = String.format (format, args);
