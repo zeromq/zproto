@@ -528,6 +528,17 @@ public class $(ClassName) implements java.io.Closeable
             break;
 .endfor
         }
+        switch (id) {
+.for class.message where count (field, type = "msg")
+        case $(MESSAGE.NAME):
+.   for field where type = "msg"
+            for (ZFrame $(field.name)Part : $(field.name)) {
+                msg.add($(field.name)Part);
+            }
+.   endfor
+            break;
+.endfor
+        }
         //  Destroy $(ClassName) object
         msg.send(socket);
         destroy ();

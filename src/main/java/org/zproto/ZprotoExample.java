@@ -743,6 +743,13 @@ public class ZprotoExample implements java.io.Closeable
             msg.add(address);
             break;
         }
+        switch (id) {
+        case BINARY:
+            for (ZFrame contentPart : content) {
+                msg.add(contentPart);
+            }
+            break;
+        }
         //  Destroy ZprotoExample object
         msg.send(socket);
         destroy ();
