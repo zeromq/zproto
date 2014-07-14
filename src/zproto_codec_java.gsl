@@ -344,10 +344,9 @@ public class $(ClassName) implements java.io.Closeable
                     throw new IllegalArgumentException ();
                 self.$(name) = ZFrame.recvFrame (input);
 .       elsif type = "msg"
-                if (!input.hasReceiveMore ())
-                    throw new IllegalArgumentException ();
                 self.$(name) = new ZMsg();
-                self.$(name).add(ZFrame.recvFrame (input));
+                if (input.hasReceiveMore ())
+                    self.$(name).add(ZFrame.recvFrame (input));
 .       endif
 .    endfor
                 break;

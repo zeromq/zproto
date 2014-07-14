@@ -370,10 +370,10 @@ public class ZprotoExample implements java.io.Closeable
                 if (!input.hasReceiveMore ())
                     throw new IllegalArgumentException ();
                 self.address = ZFrame.recvFrame (input);
-                if (!input.hasReceiveMore ())
-                    throw new IllegalArgumentException ();
                 self.content = new ZMsg();
-                self.content.add(ZFrame.recvFrame (input));
+                if (input.hasReceiveMore ())
+                    self.content.add(ZFrame.recvFrame (input));
+
                 break;
 
             case TYPES:
