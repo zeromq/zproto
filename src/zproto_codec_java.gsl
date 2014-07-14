@@ -305,33 +305,46 @@ public class $(ClassName) implements java.io.Closeable
                 if (self.$(name) != $(field.value:))
                     throw new IllegalArgumentException ();
 .           endif
-.       elsif type = "string" | type = "longstr"
+.       elsif type = "string"
                 self.$(name) = self.getString ();
 .           if defined (field.value)
                 if (!self.$(name).equals( "$(field.value:)"))
                     throw new IllegalArgumentException ();
 .           endif
+.       elsif type = "longstr"
+                self.$(name) = self.getLongString ();
+.           if defined (field.value)
+                if (!self.$(name).equals( "$(field.value:)"))
+                    throw new IllegalArgumentException ();
+.           endif
 .       elsif type = "strings"
-                listSize = self.getNumber1 ();
+                listSize = (int) self.getNumber4 ();
                 self.$(name) = new ArrayList<String> ();
                 while (listSize-- > 0) {
-                    String string = self.getString ();
+                    String string = self.getLongString ();
                     self.$(name).add (string);
                 }
 .       elsif type = "dictionary"
-                hashSize = self.getNumber1 ();
+                hashSize = (int) self.getNumber4 ();
                 self.$(name) = new HashMap <String, String> ();
                 while (hashSize-- > 0) {
-                    String string = self.getString ();
-                    String [] kv = string.split("=");
-                    self.$(name).put(kv[0], kv[1]);
-                }
+                    String key = self.getString ();
+                    String value = self.getLongString ();
 
+                    self.$(name).put(key, value);
+                }
+.       elsif type = "chunk"
+                self.$(name) = self.getBlock((int) self.getNumber4());
+.       elsif type = "uuid"
+                ByteBuffer bb$(Name) = ByteBuffer.wrap(self.getBlock(16));
+                self.$(name) = new UUID(bb$(Name).getLong(), bb$(Name).getLong());
 .       elsif type = "frame"
                 //  Get next frame, leave current untouched
                 if (!input.hasReceiveMore ())
                     throw new IllegalArgumentException ();
                 self.$(name) = ZFrame.recvFrame (input);
+.       elsif type = "msg"
+                // "zmsg_t currently not supported"
 .       endif
 .    endfor
                 break;

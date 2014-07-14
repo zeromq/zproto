@@ -339,34 +339,38 @@ public class ZprotoExample implements java.io.Closeable
                 self.peer = self.getNumber2 ();
                 self.time = self.getNumber8 ();
                 self.host = self.getString ();
-                self.data = self.getString ();
+                self.data = self.getLongString ();
                 break;
 
             case STRUCTURES:
                 self.sequence = self.getNumber2 ();
-                listSize = self.getNumber1 ();
+                listSize = (int) self.getNumber4 ();
                 self.aliases = new ArrayList<String> ();
                 while (listSize-- > 0) {
-                    String string = self.getString ();
+                    String string = self.getLongString ();
                     self.aliases.add (string);
                 }
-                hashSize = self.getNumber1 ();
+                hashSize = (int) self.getNumber4 ();
                 self.headers = new HashMap <String, String> ();
                 while (hashSize-- > 0) {
-                    String string = self.getString ();
-                    String [] kv = string.split("=");
-                    self.headers.put(kv[0], kv[1]);
-                }
+                    String key = self.getString ();
+                    String value = self.getLongString ();
 
+                    self.headers.put(key, value);
+                }
                 break;
 
             case BINARY:
                 self.sequence = self.getNumber2 ();
                 self.flags = self.getBlock (4);
+                self.public_key = self.getBlock((int) self.getNumber4());
+                ByteBuffer bbIdentifier = ByteBuffer.wrap(self.getBlock(16));
+                self.identifier = new UUID(bbIdentifier.getLong(), bbIdentifier.getLong());
                 //  Get next frame, leave current untouched
                 if (!input.hasReceiveMore ())
                     throw new IllegalArgumentException ();
                 self.address = ZFrame.recvFrame (input);
+                // "zmsg_t currently not supported"
                 break;
 
             case TYPES:
@@ -388,13 +392,16 @@ public class ZprotoExample implements java.io.Closeable
                 self.no4 = self.getNumber4 ();
                 self.no8 = self.getNumber8 ();
                 self.str = self.getString ();
-                self.lstr = self.getString ();
-                listSize = self.getNumber1 ();
+                self.lstr = self.getLongString ();
+                listSize = (int) self.getNumber4 ();
                 self.strs = new ArrayList<String> ();
                 while (listSize-- > 0) {
-                    String string = self.getString ();
+                    String string = self.getLongString ();
                     self.strs.add (string);
                 }
+                self.chunks = self.getBlock((int) self.getNumber4());
+                ByteBuffer bbUuids = ByteBuffer.wrap(self.getBlock(16));
+                self.uuids = new UUID(bbUuids.getLong(), bbUuids.getLong());
                 self.persons_forename = self.getString ();
                 self.persons_surname = self.getString ();
                 self.persons_mobile = self.getString ();
