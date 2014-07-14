@@ -93,6 +93,7 @@ import java.util.*;
 import java.nio.ByteBuffer;
 
 import org.zeromq.ZFrame;
+import org.zeromq.ZMsg;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
 
@@ -125,7 +126,10 @@ public class ZprotoExample implements java.io.Closeable
     private Map <String, String> headers;
     private int headersBytes;
     private byte [] flags = new byte [4];
+    private byte[] public_key;
+    private UUID identifier;
     private ZFrame address;
+    private ZMsg content;
     private String client_forename;
     private String client_surname;
     private String client_mobile;
@@ -141,6 +145,8 @@ public class ZprotoExample implements java.io.Closeable
     private String str;
     private String lstr;
     private List <String> strs;
+    private byte[] chunks;
+    private UUID uuids;
     private String persons_forename;
     private String persons_surname;
     private String persons_mobile;
@@ -770,10 +776,10 @@ public class ZprotoExample implements java.io.Closeable
         Socket output,
         int sequence,
         byte [] flags,
-        chunk public_key,
-        uuid identifier,
+        byte[] public_key,
+        UUID identifier,
         ZFrame address,
-        msg content)
+        ZMsg content)
     {
         ZprotoExample self = new ZprotoExample (ZprotoExample.BINARY);
         self.setSequence (sequence);
@@ -823,8 +829,8 @@ public class ZprotoExample implements java.io.Closeable
         String str,
         String lstr,
         List <String> strs,
-        chunk chunks,
-        uuid uuids,
+        byte[] chunks,
+        UUID uuids,
         String persons_forename,
         String persons_surname,
         String persons_mobile,
