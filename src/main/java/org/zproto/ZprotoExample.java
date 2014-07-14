@@ -745,6 +745,8 @@ public class ZprotoExample implements java.io.Closeable
         }
         switch (id) {
         case BINARY:
+            if( content == null )
+                content = new ZMsg();
             for (ZFrame contentPart : content) {
                 msg.add(contentPart);
             }
@@ -814,6 +816,7 @@ public class ZprotoExample implements java.io.Closeable
         ZprotoExample self = new ZprotoExample (ZprotoExample.BINARY);
         self.setSequence (sequence);
         self.setFlags (flags);
+        self.setIdentifier (identifier);
         self.setAddress (address.duplicate ());
         self.setContent (content.duplicate ());
         self.send (output);
@@ -876,6 +879,7 @@ public class ZprotoExample implements java.io.Closeable
         self.setStr (str);
         self.setLstr (lstr);
         self.setStrs (new ArrayList <String> (strs));
+        self.setUuids (uuids);
         self.setPersons_Forename (persons_forename);
         self.setPersons_Surname (persons_surname);
         self.setPersons_Mobile (persons_mobile);

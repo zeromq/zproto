@@ -532,6 +532,8 @@ public class $(ClassName) implements java.io.Closeable
 .for class.message where count (field, type = "msg")
         case $(MESSAGE.NAME):
 .   for field where type = "msg"
+            if( $(field.name) == null )
+                $(field.name) = new ZMsg();
             for (ZFrame $(field.name)Part : $(field.name)) {
                 msg.add($(field.name)Part);
             }
@@ -588,7 +590,7 @@ public class $(ClassName) implements java.io.Closeable
     {
         $(ClassName) self = new $(ClassName) ($(ClassName).$(MESSAGE.NAME));
 .for field where !defined (value)
-.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
+.   if type = "number" | type = "octets" | type = "string" | type = "longstr" | type = "uuid"
         self.set$(Name) ($(name));
 .   elsif type = "strings"
         self.set$(Name) (new ArrayList <String> ($(name)));
