@@ -785,6 +785,7 @@ public class ZprotoExample implements java.io.Closeable
         self.setSequence (sequence);
         self.setFlags (flags);
         self.setAddress (address.duplicate ());
+        self.setContent (content.duplicate ());
         self.send (output);
     }
 
@@ -1113,7 +1114,6 @@ public class ZprotoExample implements java.io.Closeable
         this.sequence = sequence;
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the level field
 
@@ -1126,7 +1126,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         this.level = level;
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the event field
@@ -1141,7 +1140,6 @@ public class ZprotoExample implements java.io.Closeable
         this.event = event;
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the node field
 
@@ -1154,7 +1152,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         this.node = node;
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the peer field
@@ -1169,7 +1166,6 @@ public class ZprotoExample implements java.io.Closeable
         this.peer = peer;
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the time field
 
@@ -1182,7 +1178,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         this.time = time;
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the host field
@@ -1198,7 +1193,6 @@ public class ZprotoExample implements java.io.Closeable
         host = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the data field
 
@@ -1212,7 +1206,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         data = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Iterate through the aliases field, and append a aliases value
@@ -1237,7 +1230,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         aliases = new ArrayList (value);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set a value in the headers dictionary
@@ -1290,7 +1282,6 @@ public class ZprotoExample implements java.io.Closeable
             headers = value;
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the flags field
 
@@ -1304,9 +1295,31 @@ public class ZprotoExample implements java.io.Closeable
         System.arraycopy (flags, 0, this.flags, 0, 4);
     }
 
+    //  --------------------------------------------------------------------------
+    //  Get/set the public_key field
 
+    public byte[] public_key ()
+    {
+        return public_key;
+    }
 
+    //  Takes ownership of supplied frame
+    public void setPublic_Key (byte[] public_key)
+    {
+        this.public_key = public_key;
+    }
+    //  --------------------------------------------------------------------------
+    //  Get/set the identifier field
 
+    public UUID identifier ()
+    {
+        return identifier;
+    }
+
+    public void setIdentifier (UUID identifier)
+    {
+        this.identifier = identifier;
+    }
     //  --------------------------------------------------------------------------
     //  Get/set the address field
 
@@ -1322,8 +1335,21 @@ public class ZprotoExample implements java.io.Closeable
             address.destroy ();
         address = frame;
     }
+    //  --------------------------------------------------------------------------
+    //  Get/set the content field
 
+    public ZMsg content ()
+    {
+        return content;
+    }
 
+    //  Takes ownership of supplied frame
+    public void setContent (ZMsg frame)
+    {
+        if (content != null)
+            content.destroy ();
+        content = frame;
+    }
     //  --------------------------------------------------------------------------
     //  Get/set the client_forename field
 
@@ -1337,7 +1363,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         client_forename = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the client_surname field
@@ -1353,7 +1378,6 @@ public class ZprotoExample implements java.io.Closeable
         client_surname = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the client_mobile field
 
@@ -1367,7 +1391,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         client_mobile = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the client_email field
@@ -1383,7 +1406,6 @@ public class ZprotoExample implements java.io.Closeable
         client_email = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the supplier_forename field
 
@@ -1397,7 +1419,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         supplier_forename = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the supplier_surname field
@@ -1413,7 +1434,6 @@ public class ZprotoExample implements java.io.Closeable
         supplier_surname = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the supplier_mobile field
 
@@ -1427,7 +1447,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         supplier_mobile = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the supplier_email field
@@ -1443,7 +1462,6 @@ public class ZprotoExample implements java.io.Closeable
         supplier_email = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the no1 field
 
@@ -1456,7 +1474,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         this.no1 = no1;
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the no2 field
@@ -1471,7 +1488,6 @@ public class ZprotoExample implements java.io.Closeable
         this.no2 = no2;
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the no4 field
 
@@ -1485,7 +1501,6 @@ public class ZprotoExample implements java.io.Closeable
         this.no4 = no4;
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the no8 field
 
@@ -1498,7 +1513,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         this.no8 = no8;
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the str field
@@ -1514,7 +1528,6 @@ public class ZprotoExample implements java.io.Closeable
         str = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the lstr field
 
@@ -1528,7 +1541,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         lstr = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Iterate through the strs field, and append a strs value
@@ -1554,9 +1566,31 @@ public class ZprotoExample implements java.io.Closeable
         strs = new ArrayList (value);
     }
 
+    //  --------------------------------------------------------------------------
+    //  Get/set the chunks field
 
+    public byte[] chunks ()
+    {
+        return chunks;
+    }
 
+    //  Takes ownership of supplied frame
+    public void setChunks (byte[] chunks)
+    {
+        this.chunks = chunks;
+    }
+    //  --------------------------------------------------------------------------
+    //  Get/set the uuids field
 
+    public UUID uuids ()
+    {
+        return uuids;
+    }
+
+    public void setUuids (UUID uuids)
+    {
+        this.uuids = uuids;
+    }
     //  --------------------------------------------------------------------------
     //  Get/set the persons_forename field
 
@@ -1570,7 +1604,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         persons_forename = String.format (format, args);
     }
-
 
     //  --------------------------------------------------------------------------
     //  Get/set the persons_surname field
@@ -1586,7 +1619,6 @@ public class ZprotoExample implements java.io.Closeable
         persons_surname = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the persons_mobile field
 
@@ -1601,7 +1633,6 @@ public class ZprotoExample implements java.io.Closeable
         persons_mobile = String.format (format, args);
     }
 
-
     //  --------------------------------------------------------------------------
     //  Get/set the persons_email field
 
@@ -1615,7 +1646,6 @@ public class ZprotoExample implements java.io.Closeable
         //  Format into newly allocated string
         persons_email = String.format (format, args);
     }
-
 
 }
 

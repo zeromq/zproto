@@ -554,7 +554,7 @@ public class $(ClassName) implements java.io.Closeable
         self.set$(Name) (new ArrayList <String> ($(name)));
 .   elsif type = "dictionary"
         self.set$(Name) (new HashMap <String, String> ($(name)));
-.   elsif type = "frame"
+.   elsif type = "frame" | type = "msg"
         self.set$(Name) ($(name).duplicate ());
 .   endif
 .endfor
@@ -828,24 +828,50 @@ public class $(ClassName) implements java.io.Closeable
             $(name) = value;
     }
 
-.   elsif type = "frame"
+.   elsif type = "frame" | type = "msg"
     //  --------------------------------------------------------------------------
     //  Get/set the $(name) field
 
-    public ZFrame $(name) ()
+    public Z$(Type) $(name) ()
     {
         return $(name);
     }
 
     //  Takes ownership of supplied frame
-    public void set$(Name) (ZFrame frame)
+    public void set$(Name) (Z$(Type) frame)
     {
         if ($(name) != null)
             $(name).destroy ();
         $(name) = frame;
     }
-.   endif
+.   elsif type = "uuid"
+    //  --------------------------------------------------------------------------
+    //  Get/set the $(name) field
 
+    public UUID $(name) ()
+    {
+        return $(name);
+    }
+
+    public void set$(Name) (UUID $(name))
+    {
+        this.$(name) = $(name);
+    }
+.   elsif type = "chunk"
+    //  --------------------------------------------------------------------------
+    //  Get/set the $(name) field
+
+    public byte[] $(name) ()
+    {
+        return $(name);
+    }
+
+    //  Takes ownership of supplied frame
+    public void set$(Name) (byte[] $(name))
+    {
+        this.$(name) = $(name);
+    }
+.   endif
 .endfor
 }
 
