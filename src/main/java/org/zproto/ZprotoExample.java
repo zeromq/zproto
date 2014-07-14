@@ -264,6 +264,23 @@ public class ZprotoExample implements java.io.Closeable
 
         return new String (value);
     }
+
+        //  Put a string to the frame
+    public void putLongString (String value)
+    {
+        needle.putInt (value.length ());
+        needle.put (value.getBytes());
+    }
+
+    //  Get a string from the frame
+    public String getLongString ()
+    {
+        long size = getNumber4 ();
+        byte [] value = new byte [(int) size];
+        needle.get (value);
+
+        return new String (value);
+    }
     //  --------------------------------------------------------------------------
     //  Receive and parse a ZprotoExample from the socket. Returns new object or
     //  null if error. Will block if there's no message waiting.
@@ -401,23 +418,6 @@ public class ZprotoExample implements java.io.Closeable
         }
     }
 
-
-    //  Count size of key=value pair
-    private static void
-    headersCount (final Map.Entry <String, String> entry, ZprotoExample self)
-    {
-        self.headersBytes += entry.getKey ().length () + 1 + entry.getValue ().length () + 1;
-    }
-
-    //  Serialize headers key=value pair
-    private static void
-    headersWrite (final Map.Entry <String, String> entry, ZprotoExample self)
-    {
-        String string = entry.getKey () + "=" + entry.getValue ();
-        self.putString (string);
-    }
-
-
     //  --------------------------------------------------------------------------
     //  Send the ZprotoExample to the socket, and destroy it
 
@@ -425,7 +425,8 @@ public class ZprotoExample implements java.io.Closeable
     {
         assert (socket != null);
 
-        //  Calculate size of serialized data
+        ZMsg msg = new ZMsg();
+
         int frameSize = 2 + 1;          //  Signature and message ID
         switch (id) {
         case LOG:
@@ -444,30 +445,31 @@ public class ZprotoExample implements java.io.Closeable
             //  time is a 8-byte integer
             frameSize += 8;
             //  host is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (host != null)
-                frameSize += host.length ();
-            //  data is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (data != null)
-                frameSize += data.length ();
+            frameSize ++;
+            frameSize += (host != null) ? host.length() : 0;
+            //  data is a long string with 4-byte length
+            frameSize += 4;
+            frameSize += (data != null) ? data.length() : 0;
             break;
 
         case STRUCTURES:
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  aliases is an array of strings
-            frameSize++;       //  Size is one octet
+            frameSize += 4;
             if (aliases != null) {
-                for (String value : aliases)
-                    frameSize += 1 + value.length ();
+                for (String value : aliases) {
+                    frameSize += 4;
+                    frameSize += value.length ();
+                }
             }
             //  headers is an array of key=value strings
-            frameSize++;       //  Size is one octet
+            frameSize += 4;
             if (headers != null) {
                 headersBytes = 0;
                 for (Map.Entry <String, String> entry: headers.entrySet ()) {
-                    headersCount (entry, this);
+                    headersBytes += 1 + entry.getKey().length();
+                    headersBytes += 4 + entry.getValue().length();
                 }
                 frameSize += headersBytes;
             }
@@ -478,43 +480,40 @@ public class ZprotoExample implements java.io.Closeable
             frameSize += 2;
             //  flags is a block of 4 bytes
             frameSize += 4;
+            //  public_key is a chunk with 4-byte length
+            frameSize += 4;
+            frameSize += (public_key != null) ? public_key.length : 0;
+            //  identifier is uuid with 16-byte length
+            frameSize += 16;
             break;
 
         case TYPES:
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  client_forename is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (client_forename != null)
-                frameSize += client_forename.length ();
+            frameSize ++;
+            frameSize += (client_forename != null) ? client_forename.length() : 0;
             //  client_surname is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (client_surname != null)
-                frameSize += client_surname.length ();
+            frameSize ++;
+            frameSize += (client_surname != null) ? client_surname.length() : 0;
             //  client_mobile is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (client_mobile != null)
-                frameSize += client_mobile.length ();
+            frameSize ++;
+            frameSize += (client_mobile != null) ? client_mobile.length() : 0;
             //  client_email is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (client_email != null)
-                frameSize += client_email.length ();
+            frameSize ++;
+            frameSize += (client_email != null) ? client_email.length() : 0;
             //  supplier_forename is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (supplier_forename != null)
-                frameSize += supplier_forename.length ();
+            frameSize ++;
+            frameSize += (supplier_forename != null) ? supplier_forename.length() : 0;
             //  supplier_surname is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (supplier_surname != null)
-                frameSize += supplier_surname.length ();
+            frameSize ++;
+            frameSize += (supplier_surname != null) ? supplier_surname.length() : 0;
             //  supplier_mobile is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (supplier_mobile != null)
-                frameSize += supplier_mobile.length ();
+            frameSize ++;
+            frameSize += (supplier_mobile != null) ? supplier_mobile.length() : 0;
             //  supplier_email is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (supplier_email != null)
-                frameSize += supplier_email.length ();
+            frameSize ++;
+            frameSize += (supplier_email != null) ? supplier_email.length() : 0;
             break;
 
         case REPEAT:
@@ -529,35 +528,36 @@ public class ZprotoExample implements java.io.Closeable
             //  no8 is a 8-byte integer
             frameSize += 8;
             //  str is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (str != null)
-                frameSize += str.length ();
-            //  lstr is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (lstr != null)
-                frameSize += lstr.length ();
+            frameSize ++;
+            frameSize += (str != null) ? str.length() : 0;
+            //  lstr is a long string with 4-byte length
+            frameSize += 4;
+            frameSize += (lstr != null) ? lstr.length() : 0;
             //  strs is an array of strings
-            frameSize++;       //  Size is one octet
+            frameSize += 4;
             if (strs != null) {
-                for (String value : strs)
-                    frameSize += 1 + value.length ();
+                for (String value : strs) {
+                    frameSize += 4;
+                    frameSize += value.length ();
+                }
             }
+            //  chunks is a chunk with 4-byte length
+            frameSize += 4;
+            frameSize += (chunks != null) ? chunks.length : 0;
+            //  uuids is uuid with 16-byte length
+            frameSize += 16;
             //  persons_forename is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (persons_forename != null)
-                frameSize += persons_forename.length ();
+            frameSize ++;
+            frameSize += (persons_forename != null) ? persons_forename.length() : 0;
             //  persons_surname is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (persons_surname != null)
-                frameSize += persons_surname.length ();
+            frameSize ++;
+            frameSize += (persons_surname != null) ? persons_surname.length() : 0;
             //  persons_mobile is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (persons_mobile != null)
-                frameSize += persons_mobile.length ();
+            frameSize ++;
+            frameSize += (persons_mobile != null) ? persons_mobile.length() : 0;
             //  persons_email is a string with 1-byte length
-            frameSize++;       //  Size is one octet
-            if (persons_email != null)
-                frameSize += persons_email.length ();
+            frameSize ++;
+            frameSize += (persons_email != null) ? persons_email.length() : 0;
             break;
 
         default:
@@ -585,35 +585,49 @@ public class ZprotoExample implements java.io.Closeable
             else
                 putNumber1 ((byte) 0);      //  Empty string
             if (data != null)
-                putString (data);
+                putLongString (data);
             else
-                putNumber1 ((byte) 0);      //  Empty string
+                putNumber4 (0);      //  Empty string
             break;
 
         case STRUCTURES:
             putNumber2 (sequence);
             if (aliases != null) {
-                putNumber1 ((byte) aliases.size ());
+                putNumber4 (aliases.size ());
                 for (String value : aliases) {
-                    putString (value);
+                    putLongString (value);
                 }
             }
             else
-                putNumber1 ((byte) 0);      //  Empty string array
+                putNumber4 (0);      //  Empty string array
             if (headers != null) {
-                putNumber1 ((byte) headers.size ());
+                putNumber4 (headers.size ());
                 for (Map.Entry <String, String> entry: headers.entrySet ()) {
-                    headersWrite (entry, this);
+                    putString(entry.getKey());
+                    putLongString(entry.getValue());
                 }
             }
             else
-                putNumber1 ((byte) 0);      //  Empty dictionary
+                putNumber4 (0);      //  Empty dictionary
             break;
 
         case BINARY:
             putNumber2 (sequence);
             putBlock (flags, 4);
-            frameFlags = ZMQ.SNDMORE;
+              if(public_key != null) {
+                  putNumber4(public_key.length);
+                  needle.put(public_key, 0, public_key.length);
+              } else {
+                  putNumber4(0);
+              }
+              if(identifier != null) {
+                  ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                  bb.putLong(identifier.getMostSignificantBits());
+                  bb.putLong(identifier.getLeastSignificantBits());
+                  needle.put(bb.array());
+              } else {
+                  needle.put(new byte[16]);    //  Empty Chunk
+              }
             break;
 
         case TYPES:
@@ -663,17 +677,31 @@ public class ZprotoExample implements java.io.Closeable
             else
                 putNumber1 ((byte) 0);      //  Empty string
             if (lstr != null)
-                putString (lstr);
+                putLongString (lstr);
             else
-                putNumber1 ((byte) 0);      //  Empty string
+                putNumber4 (0);      //  Empty string
             if (strs != null) {
-                putNumber1 ((byte) strs.size ());
+                putNumber4 (strs.size ());
                 for (String value : strs) {
-                    putString (value);
+                    putLongString (value);
                 }
             }
             else
-                putNumber1 ((byte) 0);      //  Empty string array
+                putNumber4 (0);      //  Empty string array
+              if(chunks != null) {
+                  putNumber4(chunks.length);
+                  needle.put(chunks, 0, chunks.length);
+              } else {
+                  putNumber4(0);
+              }
+              if(uuids != null) {
+                  ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                  bb.putLong(uuids.getMostSignificantBits());
+                  bb.putLong(uuids.getLeastSignificantBits());
+                  needle.put(bb.array());
+              } else {
+                  needle.put(new byte[16]);    //  Empty Chunk
+              }
             if (persons_forename != null)
                 putString (persons_forename);
             else
@@ -693,20 +721,8 @@ public class ZprotoExample implements java.io.Closeable
             break;
 
         }
-        //  If we're sending to a ROUTER, we send the routingId first
-        if (socket.getType () == ZMQ.ROUTER) {
-            assert (routingId != null);
-            if (!routingId.send (socket, ZMQ.SNDMORE)) {
-                destroy ();
-                return false;
-            }
-        }
         //  Now send the data frame
-        if (!frame.send(socket, frameFlags)) {
-            frame.destroy ();
-            destroy ();
-            return false;
-        }
+        msg.add(frame);
 
         //  Now send any frame fields, in order
         switch (id) {
@@ -714,14 +730,11 @@ public class ZprotoExample implements java.io.Closeable
             //  If address isn't set, send an empty frame
             if (address == null)
                 address = new ZFrame ("".getBytes ());
-            if (!address.send (socket, 0)) {
-                frame.destroy ();
-                destroy ();
-                return false;
-            }
+            msg.add(address);
             break;
         }
         //  Destroy ZprotoExample object
+        msg.send(socket);
         destroy ();
         return true;
     }

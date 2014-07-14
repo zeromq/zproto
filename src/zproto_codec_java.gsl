@@ -226,6 +226,23 @@ public class $(ClassName) implements java.io.Closeable
 
         return new String (value);
     }
+
+        //  Put a string to the frame
+    public void putLongString (String value)
+    {
+        needle.putInt (value.length ());
+        needle.put (value.getBytes());
+    }
+
+    //  Get a string from the frame
+    public String getLongString ()
+    {
+        long size = getNumber4 ();
+        byte [] value = new byte [(int) size];
+        needle.get (value);
+
+        return new String (value);
+    }
     //  --------------------------------------------------------------------------
     //  Receive and parse a $(ClassName) from the socket. Returns new object or
     //  null if error. Will block if there's no message waiting.
@@ -337,25 +354,6 @@ public class $(ClassName) implements java.io.Closeable
         }
     }
 
-
-.for class.field where type = "dictionary"
-    //  Count size of key=value pair
-    private static void
-    $(name)Count (final Map.Entry <String, String> entry, $(ClassName) self)
-    {
-        self.$(name)Bytes += entry.getKey ().length () + 1 + entry.getValue ().length () + 1;
-    }
-
-    //  Serialize $(name) key=value pair
-    private static void
-    $(name)Write (final Map.Entry <String, String> entry, $(ClassName) self)
-    {
-        String string = entry.getKey () + "=" + entry.getValue ();
-        self.putString (string);
-    }
-
-.endfor
-
     //  --------------------------------------------------------------------------
     //  Send the $(ClassName) to the socket, and destroy it
 
@@ -363,7 +361,8 @@ public class $(ClassName) implements java.io.Closeable
     {
         assert (socket != null);
 
-        //  Calculate size of serialized data
+        ZMsg msg = new ZMsg();
+
         int frameSize = 2 + 1;          //  Signature and message ID
         switch (id) {
 .for class.message
@@ -375,32 +374,41 @@ public class $(ClassName) implements java.io.Closeable
 .       elsif type = "octets"
             //  $(name) is a block of $(size) bytes
             frameSize += $(size);
-.       elsif type = "string" | type = "longstr"
+.       elsif type = "string"
             //  $(name) is a string with 1-byte length
-.           if defined (field.value)
-            frameSize += 1 + "$(field.value:)".length ();
-.           else
-            frameSize++;       //  Size is one octet
-            if ($(name) != null)
-                frameSize += $(name).length ();
-.           endif
+            frameSize ++;
+            frameSize += ($(name) != null) ? $(name).length() : 0;
+.       elsif type = "longstr"
+            //  $(name) is a long string with 4-byte length
+            frameSize += 4;
+            frameSize += ($(name) != null) ? $(name).length() : 0;
 .       elsif type = "strings"
             //  $(name) is an array of strings
-            frameSize++;       //  Size is one octet
+            frameSize += 4;
             if ($(name) != null) {
-                for (String value : $(name))
-                    frameSize += 1 + value.length ();
+                for (String value : $(name)) {
+                    frameSize += 4;
+                    frameSize += value.length ();
+                }
             }
 .       elsif type = "dictionary"
             //  $(name) is an array of key=value strings
-            frameSize++;       //  Size is one octet
+            frameSize += 4;
             if ($(name) != null) {
                 $(name)Bytes = 0;
                 for (Map.Entry <String, String> entry: $(name).entrySet ()) {
-                    $(name)Count (entry, this);
+                    $(name)Bytes += 1 + entry.getKey().length();
+                    $(name)Bytes += 4 + entry.getValue().length();
                 }
                 frameSize += $(name)Bytes;
             }
+.       elsif type = "chunk"
+            //  $(name) is a chunk with 4-byte length
+            frameSize += 4;
+            frameSize += ($(name) != null) ? $(name).length : 0;
+.       elsif type = "uuid"
+            //  $(name) is uuid with 16-byte length
+            frameSize += 16;
 .       endif
 .   endfor
             break;
@@ -429,7 +437,7 @@ public class $(ClassName) implements java.io.Closeable
 .           endif
 .       elsif type = "octets"
             putBlock ($(name), $(size));
-.       elsif type = "string" | type = "longstr"
+.       elsif type = "string"
 .           if defined (field.value)
             putString ("$(field.value:)");
 .           else
@@ -438,46 +446,58 @@ public class $(ClassName) implements java.io.Closeable
             else
                 putNumber1 ((byte) 0);      //  Empty string
 .           endif
+.       elsif type = "longstr"
+.           if defined (field.value)
+            putLongString ("$(field.value:)");
+.           else
+            if ($(name) != null)
+                putLongString ($(name));
+            else
+                putNumber4 (0);      //  Empty string
+.           endif
 .       elsif type = "strings"
             if ($(name) != null) {
-                putNumber1 ((byte) $(name).size ());
+                putNumber4 ($(name).size ());
                 for (String value : $(name)) {
-                    putString (value);
+                    putLongString (value);
                 }
             }
             else
-                putNumber1 ((byte) 0);      //  Empty string array
+                putNumber4 (0);      //  Empty string array
 .       elsif type = "dictionary"
             if ($(name) != null) {
-                putNumber1 ((byte) $(name).size ());
+                putNumber4 ($(name).size ());
                 for (Map.Entry <String, String> entry: $(name).entrySet ()) {
-                    $(name)Write (entry, this);
+                    putString(entry.getKey());
+                    putLongString(entry.getValue());
                 }
             }
             else
-                putNumber1 ((byte) 0);      //  Empty dictionary
-.       elsif type = "frame"
-            frameFlags = ZMQ.SNDMORE;
+                putNumber4 (0);      //  Empty dictionary
+.       elsif type = "chunk"
+              if($(name) != null) {
+                  putNumber4($(name).length);
+                  needle.put($(name), 0, $(name).length);
+              } else {
+                  putNumber4(0);
+              }
+.       elsif type = "uuid"
+              if($(name) != null) {
+                  ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                  bb.putLong($(name).getMostSignificantBits());
+                  bb.putLong($(name).getLeastSignificantBits());
+                  needle.put(bb.array());
+              } else {
+                  needle.put(new byte[16]);    //  Empty Chunk
+              }
 .       endif
 .   endfor
             break;
 
 .endfor
         }
-        //  If we're sending to a ROUTER, we send the routingId first
-        if (socket.getType () == ZMQ.ROUTER) {
-            assert (routingId != null);
-            if (!routingId.send (socket, ZMQ.SNDMORE)) {
-                destroy ();
-                return false;
-            }
-        }
         //  Now send the data frame
-        if (!frame.send(socket, frameFlags)) {
-            frame.destroy ();
-            destroy ();
-            return false;
-        }
+        msg.add(frame);
 
         //  Now send any frame fields, in order
         switch (id) {
@@ -487,20 +507,13 @@ public class $(ClassName) implements java.io.Closeable
             //  If $(name) isn't set, send an empty frame
             if ($(field.name) == null)
                 $(field.name) = new ZFrame ("".getBytes ());
-.       if last ()
-            if (!$(field.name).send (socket, 0)) {
-.       else
-            if (!$(field.name).send (socket, ZMQ.SNDMORE)) {
-.       endif
-                frame.destroy ();
-                destroy ();
-                return false;
-            }
+            msg.add($(field.name));
 .   endfor
             break;
 .endfor
         }
         //  Destroy $(ClassName) object
+        msg.send(socket);
         destroy ();
         return true;
     }
