@@ -958,6 +958,8 @@ public class Test$(ClassName)
 .       elsif type = "dictionary"
         self.insert$(Name) ("Name", "Brutus");
         self.insert$(Name) ("Age", "%d", 43);
+.       elsif type = "chunk"
+        self.set$(Name) ("Captcha Diem".getBytes());
 .       elsif type = "frame"
         self.set$(Name) (new ZFrame ("Captcha Diem"));
 .       endif
@@ -982,6 +984,8 @@ public class Test$(ClassName)
         assertEquals (self.$(name) ().size (), 2);
         assertEquals (self.$(name)String ("Name", "?"), "Brutus");
         assertEquals (self.$(name)Number ("Age", 0), 43);
+.       elsif type = "chunk"
+        assertTrue (java.util.Arrays.equals("Captcha Diem".getBytes(), self.$(name) ()));
 .       elsif type = "frame"
         assertTrue (self.$(name) ().streq ("Captcha Diem"));
 .       endif

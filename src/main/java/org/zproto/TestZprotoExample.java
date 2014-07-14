@@ -80,6 +80,7 @@ public class TestZprotoExample
         for (int i=0; i < ZprotoExample.FLAGS_SIZE; i++)
             flagsData [i] = 123;
         self.setFlags (flagsData);
+        self.setPublic_Key ("Captcha Diem".getBytes());
         self.setAddress (new ZFrame ("Captcha Diem"));
         self.send (output);
 
@@ -88,6 +89,7 @@ public class TestZprotoExample
         assertEquals (self.sequence (), 123);
         assertEquals (self.flags () [0], 123);
         assertEquals (self.flags () [ZprotoExample.FLAGS_SIZE - 1], 123);
+        assertTrue (java.util.Arrays.equals("Captcha Diem".getBytes(), self.public_key ()));
         assertTrue (self.address ().streq ("Captcha Diem"));
         self.destroy ();
 
@@ -126,6 +128,7 @@ public class TestZprotoExample
         self.setLstr ("Life is short but Now lasts for ever");
         self.appendStrs ("Name: %s", "Brutus");
         self.appendStrs ("Age: %d", 43);
+        self.setChunks ("Captcha Diem".getBytes());
         self.setPersons_Forename ("Life is short but Now lasts for ever");
         self.setPersons_Surname ("Life is short but Now lasts for ever");
         self.setPersons_Mobile ("Life is short but Now lasts for ever");
@@ -144,6 +147,7 @@ public class TestZprotoExample
         assertEquals (self.strs ().size (), 2);
         assertEquals (self.strs ().get (0), "Name: Brutus");
         assertEquals (self.strs ().get (1), "Age: 43");
+        assertTrue (java.util.Arrays.equals("Captcha Diem".getBytes(), self.chunks ()));
         assertEquals (self.persons_forename (), "Life is short but Now lasts for ever");
         assertEquals (self.persons_surname (), "Life is short but Now lasts for ever");
         assertEquals (self.persons_mobile (), "Life is short but Now lasts for ever");
