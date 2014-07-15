@@ -101,7 +101,25 @@ extern "C" {
 #endif
 
 //  @interface
-//  This is $(class.name), implemented as a CZMQ zactor task
+//  To work with $(class.name), use the CZMQ zactor API:
+//
+//  Create new $(class.name) instance, passing logging prefix:
+//      zactor_t *$(class.name) = zactor_new ($(class.name), "myname");
+//  
+//  Destroy $(class.name) instance
+//      zactor_destroy (&$(class.name));
+//  
+//  Send zmsg instance message to $(class.name) instance:
+//      zactor_send ($(class.name), &msg);
+//  
+//  Send command to $(class.name) instance:
+//      zstr_sendx ($(class.name), "COMMAND", "ARG1", "ARG2", NULL);
+//  
+//  Receive zmsg message from $(class.name) instance:
+//      zmsg_t *msg = zactor_recv ($(class.name));
+//
+//  This is the $(class.name) constructor as a zactor_fn:
+//
 CZMQ_EXPORT void
     $(class.name) (zsock_t *pipe, void *args);
 
@@ -1028,9 +1046,6 @@ $(class.name)_test (bool verbose)
     zactor_t *server = zactor_new ($(class.name), "server");
     zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
     zstr_sendx (server, "BIND", "ipc://@/$(class.name)", NULL);
-    char *port_str = zstr_recv (server);
-    assert (streq (port_str, "0"));
-    free (port_str);
 
     zsock_t *client = zsock_new (ZMQ_DEALER);
     assert (client);
