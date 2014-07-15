@@ -10,6 +10,7 @@ function help() {
 [ $# -eq 1 ] || help
 if [ -d "$1" ];then
 	printf "\nError: Direcotry $1 already exists !!!\nPlease remove it first.\n\n"
+    exit 1
 fi
 
 mkdir -p "$1"
@@ -26,9 +27,10 @@ cd "$1" || exit 3
 git init || exit 4
 
 find ./ -type f -exec sed -i -e 's/myproj/'$MY_PROJ_NAME'/g' {} \; || exit 5
+find ./ -type f -exec sed -i -e 's/MYPROJ/'${MY_PROJ_NAME^^}'/g' {} \; || exit 6
 
 for f in $(find ./ -type f -name "*myproj*" -exec echo {} \;); do
-	mv $f ${f/myproj/$MY_PROJ_NAME} || exit 6
+	mv $f ${f/myproj/$MY_PROJ_NAME} || exit 7
 done
 
 echo ""
