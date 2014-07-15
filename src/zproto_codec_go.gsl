@@ -23,11 +23,11 @@ set_defaults ()
 package $(go_package_name())
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 .const_maxlen = 16 # 16 is number of characters of Signature and its type
@@ -240,8 +240,6 @@ func getBytes(buffer *bytes.Buffer) []byte {
 package $(go_package_name())
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -249,6 +247,8 @@ import (
 .if defined(message.strconv)
 	"strconv"
 .endif
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // $(string.trim (.?''):left)
@@ -535,12 +535,12 @@ func ($(self) *$(name:no)) SetRoutingId(routingId []byte) {
 package $(go_package_name())
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 .if has_repeats
 	"reflect"
 .endif
 	"testing"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // Yay! Test function.

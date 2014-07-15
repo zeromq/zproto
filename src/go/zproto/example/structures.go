@@ -1,12 +1,12 @@
 package example
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // This message contains a list and a hash.

@@ -1,13 +1,13 @@
 package example
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"strconv"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // Log an event.

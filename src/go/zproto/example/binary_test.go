@@ -1,9 +1,9 @@
 package example
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"testing"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // Yay! Test function.
