@@ -12,7 +12,7 @@ import (
 // Demonstrates repeating fields
 type Repeat struct {
 	routingId       []byte
-	Sequence        uint16
+	sequence        uint16
 	No1             []byte
 	No2             []uint16
 	No4             []uint32
@@ -37,7 +37,7 @@ func NewRepeat() *Repeat {
 // String returns print friendly name.
 func (r *Repeat) String() string {
 	str := "ZPROTO_EXAMPLE_REPEAT:\n"
-	str += fmt.Sprintf("    Sequence = %v\n", r.Sequence)
+	str += fmt.Sprintf("    sequence = %v\n", r.sequence)
 	str += fmt.Sprintf("    No1 = %v\n", r.No1)
 	str += fmt.Sprintf("    No2 = %v\n", r.No2)
 	str += fmt.Sprintf("    No4 = %v\n", r.No4)
@@ -59,7 +59,7 @@ func (r *Repeat) Marshal() ([]byte, error) {
 	// Calculate size of serialized data
 	bufferSize := 2 + 1 // Signature and message ID
 
-	// Sequence is a 2-byte integer
+	// sequence is a 2-byte integer
 	bufferSize += 2
 
 	// No1 is a 1-byte integer
@@ -118,8 +118,8 @@ func (r *Repeat) Marshal() ([]byte, error) {
 	binary.Write(buffer, binary.BigEndian, Signature)
 	binary.Write(buffer, binary.BigEndian, RepeatId)
 
-	// Sequence
-	binary.Write(buffer, binary.BigEndian, r.Sequence)
+	// sequence
+	binary.Write(buffer, binary.BigEndian, r.sequence)
 
 	// No1
 	binary.Write(buffer, binary.BigEndian, r.No1)
@@ -190,50 +190,36 @@ func (r *Repeat) Unmarshal(frames ...[]byte) error {
 	if id != RepeatId {
 		return errors.New("malformed Repeat message")
 	}
-
-	// Sequence
-	binary.Read(buffer, binary.BigEndian, &r.Sequence)
-
+	// sequence
+	binary.Read(buffer, binary.BigEndian, &r.sequence)
 	// No1
 	binary.Read(buffer, binary.BigEndian, &r.No1)
-
 	// No2
 	binary.Read(buffer, binary.BigEndian, &r.No2)
-
 	// No4
 	binary.Read(buffer, binary.BigEndian, &r.No4)
-
 	// No8
 	binary.Read(buffer, binary.BigEndian, &r.No8)
-
 	// Str
 	r.Str = getString(buffer)
-
 	// Lstr
 	r.Lstr = getLongString(buffer)
-
 	// Strs
 	var strsSize uint32
 	binary.Read(buffer, binary.BigEndian, &strsSize)
 	for ; strsSize != 0; strsSize-- {
 		r.Strs = append(r.Strs, getLongString(buffer))
 	}
-
 	// Chunks
 	r.Chunks = getBytes(buffer)
-
 	// Uuids
 	r.Uuids = getBytes(buffer)
-
 	// PersonsForename
 	r.PersonsForename = getString(buffer)
-
 	// PersonsSurname
 	r.PersonsSurname = getString(buffer)
-
 	// PersonsMobile
 	r.PersonsMobile = getString(buffer)
-
 	// PersonsEmail
 	r.PersonsEmail = getString(buffer)
 
@@ -279,4 +265,14 @@ func (r *Repeat) RoutingId() []byte {
 // whenever talking to a ROUTER.
 func (r *Repeat) SetRoutingId(routingId []byte) {
 	r.routingId = routingId
+}
+
+// Setsequence sets the sequence.
+func (r *Repeat) SetSequence(sequence uint16) {
+	r.sequence = sequence
+}
+
+// sequence returns the sequence.
+func (r *Repeat) Sequence() uint16 {
+	return r.sequence
 }

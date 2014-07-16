@@ -13,7 +13,7 @@ import (
 // Log an event.
 type Log struct {
 	routingId []byte
-	Sequence  uint16
+	sequence  uint16
 	Version   uint16
 	Level     byte
 	Event     byte
@@ -33,7 +33,7 @@ func NewLog() *Log {
 // String returns print friendly name.
 func (l *Log) String() string {
 	str := "ZPROTO_EXAMPLE_LOG:\n"
-	str += fmt.Sprintf("    Sequence = %v\n", l.Sequence)
+	str += fmt.Sprintf("    sequence = %v\n", l.sequence)
 	str += fmt.Sprintf("    Version = %v\n", l.Version)
 	str += fmt.Sprintf("    Level = %v\n", l.Level)
 	str += fmt.Sprintf("    Event = %v\n", l.Event)
@@ -50,7 +50,7 @@ func (l *Log) Marshal() ([]byte, error) {
 	// Calculate size of serialized data
 	bufferSize := 2 + 1 // Signature and message ID
 
-	// Sequence is a 2-byte integer
+	// sequence is a 2-byte integer
 	bufferSize += 2
 
 	// Version is a 2-byte integer
@@ -86,8 +86,8 @@ func (l *Log) Marshal() ([]byte, error) {
 	binary.Write(buffer, binary.BigEndian, Signature)
 	binary.Write(buffer, binary.BigEndian, LogId)
 
-	// Sequence
-	binary.Write(buffer, binary.BigEndian, l.Sequence)
+	// sequence
+	binary.Write(buffer, binary.BigEndian, l.sequence)
 
 	// Version
 	value, _ := strconv.ParseUint("3", 10, 2*8)
@@ -141,34 +141,25 @@ func (l *Log) Unmarshal(frames ...[]byte) error {
 	if id != LogId {
 		return errors.New("malformed Log message")
 	}
-
-	// Sequence
-	binary.Read(buffer, binary.BigEndian, &l.Sequence)
-
+	// sequence
+	binary.Read(buffer, binary.BigEndian, &l.sequence)
 	// Version
 	binary.Read(buffer, binary.BigEndian, &l.Version)
 	if l.Version != 3 {
 		return errors.New("malformed Version message")
 	}
-
 	// Level
 	binary.Read(buffer, binary.BigEndian, &l.Level)
-
 	// Event
 	binary.Read(buffer, binary.BigEndian, &l.Event)
-
 	// Node
 	binary.Read(buffer, binary.BigEndian, &l.Node)
-
 	// Peer
 	binary.Read(buffer, binary.BigEndian, &l.Peer)
-
 	// Time
 	binary.Read(buffer, binary.BigEndian, &l.Time)
-
 	// Host
 	l.Host = getString(buffer)
-
 	// Data
 	l.Data = getLongString(buffer)
 
@@ -214,4 +205,14 @@ func (l *Log) RoutingId() []byte {
 // whenever talking to a ROUTER.
 func (l *Log) SetRoutingId(routingId []byte) {
 	l.routingId = routingId
+}
+
+// Setsequence sets the sequence.
+func (l *Log) SetSequence(sequence uint16) {
+	l.sequence = sequence
+}
+
+// sequence returns the sequence.
+func (l *Log) Sequence() uint16 {
+	return l.sequence
 }

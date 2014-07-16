@@ -41,14 +41,22 @@ func TestTypes(t *testing.T) {
 
 	// Create a Types message and send it through the wire
 	types := NewTypes()
-	types.Sequence = 123
+	types.sequence = 123
+
 	types.ClientForename = "Life is short but Now lasts for ever"
+
 	types.ClientSurname = "Life is short but Now lasts for ever"
+
 	types.ClientMobile = "Life is short but Now lasts for ever"
+
 	types.ClientEmail = "Life is short but Now lasts for ever"
+
 	types.SupplierForename = "Life is short but Now lasts for ever"
+
 	types.SupplierSurname = "Life is short but Now lasts for ever"
+
 	types.SupplierMobile = "Life is short but Now lasts for ever"
+
 	types.SupplierEmail = "Life is short but Now lasts for ever"
 
 	err = types.Send(output)
@@ -61,30 +69,38 @@ func TestTypes(t *testing.T) {
 	}
 
 	tr := transit.(*Types)
-	if tr.Sequence != 123 {
-		t.Fatalf("expected %d, got %d", 123, tr.Sequence)
+	if tr.sequence != 123 {
+		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}
+
 	if tr.ClientForename != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientForename)
 	}
+
 	if tr.ClientSurname != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientSurname)
 	}
+
 	if tr.ClientMobile != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientMobile)
 	}
+
 	if tr.ClientEmail != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientEmail)
 	}
+
 	if tr.SupplierForename != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierForename)
 	}
+
 	if tr.SupplierSurname != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierSurname)
 	}
+
 	if tr.SupplierMobile != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierMobile)
 	}
+
 	if tr.SupplierEmail != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierEmail)
 	}
@@ -93,10 +109,12 @@ func TestTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	transit, err = Recv(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if routingId != string(tr.RoutingId()) {
 		t.Fatalf("expected %s, got %s", routingId, string(tr.RoutingId()))
 	}

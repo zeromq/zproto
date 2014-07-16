@@ -42,7 +42,7 @@ func TestRepeat(t *testing.T) {
 
 	// Create a Repeat message and send it through the wire
 	repeat := NewRepeat()
-	repeat.Sequence = 123
+	repeat.sequence = 123
 	no1 := make([]byte, 3)
 	no1 = append(no1, 10, 20, 30)
 	repeat.No1 = no1
@@ -75,8 +75,8 @@ func TestRepeat(t *testing.T) {
 	}
 
 	tr := transit.(*Repeat)
-	if tr.Sequence != 123 {
-		t.Fatalf("expected %d, got %d", 123, tr.Sequence)
+	if tr.sequence != 123 {
+		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}
 	if reflect.DeepEqual(tr.No1, no1) {
 		t.Fatalf("expected %v, got %v", no1, tr.No1)
@@ -104,10 +104,12 @@ func TestRepeat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	transit, err = Recv(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if routingId != string(tr.RoutingId()) {
 		t.Fatalf("expected %s, got %s", routingId, string(tr.RoutingId()))
 	}

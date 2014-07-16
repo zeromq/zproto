@@ -12,7 +12,7 @@ import (
 // Demonstrate custom-defined types
 type Types struct {
 	routingId        []byte
-	Sequence         uint16
+	sequence         uint16
 	ClientForename   string
 	ClientSurname    string
 	ClientMobile     string
@@ -32,7 +32,7 @@ func NewTypes() *Types {
 // String returns print friendly name.
 func (t *Types) String() string {
 	str := "ZPROTO_EXAMPLE_TYPES:\n"
-	str += fmt.Sprintf("    Sequence = %v\n", t.Sequence)
+	str += fmt.Sprintf("    sequence = %v\n", t.sequence)
 	str += fmt.Sprintf("    ClientForename = %v\n", t.ClientForename)
 	str += fmt.Sprintf("    ClientSurname = %v\n", t.ClientSurname)
 	str += fmt.Sprintf("    ClientMobile = %v\n", t.ClientMobile)
@@ -49,7 +49,7 @@ func (t *Types) Marshal() ([]byte, error) {
 	// Calculate size of serialized data
 	bufferSize := 2 + 1 // Signature and message ID
 
-	// Sequence is a 2-byte integer
+	// sequence is a 2-byte integer
 	bufferSize += 2
 
 	// ClientForename is a string with 1-byte length
@@ -91,8 +91,8 @@ func (t *Types) Marshal() ([]byte, error) {
 	binary.Write(buffer, binary.BigEndian, Signature)
 	binary.Write(buffer, binary.BigEndian, TypesId)
 
-	// Sequence
-	binary.Write(buffer, binary.BigEndian, t.Sequence)
+	// sequence
+	binary.Write(buffer, binary.BigEndian, t.sequence)
 
 	// ClientForename
 	putString(buffer, t.ClientForename)
@@ -145,31 +145,22 @@ func (t *Types) Unmarshal(frames ...[]byte) error {
 	if id != TypesId {
 		return errors.New("malformed Types message")
 	}
-
-	// Sequence
-	binary.Read(buffer, binary.BigEndian, &t.Sequence)
-
+	// sequence
+	binary.Read(buffer, binary.BigEndian, &t.sequence)
 	// ClientForename
 	t.ClientForename = getString(buffer)
-
 	// ClientSurname
 	t.ClientSurname = getString(buffer)
-
 	// ClientMobile
 	t.ClientMobile = getString(buffer)
-
 	// ClientEmail
 	t.ClientEmail = getString(buffer)
-
 	// SupplierForename
 	t.SupplierForename = getString(buffer)
-
 	// SupplierSurname
 	t.SupplierSurname = getString(buffer)
-
 	// SupplierMobile
 	t.SupplierMobile = getString(buffer)
-
 	// SupplierEmail
 	t.SupplierEmail = getString(buffer)
 
@@ -215,4 +206,14 @@ func (t *Types) RoutingId() []byte {
 // whenever talking to a ROUTER.
 func (t *Types) SetRoutingId(routingId []byte) {
 	t.routingId = routingId
+}
+
+// Setsequence sets the sequence.
+func (t *Types) SetSequence(sequence uint16) {
+	t.sequence = sequence
+}
+
+// sequence returns the sequence.
+func (t *Types) Sequence() uint16 {
+	return t.sequence
 }

@@ -35,6 +35,8 @@ type Transit interface {
 	Send(*zmq.Socket) error
 	SetRoutingId([]byte)
 	RoutingId() []byte
+	SetSequence(uint16)
+	Sequence() uint16
 }
 
 // Unmarshals data from raw frames.
@@ -127,7 +129,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		cloned.Version = msg.Version
 		cloned.Level = msg.Level
 		cloned.Event = msg.Event
@@ -143,7 +145,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		for idx, str := range msg.Aliases {
 			cloned.Aliases[idx] = str
 		}
@@ -157,7 +159,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		cloned.Flags = msg.Flags
 		cloned.PublicKey = append(cloned.PublicKey, msg.PublicKey...)
 		cloned.Identifier = append(cloned.Identifier, msg.Identifier...)
@@ -170,7 +172,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		cloned.ClientForename = msg.ClientForename
 		cloned.ClientSurname = msg.ClientSurname
 		cloned.ClientMobile = msg.ClientMobile
@@ -186,7 +188,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		// TODO(armen): Implement repeat
 		// TODO(armen): Implement repeat
 		// TODO(armen): Implement repeat

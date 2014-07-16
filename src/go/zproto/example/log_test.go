@@ -41,13 +41,15 @@ func TestLog(t *testing.T) {
 
 	// Create a Log message and send it through the wire
 	log := NewLog()
-	log.Sequence = 123
+	log.sequence = 123
 	log.Level = 123
 	log.Event = 123
 	log.Node = 123
 	log.Peer = 123
 	log.Time = 123
+
 	log.Host = "Life is short but Now lasts for ever"
+
 	log.Data = "Life is short but Now lasts for ever"
 
 	err = log.Send(output)
@@ -60,8 +62,8 @@ func TestLog(t *testing.T) {
 	}
 
 	tr := transit.(*Log)
-	if tr.Sequence != 123 {
-		t.Fatalf("expected %d, got %d", 123, tr.Sequence)
+	if tr.sequence != 123 {
+		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}
 	if tr.Level != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.Level)
@@ -78,9 +80,11 @@ func TestLog(t *testing.T) {
 	if tr.Time != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.Time)
 	}
+
 	if tr.Host != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.Host)
 	}
+
 	if tr.Data != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.Data)
 	}
@@ -89,10 +93,12 @@ func TestLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	transit, err = Recv(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if routingId != string(tr.RoutingId()) {
 		t.Fatalf("expected %s, got %s", routingId, string(tr.RoutingId()))
 	}

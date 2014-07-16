@@ -12,7 +12,7 @@ import (
 // This message contains a list and a hash.
 type Structures struct {
 	routingId []byte
-	Sequence  uint16
+	sequence  uint16
 	Aliases   []string
 	Headers   map[string]string
 }
@@ -27,7 +27,7 @@ func NewStructures() *Structures {
 // String returns print friendly name.
 func (s *Structures) String() string {
 	str := "ZPROTO_EXAMPLE_STRUCTURES:\n"
-	str += fmt.Sprintf("    Sequence = %v\n", s.Sequence)
+	str += fmt.Sprintf("    sequence = %v\n", s.sequence)
 	str += fmt.Sprintf("    Aliases = %v\n", s.Aliases)
 	str += fmt.Sprintf("    Headers = %v\n", s.Headers)
 	return str
@@ -38,7 +38,7 @@ func (s *Structures) Marshal() ([]byte, error) {
 	// Calculate size of serialized data
 	bufferSize := 2 + 1 // Signature and message ID
 
-	// Sequence is a 2-byte integer
+	// sequence is a 2-byte integer
 	bufferSize += 2
 
 	// Aliases is an array of strings
@@ -62,8 +62,8 @@ func (s *Structures) Marshal() ([]byte, error) {
 	binary.Write(buffer, binary.BigEndian, Signature)
 	binary.Write(buffer, binary.BigEndian, StructuresId)
 
-	// Sequence
-	binary.Write(buffer, binary.BigEndian, s.Sequence)
+	// sequence
+	binary.Write(buffer, binary.BigEndian, s.sequence)
 
 	// Aliases
 	binary.Write(buffer, binary.BigEndian, uint32(len(s.Aliases)))
@@ -105,17 +105,14 @@ func (s *Structures) Unmarshal(frames ...[]byte) error {
 	if id != StructuresId {
 		return errors.New("malformed Structures message")
 	}
-
-	// Sequence
-	binary.Read(buffer, binary.BigEndian, &s.Sequence)
-
+	// sequence
+	binary.Read(buffer, binary.BigEndian, &s.sequence)
 	// Aliases
 	var aliasesSize uint32
 	binary.Read(buffer, binary.BigEndian, &aliasesSize)
 	for ; aliasesSize != 0; aliasesSize-- {
 		s.Aliases = append(s.Aliases, getLongString(buffer))
 	}
-
 	// Headers
 	var headersSize uint32
 	binary.Read(buffer, binary.BigEndian, &headersSize)
@@ -167,4 +164,14 @@ func (s *Structures) RoutingId() []byte {
 // whenever talking to a ROUTER.
 func (s *Structures) SetRoutingId(routingId []byte) {
 	s.routingId = routingId
+}
+
+// Setsequence sets the sequence.
+func (s *Structures) SetSequence(sequence uint16) {
+	s.sequence = sequence
+}
+
+// sequence returns the sequence.
+func (s *Structures) Sequence() uint16 {
+	return s.sequence
 }

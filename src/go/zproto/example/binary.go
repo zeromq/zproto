@@ -12,7 +12,7 @@ import (
 // Deliver a multi-part message.
 type Binary struct {
 	routingId  []byte
-	Sequence   uint16
+	sequence   uint16
 	Flags      [4]byte
 	PublicKey  []byte
 	Identifier []byte
@@ -29,7 +29,7 @@ func NewBinary() *Binary {
 // String returns print friendly name.
 func (b *Binary) String() string {
 	str := "ZPROTO_EXAMPLE_BINARY:\n"
-	str += fmt.Sprintf("    Sequence = %v\n", b.Sequence)
+	str += fmt.Sprintf("    sequence = %v\n", b.sequence)
 	str += fmt.Sprintf("    Flags = %v\n", b.Flags)
 	str += fmt.Sprintf("    PublicKey = %v\n", b.PublicKey)
 	str += fmt.Sprintf("    Identifier = %v\n", b.Identifier)
@@ -43,7 +43,7 @@ func (b *Binary) Marshal() ([]byte, error) {
 	// Calculate size of serialized data
 	bufferSize := 2 + 1 // Signature and message ID
 
-	// Sequence is a 2-byte integer
+	// sequence is a 2-byte integer
 	bufferSize += 2
 
 	// Flags is a block of [4]byte
@@ -62,8 +62,8 @@ func (b *Binary) Marshal() ([]byte, error) {
 	binary.Write(buffer, binary.BigEndian, Signature)
 	binary.Write(buffer, binary.BigEndian, BinaryId)
 
-	// Sequence
-	binary.Write(buffer, binary.BigEndian, b.Sequence)
+	// sequence
+	binary.Write(buffer, binary.BigEndian, b.sequence)
 
 	// Flags
 	binary.Write(buffer, binary.BigEndian, b.Flags)
@@ -101,24 +101,18 @@ func (b *Binary) Unmarshal(frames ...[]byte) error {
 	if id != BinaryId {
 		return errors.New("malformed Binary message")
 	}
-
-	// Sequence
-	binary.Read(buffer, binary.BigEndian, &b.Sequence)
-
+	// sequence
+	binary.Read(buffer, binary.BigEndian, &b.sequence)
 	// Flags
 	binary.Read(buffer, binary.BigEndian, &b.Flags)
-
 	// PublicKey
 	b.PublicKey = getBytes(buffer)
-
 	// Identifier
 	b.Identifier = getBytes(buffer)
-
 	// Address
 	if 0 <= len(frames)-1 {
 		b.Address = frames[0]
 	}
-
 	// Content
 	if 1 <= len(frames)-1 {
 		b.Content = frames[1]
@@ -169,4 +163,14 @@ func (b *Binary) RoutingId() []byte {
 // whenever talking to a ROUTER.
 func (b *Binary) SetRoutingId(routingId []byte) {
 	b.routingId = routingId
+}
+
+// Setsequence sets the sequence.
+func (b *Binary) SetSequence(sequence uint16) {
+	b.sequence = sequence
+}
+
+// sequence returns the sequence.
+func (b *Binary) Sequence() uint16 {
+	return b.sequence
 }
