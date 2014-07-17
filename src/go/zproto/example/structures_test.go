@@ -41,6 +41,7 @@ func TestStructures(t *testing.T) {
 
 	// Create a Structures message and send it through the wire
 	structures := NewStructures()
+
 	structures.sequence = 123
 
 	structures.Aliases = []string{"Name: Brutus", "Age: 43"}
@@ -57,6 +58,7 @@ func TestStructures(t *testing.T) {
 	}
 
 	tr := transit.(*Structures)
+
 	if tr.sequence != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}

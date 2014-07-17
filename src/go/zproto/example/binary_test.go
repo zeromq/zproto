@@ -41,6 +41,7 @@ func TestBinary(t *testing.T) {
 
 	// Create a Binary message and send it through the wire
 	binary := NewBinary()
+
 	binary.sequence = 123
 
 	binary.Flags = [4]byte{'z', 'z', 'z', 'z'}
@@ -63,6 +64,7 @@ func TestBinary(t *testing.T) {
 	}
 
 	tr := transit.(*Binary)
+
 	if tr.sequence != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}

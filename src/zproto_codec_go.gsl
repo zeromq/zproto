@@ -44,7 +44,7 @@ const (
 )
 
 .id_maxlen = 0
-.for message
+.for message where !defined (repeat)
 .    message.origname = message.name
 .    message.name = go_name(message.name)
 .    if id_maxlen < string.length(message.name)+2
@@ -52,7 +52,7 @@ const (
 .    endif
 .endfor
 const (
-.for message
+.for message where !defined (repeat)
 	$("$(name:no)Id"%-$(id_maxlen)s) uint8 = $(id)
 .endfor
 )
@@ -91,7 +91,7 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	binary.Read(buffer, binary.BigEndian, &id)
 
 	switch id {
-.for message
+.for message where !defined (repeat)
 	case $(name:no)Id:
 		t = New$(name:no)()
 .endfor
@@ -149,16 +149,14 @@ func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 func Clone(t Transit) Transit {
 
 	switch msg := t.(type) {
-.for message
+.for message where !defined (repeat)
 	case *$(name:no):
 		cloned := New$(name:no)()
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
 .    for field
-.       if defined (repeat)
-		// TODO(armen): Implement repeat
-.       elsif type = "dictionary"
+.       if type = "dictionary"
 		for key, val := range msg.$(name:no) {
 			cloned.$(name:no)[key] = val
 		}
@@ -239,7 +237,7 @@ func getBytes(buffer *bytes.Buffer) []byte {
 .#
 .# Each message is in a separate file
 .#
-.for message
+.for message where !defined (repeat)
 .output "$(go_package_path())/$(origname).go"
 package $(go_package_name())
 
@@ -555,9 +553,6 @@ func ($(self) *$(struct:no)) $(fname:no)() $(gotype) {
 package $(go_package_name())
 
 import (
-.if has_repeats
-	"reflect"
-.endif
 	"testing"
 
 	zmq "github.com/pebbe/zmq4"
@@ -600,21 +595,8 @@ func Test$(name:no)(t *testing.T) {
 	$(name) := New$(name:no)()
 .   struct = "$(name)"
 .   for field where !defined (value)
-.       if defined (repeat)
-.           if type = "number"
-	$(name) := make($(gotype), $(repeat))
-	$(name) = append($(name), 10, 20, 30)
-	$(struct).$(name:no) = $(name)
-.           elsif type = "string" | type = "longstr"
-	// TODO(armen): Implement repeat for string and longstr
-.           elsif type = "strings"
-	// TODO(armen): Implement repeat for strings
-.           elsif type = "chunk"
-	// TODO(armen): Implement repeat for chunk
-.           elsif type = "uuid"
-	// TODO(armen): Implement repeat for uuid
-.           endif
-.       elsif type = "number"
+.       if type = "number"
+
 	$(struct).$(name:no) = 123
 .       elsif type = "octets"
 .           if defined(size)
@@ -653,21 +635,8 @@ func Test$(name:no)(t *testing.T) {
 
 	tr := transit.(*$(name:no))
 .   for field where !defined (value)
-.       if defined (repeat)
-.           if type = "number"
-	if reflect.DeepEqual(tr.$(name:no), $(name)) {
-		t.Fatalf("expected %v, got %v", $(name), tr.$(name:no))
-	}
-.           elsif type = "string" | type = "longstr"
-	// TODO(armen): Implement repeat for string and longstr
-.           elsif type = "strings"
-	// TODO(armen): Implement repeat for strings
-.           elsif type = "chunk"
-	// TODO(armen): Implement repeat for chunk
-.           elsif type = "uuid"
-	// TODO(armen): Implement repeat for uuid
-.           endif
-.       elsif type = "number"
+.       if type = "number"
+
 	if tr.$(name:no) != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.$(name:no))
 	}

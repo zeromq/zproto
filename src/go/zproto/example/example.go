@@ -25,7 +25,6 @@ const (
 	StructuresId uint8 = 2
 	BinaryId     uint8 = 3
 	TypesId      uint8 = 4
-	RepeatId     uint8 = 5
 )
 
 type Transit interface {
@@ -68,8 +67,6 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 		t = NewBinary()
 	case TypesId:
 		t = NewTypes()
-	case RepeatId:
-		t = NewRepeat()
 	}
 	err = t.Unmarshal(frames...)
 
@@ -181,27 +178,6 @@ func Clone(t Transit) Transit {
 		cloned.SupplierSurname = msg.SupplierSurname
 		cloned.SupplierMobile = msg.SupplierMobile
 		cloned.SupplierEmail = msg.SupplierEmail
-		return cloned
-
-	case *Repeat:
-		cloned := NewRepeat()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
-		cloned.sequence = msg.sequence
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
 		return cloned
 	}
 
