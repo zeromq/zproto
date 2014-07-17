@@ -87,3 +87,4 @@ The following ABNF grammar defines the zproto example protocol:
     number-2        = 2OCTET
     number-4        = 4OCTET
     number-8        = 8OCTET
+

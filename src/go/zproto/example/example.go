@@ -8,11 +8,11 @@
 package example
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 const (
@@ -25,7 +25,6 @@ const (
 	StructuresId uint8 = 2
 	BinaryId     uint8 = 3
 	TypesId      uint8 = 4
-	RepeatId     uint8 = 5
 )
 
 type Transit interface {
@@ -35,6 +34,8 @@ type Transit interface {
 	Send(*zmq.Socket) error
 	SetRoutingId([]byte)
 	RoutingId() []byte
+	SetSequence(uint16)
+	Sequence() uint16
 }
 
 // Unmarshals data from raw frames.
@@ -66,8 +67,6 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 		t = NewBinary()
 	case TypesId:
 		t = NewTypes()
-	case RepeatId:
-		t = NewRepeat()
 	}
 	err = t.Unmarshal(frames...)
 
@@ -127,7 +126,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		cloned.Version = msg.Version
 		cloned.Level = msg.Level
 		cloned.Event = msg.Event
@@ -143,7 +142,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		for idx, str := range msg.Aliases {
 			cloned.Aliases[idx] = str
 		}
@@ -157,7 +156,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		cloned.Flags = msg.Flags
 		cloned.PublicKey = append(cloned.PublicKey, msg.PublicKey...)
 		cloned.Identifier = append(cloned.Identifier, msg.Identifier...)
@@ -170,7 +169,7 @@ func Clone(t Transit) Transit {
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
+		cloned.sequence = msg.sequence
 		cloned.ClientForename = msg.ClientForename
 		cloned.ClientSurname = msg.ClientSurname
 		cloned.ClientMobile = msg.ClientMobile
@@ -179,27 +178,6 @@ func Clone(t Transit) Transit {
 		cloned.SupplierSurname = msg.SupplierSurname
 		cloned.SupplierMobile = msg.SupplierMobile
 		cloned.SupplierEmail = msg.SupplierEmail
-		return cloned
-
-	case *Repeat:
-		cloned := NewRepeat()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
-		cloned.Sequence = msg.Sequence
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
-		// TODO(armen): Implement repeat
 		return cloned
 	}
 

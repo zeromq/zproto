@@ -28,7 +28,6 @@ function set_defaults ()
     resolve_types ()
     
     class.signature ?= 0
-    class.has_repeats = 0
     class.header ?= "go"
     class.source ?= "."
 
@@ -38,11 +37,12 @@ function set_defaults ()
         message.field_maxlen = 9
         for field
             field.name = go_name(field.name)
+            field.fname = field.name
+            field.name = defined(field.in_header) ?? "$(field.name)" ? field.name
             if defined (repeat)
-                message.has_repeats = 1
-                if repeat = "n"
-                    repeat = "256"
-                endif
+                message.repeat = 1
+                echo "W: repeat attribute used in $(name) isn't supported by go_codec"
+                next
             endif
             if type = "number"
                 if defined (value)
@@ -51,13 +51,13 @@ function set_defaults ()
                 endif
                 field.size ?= 1
                 if size = 1
-                    field.gotype = defined (repeat) ?? "[]byte" ? "byte"
+                    field.gotype = "byte"
                 elsif size = 2
-                    field.gotype = defined (repeat) ?? "[]uint16" ? "uint16"
+                    field.gotype = "uint16"
                 elsif size = 4
-                    field.gotype = defined (repeat) ?? "[]uint32" ? "uint32"
+                    field.gotype = "uint32"
                 elsif size = 8
-                    field.gotype = defined (repeat) ?? "[]uint64" ? "uint64"
+                    field.gotype = "uint64"
                 else
                     echo "E: bad size $(size) for $(name)"
                 endif
@@ -73,6 +73,8 @@ function set_defaults ()
                 field.gotype = "map[string]string"
             elsif type = "string" | type = "longstr"
                 field.gotype = "string"
+            elsif type = "chunk" | type = "uuid"
+                field.gotype = "[]byte"
             elsif type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
                 field.gotype = "[]byte"
             else

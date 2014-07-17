@@ -23,11 +23,11 @@ set_defaults ()
 package $(go_package_name())
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 .const_maxlen = 16 # 16 is number of characters of Signature and its type
@@ -44,7 +44,7 @@ const (
 )
 
 .id_maxlen = 0
-.for message
+.for message where !defined (repeat)
 .    message.origname = message.name
 .    message.name = go_name(message.name)
 .    if id_maxlen < string.length(message.name)+2
@@ -52,7 +52,7 @@ const (
 .    endif
 .endfor
 const (
-.for message
+.for message where !defined (repeat)
 	$("$(name:no)Id"%-$(id_maxlen)s) uint8 = $(id)
 .endfor
 )
@@ -64,6 +64,10 @@ type Transit interface {
 	Send(*zmq.Socket) error
 	SetRoutingId([]byte)
 	RoutingId() []byte
+.for field where defined(in_header)
+	Set$(fname:no)($(gotype))
+	$(fname:no)() $(gotype)
+.endfor
 }
 
 // Unmarshals data from raw frames.
@@ -87,7 +91,7 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	binary.Read(buffer, binary.BigEndian, &id)
 
 	switch id {
-.for message
+.for message where !defined (repeat)
 	case $(name:no)Id:
 		t = New$(name:no)()
 .endfor
@@ -145,16 +149,14 @@ func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 func Clone(t Transit) Transit {
 
 	switch msg := t.(type) {
-.for message
+.for message where !defined (repeat)
 	case *$(name:no):
 		cloned := New$(name:no)()
 		routingId := make([]byte, len(msg.RoutingId()))
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
 .    for field
-.       if defined (repeat)
-		// TODO(armen): Implement repeat
-.       elsif type = "dictionary"
+.       if type = "dictionary"
 		for key, val := range msg.$(name:no) {
 			cloned.$(name:no)[key] = val
 		}
@@ -235,13 +237,11 @@ func getBytes(buffer *bytes.Buffer) []byte {
 .#
 .# Each message is in a separate file
 .#
-.for message
+.for message where !defined (repeat)
 .output "$(go_package_path())/$(origname).go"
 package $(go_package_name())
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -249,13 +249,19 @@ import (
 .if defined(message.strconv)
 	"strconv"
 .endif
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // $(string.trim (.?''):left)
 type $(name:no) struct {
 	$("routingId"%-$(field_maxlen + 1)s)[]byte
 .for field
+.   if defined(in_header)
+	$(name%-$(field_maxlen + 1)s)$(gotype)
+.   else
 	$(name:no%-$(field_maxlen + 1)s)$(gotype)
+.   endif
 .endfor
 }
 .self = string.substr(name,0,0)
@@ -421,7 +427,6 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 	}
 .frames = 0
 .for field
-
 	// $(name:no)
 .    if type = "number"
 	binary.Read(buffer, binary.BigEndian, &$(self).$(name:no))
@@ -531,16 +536,26 @@ func ($(self) *$(name:no)) RoutingId() []byte {
 func ($(self) *$(name:no)) SetRoutingId(routingId []byte) {
 	$(self).routingId = routingId
 }
+.struct = "$(name:no)"
+.for field where defined(in_header)
+
+// Set$(name:no) sets the $(name).
+func ($(self) *$(struct:no)) Set$(fname:no)($(name) $(gotype)) {
+	$(self).$(name) = $(name)
+}
+
+// $(name:no) returns the $(name).
+func ($(self) *$(struct:no)) $(fname:no)() $(gotype) {
+	return $(self).$(name)
+}
+.endfor
 .output "$(go_package_path())/$(origname)_test.go"
 package $(go_package_name())
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
-.if has_repeats
-	"reflect"
-.endif
 	"testing"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // Yay! Test function.
@@ -580,38 +595,31 @@ func Test$(name:no)(t *testing.T) {
 	$(name) := New$(name:no)()
 .   struct = "$(name)"
 .   for field where !defined (value)
-.       if defined (repeat)
-.           if type = "number"
-	$(name) := make($(gotype), $(repeat))
-	$(name) = append($(name), 10, 20, 30)
-	$(struct).$(name:no) = $(name)
-.           elsif type = "string" | type = "longstr"
-	// TODO(armen): Implement repeat for string and longstr
-.           elsif type = "strings"
-	// TODO(armen): Implement repeat for strings
-.           elsif type = "chunk"
-	// TODO(armen): Implement repeat for chunk
-.           elsif type = "uuid"
-	// TODO(armen): Implement repeat for uuid
-.           endif
-.       elsif type = "number"
+.       if type = "number"
+
 	$(struct).$(name:no) = 123
 .       elsif type = "octets"
 .           if defined(size)
 .               data = "'z', " * size
 .               data_len = string.length(data)
 .               data = string.substr(data, 0, data_len-3)
+
 	$(struct).$(name:no) = [$(size)]byte{$(data)}
 .           else
+
 	$(struct).$(name:no) = []byte{'z', 'y'}
 .           endif
 .       elsif type = "string" | type = "longstr"
+
 	$(struct).$(name:no) = "Life is short but Now lasts for ever"
 .       elsif type = "strings"
+
 	$(struct).$(name:no) = []string{"Name: Brutus", "Age: 43"}
 .       elsif type = "dictionary"
+
 	$(struct).$(name:no) = map[string]string{"Name": "Brutus", "Age": "43"}
 .       elsif type = "frame" | type = "msg" | type = "uuid" | type = "chunk"
+
 	$(struct).$(name:no) = []byte("Captcha Diem")
 .       endif
 .   endfor
@@ -627,21 +635,8 @@ func Test$(name:no)(t *testing.T) {
 
 	tr := transit.(*$(name:no))
 .   for field where !defined (value)
-.       if defined (repeat)
-.           if type = "number"
-	if reflect.DeepEqual(tr.$(name:no), $(name)) {
-		t.Fatalf("expected %v, got %v", $(name), tr.$(name:no))
-	}
-.           elsif type = "string" | type = "longstr"
-	// TODO(armen): Implement repeat for string and longstr
-.           elsif type = "strings"
-	// TODO(armen): Implement repeat for strings
-.           elsif type = "chunk"
-	// TODO(armen): Implement repeat for chunk
-.           elsif type = "uuid"
-	// TODO(armen): Implement repeat for uuid
-.           endif
-.       elsif type = "number"
+.       if type = "number"
+
 	if tr.$(name:no) != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.$(name:no))
 	}
@@ -650,6 +645,7 @@ func Test$(name:no)(t *testing.T) {
 .           data = "'z', " * size
 .           data_len = string.length(data)
 .           data = string.substr(data, 0, data_len-3)
+
 	if len(tr.$(name:no)) != $(size) {
 		t.Fatalf("mismatch octets size for %s", "$(name:no)")
 	}
@@ -659,6 +655,7 @@ func Test$(name:no)(t *testing.T) {
 		}
 	}
 .           else
+
 	if len(tr.$(name:no)) != 2 {
 		t.Fatalf("mismatch octets size for %s", "$(name:no)")
 	}
@@ -669,22 +666,26 @@ func Test$(name:no)(t *testing.T) {
 	}
 .           endif
 .       elsif type = "string" | type = "longstr"
+
 	if tr.$(name:no) != "Life is short but Now lasts for ever" {
 		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.$(name:no))
 	}
 .       elsif type = "strings"
+
 	for idx, str := range []string{"Name: Brutus", "Age: 43"} {
 		if tr.$(name:no)[idx] != str {
 			t.Fatalf("expected %s, got %s", str, tr.$(name:no)[idx])
 		}
 	}
 .       elsif type = "dictionary"
+
 	for key, val := range map[string]string{"Name": "Brutus", "Age": "43"} {
 		if tr.$(name:no)[key] != val {
 			t.Fatalf("expected %s, got %s", val, tr.$(name:no)[key])
 		}
 	}
 .       elsif type = "frame" | type = "msg" | type = "uuid" | type = "chunk"
+
 	if string(tr.$(name:no)) != "Captcha Diem" {
 		t.Fatalf("expected %s, got %s", "Captcha Diem", tr.$(name:no))
 	}
@@ -695,10 +696,12 @@ func Test$(name:no)(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	transit, err = Recv(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if routingId != string(tr.RoutingId()) {
 		t.Fatalf("expected %s, got %s", routingId, string(tr.RoutingId()))
 	}

@@ -1,9 +1,9 @@
 package example
 
 import (
-	zmq "github.com/pebbe/zmq4"
-
 	"testing"
+
+	zmq "github.com/pebbe/zmq4"
 )
 
 // Yay! Test function.
@@ -41,8 +41,11 @@ func TestStructures(t *testing.T) {
 
 	// Create a Structures message and send it through the wire
 	structures := NewStructures()
-	structures.Sequence = 123
+
+	structures.sequence = 123
+
 	structures.Aliases = []string{"Name: Brutus", "Age: 43"}
+
 	structures.Headers = map[string]string{"Name": "Brutus", "Age": "43"}
 
 	err = structures.Send(output)
@@ -55,14 +58,17 @@ func TestStructures(t *testing.T) {
 	}
 
 	tr := transit.(*Structures)
-	if tr.Sequence != 123 {
-		t.Fatalf("expected %d, got %d", 123, tr.Sequence)
+
+	if tr.sequence != 123 {
+		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}
+
 	for idx, str := range []string{"Name: Brutus", "Age: 43"} {
 		if tr.Aliases[idx] != str {
 			t.Fatalf("expected %s, got %s", str, tr.Aliases[idx])
 		}
 	}
+
 	for key, val := range map[string]string{"Name": "Brutus", "Age": "43"} {
 		if tr.Headers[key] != val {
 			t.Fatalf("expected %s, got %s", val, tr.Headers[key])
@@ -73,10 +79,12 @@ func TestStructures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	transit, err = Recv(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if routingId != string(tr.RoutingId()) {
 		t.Fatalf("expected %s, got %s", routingId, string(tr.RoutingId()))
 	}
