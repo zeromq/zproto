@@ -41,20 +41,6 @@ The following ABNF grammar defines the zproto example protocol:
     mobile          = string                ; Mobile phone number
     email           = string                ; Email address
 
-    ; Demonstrates repeating fields
-    repeat          = signature %d5 sequence no1 no2 no4 no8 str lstr strs chunks uuids persons
-    sequence        = number-2              ; 
-    no1             = 0*3number-1                          ; Repeating byte
-    no2             = 0*144number-2                        ; Repeating 2-bytes
-    no4             = 0*256number-4                        ; Repeating 4-bytes
-    no8             = *number-8                            ; Repeating 8-bytes
-    str             = 0*3string                            ; Repeating 1-byte string
-    lstr            = *longstr                             ; Repeating 4-byte string
-    strs            = *strings                             ; Repeating strings
-    chunks          = 0*2chunk                             ; Repeating chunks
-    uuids           = 0*2uuid                              ; Repeating uuids
-    persons         = *person                              ; Repeating person
-
     ; A list of string values
     strings         = strings-count *strings-value
     strings-count   = number-4
@@ -87,4 +73,3 @@ The following ABNF grammar defines the zproto example protocol:
     number-2        = 2OCTET
     number-4        = 4OCTET
     number-8        = 8OCTET
-

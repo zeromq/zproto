@@ -26,7 +26,6 @@ function set_defaults ()
     resolve_types ()
     
     class.signature ?= 0
-    class.has_repeats = 0
     class.header ?= "../include/"
     class.source ?= "."
 
@@ -34,12 +33,6 @@ function set_defaults ()
         message.name = "$(message.name:c)"
         for field
             field.name = "$(field.name:c)"
-            if defined (repeat)
-                class.has_repeats = 1
-                if repeat = "n"
-                    repeat = "256"
-                endif
-            endif
             if type = "number"
                 field.size ?= 1
                 if size = 1
@@ -74,7 +67,6 @@ function resolve_types ()
                         field.name = original_field.name + " " + type_field.name
                         field.type = type_field.type
                         field.size = type_field.size? 0
-                        field.repeat = original_field.repeat?
                         field. = type_field.?''
                     endnew
                 endfor
