@@ -118,42 +118,6 @@ public class TestZprotoExample
         assertEquals (self.supplier_email (), "Life is short but Now lasts for ever");
         self.destroy ();
 
-        self = new ZprotoExample (ZprotoExample.REPEAT);
-        self.setSequence ((byte) 123);
-        self.setNo1 ((byte) 123);
-        self.setNo2 ((byte) 123);
-        self.setNo4 ((byte) 123);
-        self.setNo8 ((byte) 123);
-        self.setStr ("Life is short but Now lasts for ever");
-        self.setLstr ("Life is short but Now lasts for ever");
-        self.appendStrs ("Name: %s", "Brutus");
-        self.appendStrs ("Age: %d", 43);
-        self.setChunks ("Captcha Diem".getBytes());
-        self.setPersons_Forename ("Life is short but Now lasts for ever");
-        self.setPersons_Surname ("Life is short but Now lasts for ever");
-        self.setPersons_Mobile ("Life is short but Now lasts for ever");
-        self.setPersons_Email ("Life is short but Now lasts for ever");
-        self.send (output);
-
-        self = ZprotoExample.recv (input);
-        assert (self != null);
-        assertEquals (self.sequence (), 123);
-        assertEquals (self.no1 (), 123);
-        assertEquals (self.no2 (), 123);
-        assertEquals (self.no4 (), 123);
-        assertEquals (self.no8 (), 123);
-        assertEquals (self.str (), "Life is short but Now lasts for ever");
-        assertEquals (self.lstr (), "Life is short but Now lasts for ever");
-        assertEquals (self.strs ().size (), 2);
-        assertEquals (self.strs ().get (0), "Name: Brutus");
-        assertEquals (self.strs ().get (1), "Age: 43");
-        assertTrue (java.util.Arrays.equals("Captcha Diem".getBytes(), self.chunks ()));
-        assertEquals (self.persons_forename (), "Life is short but Now lasts for ever");
-        assertEquals (self.persons_surname (), "Life is short but Now lasts for ever");
-        assertEquals (self.persons_mobile (), "Life is short but Now lasts for ever");
-        assertEquals (self.persons_email (), "Life is short but Now lasts for ever");
-        self.destroy ();
-
         ctx.destroy ();
         System.out.printf ("OK\n");
     }

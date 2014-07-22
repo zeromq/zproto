@@ -7,8 +7,8 @@
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: zproto_example_java.xml
-    * The code generation script that built this file: zproto_codec_java
+    * The XML model used for this code generation: zproto_example.xml
+    * The code generation script that built this file: zproto_codec_c
     ************************************************************************
     Copyright (C) 2014 the Authors                                         
                                                                            
@@ -69,22 +69,6 @@
         supplier_surname    string      Family name
         supplier_mobile     string      Mobile phone number
         supplier_email      string      Email address
-
-    REPEAT - Demonstrates repeating fields
-        sequence            number 2    
-        no1                 number 1    Repeating byte
-        no2                 number 2    Repeating 2-bytes
-        no4                 number 4    Repeating 4-bytes
-        no8                 number 8    Repeating 8-bytes
-        str                 string      Repeating 1-byte string
-        lstr                longstr     Repeating 4-byte string
-        strs                strings     Repeating strings
-        chunks              chunk       Repeating chunks
-        uuids               uuid        Repeating uuids
-        persons_forename    string      Given name
-        persons_surname     string      Family name
-        persons_mobile      string      Mobile phone number
-        persons_email       string      Email address
 */
 
 package org.zproto;
@@ -105,7 +89,6 @@ public class ZprotoExample implements java.io.Closeable
     public static final int STRUCTURES            = 2;
     public static final int BINARY                = 3;
     public static final int TYPES                 = 4;
-    public static final int REPEAT                = 5;
     public static final int FLAGS_SIZE            = 4;
 
     //  Structure of our class
@@ -138,19 +121,6 @@ public class ZprotoExample implements java.io.Closeable
     private String supplier_surname;
     private String supplier_mobile;
     private String supplier_email;
-    private int no1;
-    private int no2;
-    private long no4;
-    private long no8;
-    private String str;
-    private String lstr;
-    private List <String> strs;
-    private byte[] chunks;
-    private UUID uuids;
-    private String persons_forename;
-    private String persons_surname;
-    private String persons_mobile;
-    private String persons_email;
 
     public ZprotoExample( int id )
     {
@@ -373,7 +343,6 @@ public class ZprotoExample implements java.io.Closeable
                 self.content = new ZMsg();
                 if (input.hasReceiveMore ())
                     self.content.add(ZFrame.recvFrame (input));
-
                 break;
 
             case TYPES:
@@ -386,29 +355,6 @@ public class ZprotoExample implements java.io.Closeable
                 self.supplier_surname = self.getString ();
                 self.supplier_mobile = self.getString ();
                 self.supplier_email = self.getString ();
-                break;
-
-            case REPEAT:
-                self.sequence = self.getNumber2 ();
-                self.no1 = self.getNumber1 ();
-                self.no2 = self.getNumber2 ();
-                self.no4 = self.getNumber4 ();
-                self.no8 = self.getNumber8 ();
-                self.str = self.getString ();
-                self.lstr = self.getLongString ();
-                listSize = (int) self.getNumber4 ();
-                self.strs = new ArrayList<String> ();
-                while (listSize-- > 0) {
-                    String string = self.getLongString ();
-                    self.strs.add (string);
-                }
-                self.chunks = self.getBlock((int) self.getNumber4());
-                ByteBuffer bbUuids = ByteBuffer.wrap(self.getBlock(16));
-                self.uuids = new UUID(bbUuids.getLong(), bbUuids.getLong());
-                self.persons_forename = self.getString ();
-                self.persons_surname = self.getString ();
-                self.persons_mobile = self.getString ();
-                self.persons_email = self.getString ();
                 break;
 
             default:
@@ -526,50 +472,6 @@ public class ZprotoExample implements java.io.Closeable
             frameSize += (supplier_email != null) ? supplier_email.length() : 0;
             break;
 
-        case REPEAT:
-            //  sequence is a 2-byte integer
-            frameSize += 2;
-            //  no1 is a 1-byte integer
-            frameSize += 1;
-            //  no2 is a 2-byte integer
-            frameSize += 2;
-            //  no4 is a 4-byte integer
-            frameSize += 4;
-            //  no8 is a 8-byte integer
-            frameSize += 8;
-            //  str is a string with 1-byte length
-            frameSize ++;
-            frameSize += (str != null) ? str.length() : 0;
-            //  lstr is a long string with 4-byte length
-            frameSize += 4;
-            frameSize += (lstr != null) ? lstr.length() : 0;
-            //  strs is an array of strings
-            frameSize += 4;
-            if (strs != null) {
-                for (String value : strs) {
-                    frameSize += 4;
-                    frameSize += value.length ();
-                }
-            }
-            //  chunks is a chunk with 4-byte length
-            frameSize += 4;
-            frameSize += (chunks != null) ? chunks.length : 0;
-            //  uuids is uuid with 16-byte length
-            frameSize += 16;
-            //  persons_forename is a string with 1-byte length
-            frameSize ++;
-            frameSize += (persons_forename != null) ? persons_forename.length() : 0;
-            //  persons_surname is a string with 1-byte length
-            frameSize ++;
-            frameSize += (persons_surname != null) ? persons_surname.length() : 0;
-            //  persons_mobile is a string with 1-byte length
-            frameSize ++;
-            frameSize += (persons_mobile != null) ? persons_mobile.length() : 0;
-            //  persons_email is a string with 1-byte length
-            frameSize ++;
-            frameSize += (persons_email != null) ? persons_email.length() : 0;
-            break;
-
         default:
             System.out.printf ("E: bad message type '%d', not sent\n", id);
             assert (false);
@@ -672,60 +574,6 @@ public class ZprotoExample implements java.io.Closeable
                 putNumber1 ((byte) 0);      //  Empty string
             if (supplier_email != null)
                 putString (supplier_email);
-            else
-                putNumber1 ((byte) 0);      //  Empty string
-            break;
-
-        case REPEAT:
-            putNumber2 (sequence);
-            putNumber1 (no1);
-            putNumber2 (no2);
-            putNumber4 (no4);
-            putNumber8 (no8);
-            if (str != null)
-                putString (str);
-            else
-                putNumber1 ((byte) 0);      //  Empty string
-            if (lstr != null)
-                putLongString (lstr);
-            else
-                putNumber4 (0);      //  Empty string
-            if (strs != null) {
-                putNumber4 (strs.size ());
-                for (String value : strs) {
-                    putLongString (value);
-                }
-            }
-            else
-                putNumber4 (0);      //  Empty string array
-              if(chunks != null) {
-                  putNumber4(chunks.length);
-                  needle.put(chunks, 0, chunks.length);
-              } else {
-                  putNumber4(0);
-              }
-              if(uuids != null) {
-                  ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-                  bb.putLong(uuids.getMostSignificantBits());
-                  bb.putLong(uuids.getLeastSignificantBits());
-                  needle.put(bb.array());
-              } else {
-                  needle.put(new byte[16]);    //  Empty Chunk
-              }
-            if (persons_forename != null)
-                putString (persons_forename);
-            else
-                putNumber1 ((byte) 0);      //  Empty string
-            if (persons_surname != null)
-                putString (persons_surname);
-            else
-                putNumber1 ((byte) 0);      //  Empty string
-            if (persons_mobile != null)
-                putString (persons_mobile);
-            else
-                putNumber1 ((byte) 0);      //  Empty string
-            if (persons_email != null)
-                putString (persons_email);
             else
                 putNumber1 ((byte) 0);      //  Empty string
             break;
@@ -850,43 +698,6 @@ public class ZprotoExample implements java.io.Closeable
         self.send (output);
     }
 
-//  --------------------------------------------------------------------------
-//  Send the REPEAT to the socket in one step
-
-    public static void sendRepeat (
-        Socket output,
-        int sequence,
-        int no1,
-        int no2,
-        long no4,
-        long no8,
-        String str,
-        String lstr,
-        List <String> strs,
-        byte[] chunks,
-        UUID uuids,
-        String persons_forename,
-        String persons_surname,
-        String persons_mobile,
-        String persons_email)
-    {
-        ZprotoExample self = new ZprotoExample (ZprotoExample.REPEAT);
-        self.setSequence (sequence);
-        self.setNo1 (no1);
-        self.setNo2 (no2);
-        self.setNo4 (no4);
-        self.setNo8 (no8);
-        self.setStr (str);
-        self.setLstr (lstr);
-        self.setStrs (new ArrayList <String> (strs));
-        self.setUuids (uuids);
-        self.setPersons_Forename (persons_forename);
-        self.setPersons_Surname (persons_surname);
-        self.setPersons_Mobile (persons_mobile);
-        self.setPersons_Email (persons_email);
-        self.send (output);
-    }
-
 
     //  --------------------------------------------------------------------------
     //  Duplicate the ZprotoExample message
@@ -928,20 +739,6 @@ public class ZprotoExample implements java.io.Closeable
             copy.supplier_surname = this.supplier_surname;
             copy.supplier_mobile = this.supplier_mobile;
             copy.supplier_email = this.supplier_email;
-        break;
-        case REPEAT:
-            copy.sequence = this.sequence;
-            copy.no1 = this.no1;
-            copy.no2 = this.no2;
-            copy.no4 = this.no4;
-            copy.no8 = this.no8;
-            copy.str = this.str;
-            copy.lstr = this.lstr;
-            copy.strs = new ArrayList <String> (this.strs);
-            copy.persons_forename = this.persons_forename;
-            copy.persons_surname = this.persons_surname;
-            copy.persons_mobile = this.persons_mobile;
-            copy.persons_email = this.persons_email;
         break;
         }
         return copy;
@@ -1060,46 +857,6 @@ public class ZprotoExample implements java.io.Closeable
                 System.out.printf ("    supplier_email='%s'\n", supplier_email);
             else
                 System.out.printf ("    supplier_email=\n");
-            break;
-
-        case REPEAT:
-            System.out.println ("REPEAT:");
-            System.out.printf ("    sequence=%d\n", (long)sequence);
-            System.out.printf ("    no1=%d\n", (long)no1);
-            System.out.printf ("    no2=%d\n", (long)no2);
-            System.out.printf ("    no4=%d\n", (long)no4);
-            System.out.printf ("    no8=%d\n", (long)no8);
-            if (str != null)
-                System.out.printf ("    str='%s'\n", str);
-            else
-                System.out.printf ("    str=\n");
-            if (lstr != null)
-                System.out.printf ("    lstr='%s'\n", lstr);
-            else
-                System.out.printf ("    lstr=\n");
-            System.out.printf ("    strs={");
-            if (strs != null) {
-                for (String value : strs) {
-                    System.out.printf (" '%s'", value);
-                }
-            }
-            System.out.printf (" }\n");
-            if (persons_forename != null)
-                System.out.printf ("    persons_forename='%s'\n", persons_forename);
-            else
-                System.out.printf ("    persons_forename=\n");
-            if (persons_surname != null)
-                System.out.printf ("    persons_surname='%s'\n", persons_surname);
-            else
-                System.out.printf ("    persons_surname=\n");
-            if (persons_mobile != null)
-                System.out.printf ("    persons_mobile='%s'\n", persons_mobile);
-            else
-                System.out.printf ("    persons_mobile=\n");
-            if (persons_email != null)
-                System.out.printf ("    persons_email='%s'\n", persons_email);
-            else
-                System.out.printf ("    persons_email=\n");
             break;
 
         }
@@ -1494,191 +1251,6 @@ public class ZprotoExample implements java.io.Closeable
     {
         //  Format into newly allocated string
         supplier_email = String.format (format, args);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the no1 field
-
-    public int no1 ()
-    {
-        return no1;
-    }
-
-    public void setNo1 (int no1)
-    {
-        this.no1 = no1;
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the no2 field
-
-    public int no2 ()
-    {
-        return no2;
-    }
-
-    public void setNo2 (int no2)
-    {
-        this.no2 = no2;
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the no4 field
-
-    public long no4 ()
-    {
-        return no4;
-    }
-
-    public void setNo4 (long no4)
-    {
-        this.no4 = no4;
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the no8 field
-
-    public long no8 ()
-    {
-        return no8;
-    }
-
-    public void setNo8 (long no8)
-    {
-        this.no8 = no8;
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the str field
-
-    public String str ()
-    {
-        return str;
-    }
-
-    public void setStr (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-        str = String.format (format, args);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the lstr field
-
-    public String lstr ()
-    {
-        return lstr;
-    }
-
-    public void setLstr (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-        lstr = String.format (format, args);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Iterate through the strs field, and append a strs value
-
-    public List <String> strs ()
-    {
-        return strs;
-    }
-
-    public void appendStrs (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-
-        String string = String.format (format, args);
-        //  Attach string to list
-        if (strs == null)
-            strs = new ArrayList <String> ();
-        strs.add (string);
-    }
-
-    public void setStrs (List <String> value)
-    {
-        strs = new ArrayList (value);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the chunks field
-
-    public byte[] chunks ()
-    {
-        return chunks;
-    }
-
-    //  Takes ownership of supplied frame
-    public void setChunks (byte[] chunks)
-    {
-        this.chunks = chunks;
-    }
-    //  --------------------------------------------------------------------------
-    //  Get/set the uuids field
-
-    public UUID uuids ()
-    {
-        return uuids;
-    }
-
-    public void setUuids (UUID uuids)
-    {
-        this.uuids = uuids;
-    }
-    //  --------------------------------------------------------------------------
-    //  Get/set the persons_forename field
-
-    public String persons_forename ()
-    {
-        return persons_forename;
-    }
-
-    public void setPersons_Forename (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-        persons_forename = String.format (format, args);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the persons_surname field
-
-    public String persons_surname ()
-    {
-        return persons_surname;
-    }
-
-    public void setPersons_Surname (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-        persons_surname = String.format (format, args);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the persons_mobile field
-
-    public String persons_mobile ()
-    {
-        return persons_mobile;
-    }
-
-    public void setPersons_Mobile (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-        persons_mobile = String.format (format, args);
-    }
-
-    //  --------------------------------------------------------------------------
-    //  Get/set the persons_email field
-
-    public String persons_email ()
-    {
-        return persons_email;
-    }
-
-    public void setPersons_Email (String format, Object ... args)
-    {
-        //  Format into newly allocated string
-        persons_email = String.format (format, args);
     }
 
 }

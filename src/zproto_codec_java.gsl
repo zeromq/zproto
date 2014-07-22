@@ -916,7 +916,6 @@ public class $(ClassName) implements java.io.Closeable
 .endfor
 }
 
-.echo "Generating ../src/test/java/org/zeromq/zyre/Test$(ClassName).java..."
 .output "main/java/$(string.replace(namespace, '.|/'))/Test$(ClassName).java"
 package $(namespace);
 
