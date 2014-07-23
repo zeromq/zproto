@@ -20,7 +20,7 @@ if [ ! -d "$1" ];then
 fi
 
 SCRIPTS_DIR=$(dirname $(cd ${0%/*} 2>>/dev/null ; echo `pwd`/${0##*/}))
-PROJECT_DIR="${SCRIPTS_DIR}/.."
+PROJECT_DIR="$(realpath ${SCRIPTS_DIR}/..)"
 MY_PROJ_NAME=$(basename "$1")
 MY_PROJ_NAME_CAPS=`echo $MY_PROJ_NAME | tr '[a-z]' '[A-Z]'`
 
