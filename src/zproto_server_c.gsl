@@ -717,7 +717,7 @@ s_server_new (zsock_t *pipe)
     //  will use a unbounded queue here. If applications need to guard
     //  against queue overflow, they should use a credit-based flow
     //  control scheme.
-    zsock_set_sndhwm (self->router, 0);
+    zsock_set_unbounded (self->router);
     self->clients = zhash_new ();
     self->config = zconfig_new ("root", NULL);
     self->loop = zloop_new ();
