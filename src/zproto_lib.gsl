@@ -28,6 +28,10 @@ function set_defaults ()
     class.signature ?= 0
     class.header ?= "../include/"
     class.source ?= "."
+    class.export ?= ""
+    if class.export <> ""
+        class.export += " "
+    endif
 
     for message
         message.name = "$(message.name:c)"

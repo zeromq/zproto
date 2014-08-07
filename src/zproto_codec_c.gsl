@@ -72,45 +72,45 @@ typedef struct _$(class.name)_t $(class.name)_t;
 
 //  @interface
 //  Create a new $(class.name)
-CZMQ_EXPORT $(class.name)_t *
+$(CLASS.EXPORT)$(class.name)_t *
     $(class.name)_new (int id);
 
 //  Destroy the $(class.name)
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. Destroys msg and 
 //  nullifies the msg reference.
-CZMQ_EXPORT $(class.name)_t *
+$(CLASS.EXPORT)$(class.name)_t *
     $(class.name)_decode (zmsg_t **msg_p);
 
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
-CZMQ_EXPORT zmsg_t *
+$(CLASS.EXPORT)zmsg_t *
     $(class.name)_encode ($(class.name)_t **self_p);
 
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
 //  or NULL if error. Will block if there's no message waiting.
-CZMQ_EXPORT $(class.name)_t *
+$(CLASS.EXPORT)$(class.name)_t *
     $(class.name)_recv (void *input);
 
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
 //  or NULL either if there was no input waiting, or the recv was interrupted.
-CZMQ_EXPORT $(class.name)_t *
+$(CLASS.EXPORT)$(class.name)_t *
     $(class.name)_recv_nowait (void *input);
 
 //  Send the $(class.name) to the output, and destroy it
-CZMQ_EXPORT int
+$(CLASS.EXPORT)int
     $(class.name)_send ($(class.name)_t **self_p, void *output);
 
 //  Send the $(class.name) to the output, and do not destroy it
-CZMQ_EXPORT int
+$(CLASS.EXPORT)int
     $(class.name)_send_again ($(class.name)_t *self, void *output);
 
 .for message
 //  Encode the $(message.NAME) 
-CZMQ_EXPORT zmsg_t *
+$(CLASS.EXPORT)zmsg_t *
     $(class.name)_encode_$(name) (
 .for field where !defined (value)
 .   if !first ()
@@ -139,7 +139,7 @@ CZMQ_EXPORT zmsg_t *
 .for message
 //  Send the $(message.NAME) to the output in one step
 //  WARNING, this call will fail if output is of type ZMQ_ROUTER.
-CZMQ_EXPORT int
+$(CLASS.EXPORT)int
     $(class.name)_send_$(name) (void *output\
 .for field where !defined (value)
 ,
@@ -161,103 +161,103 @@ CZMQ_EXPORT int
     
 .endfor
 //  Duplicate the $(class.name) message
-CZMQ_EXPORT $(class.name)_t *
+$(CLASS.EXPORT)$(class.name)_t *
     $(class.name)_dup ($(class.name)_t *self);
 
 //  Print contents of message to stdout
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_print ($(class.name)_t *self);
 
 //  Get/set the message routing id
-CZMQ_EXPORT zframe_t *
+$(CLASS.EXPORT)zframe_t *
     $(class.name)_routing_id ($(class.name)_t *self);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_routing_id ($(class.name)_t *self, zframe_t *routing_id);
 
 //  Get the $(class.name) id and printable command
-CZMQ_EXPORT int
+$(CLASS.EXPORT)int
     $(class.name)_id ($(class.name)_t *self);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_id ($(class.name)_t *self, int id);
-CZMQ_EXPORT const char *
+$(CLASS.EXPORT)const char *
     $(class.name)_command ($(class.name)_t *self);
 
 .for class.field where !defined (value)
 .   if type = "number"
 //  Get/set the $(name) field
-CZMQ_EXPORT $(ctype)
+$(CLASS.EXPORT)$(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name));
 .#
 .   elsif type = "octets"
 //  Get/set the $(name) field
-CZMQ_EXPORT byte *
+$(CLASS.EXPORT)byte *
     $(class.name)_$(name) ($(class.name)_t *self);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name));
 .#
 .   elsif type = "string" | type = "longstr"
 //  Get/set the $(name) field
-CZMQ_EXPORT const char *
+$(CLASS.EXPORT)const char *
     $(class.name)_$(name) ($(class.name)_t *self);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...);
 .#
 .   elsif type = "strings"
 //  Get/set the $(name) field
-CZMQ_EXPORT zlist_t *
+$(CLASS.EXPORT)zlist_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 //  Get the $(name) field and transfer ownership to caller
-CZMQ_EXPORT zlist_t *
+$(CLASS.EXPORT)zlist_t *
     $(class.name)_get_$(name) ($(class.name)_t *self);
 //  Set the $(name) field, transferring ownership from caller
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
 
 //  Iterate through the $(name) field, and append a $(name) value
-CZMQ_EXPORT const char *
+$(CLASS.EXPORT)const char *
     $(class.name)_$(name)_first ($(class.name)_t *self);
-CZMQ_EXPORT const char *
+$(CLASS.EXPORT)const char *
     $(class.name)_$(name)_next ($(class.name)_t *self);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_$(name)_append ($(class.name)_t *self, const char *format, ...);
-CZMQ_EXPORT size_t
+$(CLASS.EXPORT)size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
 .   elsif type = "dictionary"
 //  Get/set the $(name) field
-CZMQ_EXPORT zhash_t *
+$(CLASS.EXPORT)zhash_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 //  Get the $(name) field and transfer ownership to caller
-CZMQ_EXPORT zhash_t *
+$(CLASS.EXPORT)zhash_t *
     $(class.name)_get_$(name) ($(class.name)_t *self);
 //  Set the $(name) field, transferring ownership from caller
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
     
 //  Get/set a value in the $(name) dictionary
-CZMQ_EXPORT const char *
+$(CLASS.EXPORT)const char *
     $(class.name)_$(name)_string ($(class.name)_t *self,
         const char *key, const char *default_value);
-CZMQ_EXPORT uint64_t
+$(CLASS.EXPORT)uint64_t
     $(class.name)_$(name)_number ($(class.name)_t *self,
         const char *key, uint64_t default_value);
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_$(name)_insert ($(class.name)_t *self,
         const char *key, const char *format, ...);
-CZMQ_EXPORT size_t
+$(CLASS.EXPORT)size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
 //  Get a copy of the $(name) field
-CZMQ_EXPORT z$(type)_t *
+$(CLASS.EXPORT)z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 //  Get the $(name) field and transfer ownership to caller
-CZMQ_EXPORT z$(type)_t *
+$(CLASS.EXPORT)z$(type)_t *
     $(class.name)_get_$(name) ($(class.name)_t *self);
 //  Set the $(name) field, transferring ownership from caller
-CZMQ_EXPORT void
+$(CLASS.EXPORT)void
     $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p);
 .#
 .   else
@@ -266,7 +266,7 @@ CZMQ_EXPORT void
 
 .endfor
 //  Self test of this class
-CZMQ_EXPORT int
+$(CLASS.EXPORT)int
     $(class.name)_test (bool verbose);
 //  @end
 
