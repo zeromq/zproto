@@ -307,10 +307,8 @@ $(CLASS.EXPORT)int
 @end
 */
 
-.if file.exists ("../include/czmq.h")
-#include "../include/czmq.h"
-.else
-#include <czmq.h>
+.if defined (class.include)
+#include "$(class.include)"
 .endif
 #include "$(class.header)/$(class.name).h"
 

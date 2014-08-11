@@ -26,7 +26,7 @@ function set_defaults ()
     resolve_types ()
     
     class.signature ?= 0
-    class.header ?= "../include/"
+    class.header ?= "../include"
     class.source ?= "."
     class.export ?= ""
     if class.export <> ""
