@@ -43,8 +43,7 @@
 @end
 */
 
-#include <czmq.h>
-#include "../include//zproto_example.h"
+#include "../include/zproto_example.h"
 
 //  Structure of our class
 
