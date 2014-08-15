@@ -103,20 +103,43 @@ extern "C" {
 //  @interface
 //  To work with $(class.name), use the CZMQ zactor API:
 //
-//  Create new $(class.name) instance, passing logging prefix:
-//      zactor_t *$(class.name) = zactor_new ($(class.name), "myname");
+//  Create new $(class.title) instance, passing logging prefix:
+//
+//      zactor_t *$(class.title:c) = zactor_new ($(class.name), "myname");
 //  
-//  Destroy $(class.name) instance
-//      zactor_destroy (&$(class.name));
+//  Destroy $(class.title) instance
+//
+//      zactor_destroy (&$(class.title:c));
 //  
-//  Send zmsg instance message to $(class.name) instance:
-//      zactor_send ($(class.name), &msg);
-//  
-//  Send command to $(class.name) instance:
-//      zstr_sendx ($(class.name), "COMMAND", "ARG1", "ARG2", NULL);
-//  
-//  Receive zmsg message from $(class.name) instance:
-//      zmsg_t *msg = zactor_recv ($(class.name));
+//  Bind $(class.title) to specified endpoint. TCP endpoints may specify
+//  the port number as "*" to aquire an ephemeral port:
+//
+//      zstr_sendx ($(class.title:c), "BIND", endpoint, NULL);
+//
+//  Return assigned port number, specifically when BIND was done using an
+//  an ephemeral port:
+//
+//      zstr_sendx ($(class.title:c), "PORT", NULL);
+//      char *command, *port_str;
+//      zstr_recvx ($(class.title:c), &command, &port_str, NULL);
+//      assert (streq (command, "PORT"));
+//
+//  Specify configuration file to load, overwriting any previous loaded
+//  configuration file or options:
+//
+//      zstr_sendx ($(class.title:c), "CONFIGURE", filename, NULL);
+//
+//  Set configuration path value:
+//
+//      zstr_sendx ($(class.title:c), "SET", path, value, NULL);
+//    
+//  Send zmsg_t instance to $(class.title):
+//
+//      zactor_send ($(class.title:c), &msg);
+//
+//  Receive zmsg_t instance from $(class.title):
+//
+//      zmsg_t *msg = zactor_recv ($(class.title:c));
 //
 //  This is the $(class.name) constructor as a zactor_fn:
 //
