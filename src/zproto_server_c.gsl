@@ -156,7 +156,7 @@ CZMQ_EXPORT void
 #endif
 
 #endif
-.output "$(class.name)_engine.h"
+.output "../include/$(class.name)_engine.h"
 /*  =========================================================================
     $(class.name)_engine - $(class.title:) engine
 
@@ -958,7 +958,7 @@ $(class.name) (zsock_t *pipe, void *args)
     s_server_destroy (&self);
 }
 .#  Generate source file first time only
-.source_file = "$(class.name).c"
+.source_file = "../src/$(class.name).c"
 .if !file.exists (source_file)
 .   output source_file
 /*  =========================================================================
