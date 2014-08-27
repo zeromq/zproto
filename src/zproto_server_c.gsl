@@ -73,7 +73,7 @@ for class.action
 endfor
 
 .endtemplate
-.output "../include/$(class.name).h"
+.output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
