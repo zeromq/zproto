@@ -73,6 +73,7 @@ for class.action
 endfor
 
 .endtemplate
+.#  This is the API for the server
 .output "$(class.header)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
@@ -156,7 +157,7 @@ CZMQ_EXPORT void
 #endif
 
 #endif
-.output "$(class.name)_engine.h"
+.output "$(class.name)_engine.inc"
 /*  =========================================================================
     $(class.name)_engine - $(class.title:) engine
 
