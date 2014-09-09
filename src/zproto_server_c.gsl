@@ -112,6 +112,10 @@ extern "C" {
 //
 //      zactor_destroy (&$(class.title:c));
 //  
+//  Enable verbose logging of commands and activity:
+//
+//      zstr_send (ca, "VERBOSE");
+//
 //  Bind $(class.title) to specified endpoint. TCP endpoints may specify
 //  the port number as "*" to aquire an ephemeral port:
 //
@@ -197,7 +201,7 @@ typedef enum {
 .endfor
 } event_t;
 
-//  Names for animation and error reporting
+//  Names for state machine logging and error reporting
 static char *
 s_state_name [] = {
     "(NONE)",
@@ -234,7 +238,7 @@ typedef struct {
     zconfig_t *config;          //  Configuration tree
     uint client_id;             //  Client identifier counter
     size_t timeout;             //  Default client expiry timeout
-    bool animate;               //  Is animation enabled?
+    bool verbose;               //  Verbose logging enabled?
     char *log_prefix;           //  Default log prefix
 } s_server_t;
 
@@ -404,10 +408,9 @@ engine_set_log_prefix (client_t *client, const char *string)
     }
 }
 
-//  Set a configuration value in the server's configuration tree.
-//  The properties this engine uses are: server/animate,
-//  server/timeout, and server/background. You can also configure
-//  other abitrary properties.
+//  Set a configuration value in the server's configuration tree. The
+//  properties this engine uses are: server/verbose, server/timeout, and
+//  server/background. You can also configure other abitrary properties.
 
 static void
 engine_configure (server_t *server, const char *path, const char *value)
@@ -570,7 +573,7 @@ s_client_filter_mailbox (s_client_t *self)
                     if (!self->exception) {
 .           if name = "send"
                         //  send $(message:c)
-                        if (self->server->animate)
+                        if (self->server->verbose)
                             zsys_debug ("%s:         $ $(name) $(MESSAGE:c)",
                                 self->log_prefix);
                         $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
@@ -583,12 +586,12 @@ s_client_filter_mailbox (s_client_t *self)
                         $(proto)_set_routing_id (self->client.reply, self->routing_id);
 .           elsif name = "terminate"
                         //  terminate
-                        if (self->server->animate)
+                        if (self->server->verbose)
                             zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         self->next_event = terminate_event;
 .           else
                         //  $(name)
-                        if (self->server->animate)
+                        if (self->server->verbose)
                             zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         $(name:c) (&self->client);
 .           endif
@@ -615,7 +618,7 @@ s_client_execute (s_client_t *self, int event)
         self->event = self->next_event;
         self->next_event = NULL_event;
         self->exception = NULL_event;
-        if (self->server->animate) {
+        if (self->server->verbose) {
             zsys_debug ("%s: %s:",
                 self->log_prefix, s_state_name [self->state]);
             zsys_debug ("%s:     %s",
@@ -659,7 +662,7 @@ s_client_execute (s_client_t *self, int event)
         }
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
-            if (self->server->animate)
+            if (self->server->verbose)
                 zsys_debug ("%s:         ! %s",
                     self->log_prefix, s_event_name [self->exception]);
 
@@ -671,7 +674,7 @@ s_client_execute (s_client_t *self, int event)
             break;
         }
         else {
-            if (self->server->animate)
+            if (self->server->verbose)
                 zsys_debug ("%s:         > %s",
                     self->log_prefix, s_state_name [self->state]);
 
@@ -712,10 +715,11 @@ s_server_config_self (s_server_t *self)
 {
     //  Built-in server configuration options
     //  
-    //  Animation is disabled by default
-    self->animate = atoi (
-        zconfig_resolve (self->config, "server/animate", "0")) != 0;
-
+    //  If we didn't already set verbose, check if the config tree wants it
+    if (!self->verbose
+    && atoi (zconfig_resolve (self->config, "server/verbose", "0")))
+        self->verbose = true;
+        
     //  Default client timeout is 60 seconds
     self->timeout = atoi (
         zconfig_resolve (self->config, "server/timeout", "60000"));
@@ -818,6 +822,12 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
     zmsg_print (msg);
 .endif
     char *method = zmsg_popstr (msg);
+    if (self->verbose)
+        zsys_debug ("%s:     API command=%s", self->log_prefix, method);
+    
+    if (streq (method, "VERBOSE"))
+        self->verbose = true;
+    else
     if (streq (method, "$TERM")) {
         //  Shutdown the engine
         free (method);
@@ -859,6 +869,11 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
         char *path = zmsg_popstr (msg);
         char *value = zmsg_popstr (msg);
         zconfig_put (self->config, path, value);
+        //  TODO: remove after October 9, 2014
+        if (streq (path, "server/animate")) {
+            zsys_warning ("'%s' is deprecated, use VERBOSE command instead", path);
+            self->verbose = atoi (value);
+        }
         s_server_config_self (self);
         free (path);
         free (value);
@@ -1070,10 +1085,13 @@ void
 $(class.name)_test (bool verbose)
 {
     printf (" * $(class.name): \\n");
+    if (verbose)
+        printf ("\\n");
     
     //  @selftest
     zactor_t *server = zactor_new ($(class.name), "server");
-    zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
+    if (verbose)
+        zstr_send (server, "VERBOSE");
     zstr_sendx (server, "BIND", "ipc://@/$(class.name)", NULL);
 
     zsock_t *client = zsock_new (ZMQ_DEALER);
