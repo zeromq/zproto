@@ -858,6 +858,8 @@ $(class.name)_recv (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv (input);
+    if (!msg)
+        return NULL;            //  Interrupted
 .if switches.trace ?= 1
     zmsg_print (msg);
 .endif
@@ -886,6 +888,8 @@ $(class.name)_recv_nowait (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv_nowait (input);
+    if (!msg)
+        return NULL;            //  Interrupted
 .if switches.trace ?= 1
     zmsg_print (msg);
 .endif
