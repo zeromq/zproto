@@ -926,7 +926,7 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     self->routing_id = NULL;
 
     //  Encode $(class.name) message to a single zmsg
-    zmsg_t *msg = $(class.name)_encode (&self);
+    zmsg_t *msg = $(class.name)_encode (self_p);
     
     //  If we're sending to a ROUTER, send the routing_id first
     if (zsocket_type (zsock_resolve (output)) == ZMQ_ROUTER) {
