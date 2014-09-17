@@ -771,11 +771,13 @@ s_server_destroy (s_server_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_server_t *self = *self_p;
-        server_terminate (&self->server);
         zsock_destroy (&self->router);
         zconfig_destroy (&self->config);
-        zhash_destroy (&self->clients);
         zloop_destroy (&self->loop);
+        zhash_destroy (&self->clients);
+        //  Dear future self: do this last, so client_terminate
+        //  can work with server
+        server_terminate (&self->server);
         free (self);
         *self_p = NULL;
     }
@@ -1031,7 +1033,7 @@ struct _client_t {
 };
 
 //  Include the generated server engine
-#include "$(class.name)_engine.h"
+#include "$(class.name)_engine.inc"
 
 //  Allocate properties and structures for a new server instance.
 //  Return 0 if OK, or -1 if there was an error.
@@ -1107,7 +1109,6 @@ $(class.name)_test (bool verbose)
     assert (reply);
     assert ($(proto)_id (reply) == $(PROTO)_something);
     $(proto)_destroy (&reply);
-    $(class.name)_destroy (&server);
     
     zsock_destroy (&client);
     zactor_destroy (&server);
