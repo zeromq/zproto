@@ -771,13 +771,12 @@ s_server_destroy (s_server_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_server_t *self = *self_p;
+        //  Destroy clients before destroying the server
+        zhash_destroy (&self->clients);
+        server_terminate (&self->server);
         zsock_destroy (&self->router);
         zconfig_destroy (&self->config);
         zloop_destroy (&self->loop);
-        zhash_destroy (&self->clients);
-        //  Dear future self: do this last, so client_terminate
-        //  can work with server
-        server_terminate (&self->server);
         free (self);
         *self_p = NULL;
     }
