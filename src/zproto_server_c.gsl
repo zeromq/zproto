@@ -51,7 +51,7 @@ endfor
 #   Process super states
 for class.state where defined (inherit)
     for class.state as superstate where name = inherit
-        for event where count (state.event, event.name) = 0
+        for event where count (state.event, name = -1.name) = 0
             copy event to state
         endfor
     else
@@ -182,7 +182,7 @@ CZMQ_EXPORT void
 */
 
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  State machine constants
 
 typedef enum {
@@ -223,7 +223,7 @@ s_event_name [] = {
 };
  
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  Context for the whole server task. This embeds the application-level
 //  server context at its start (the entire structure, not a reference),
 //  so we can cast a pointer between server_t and s_server_t arbitrarily.
@@ -243,7 +243,7 @@ typedef struct {
 } s_server_t;
 
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  Context for each connected client. This embeds the application-level
 //  client context at its start (the entire structure, not a reference),
 //  so we can cast a pointer between client_t and s_client_t arbitrarily.
@@ -284,7 +284,7 @@ static $(ctype)
     $(name) ($(args));
 .endfor
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  These methods are an internal API for actions
 
 //  Set the next event, needed in at least one action in an internal
@@ -439,7 +439,7 @@ s_satisfy_pedantic_compilers (void)
 }
 
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  Generic methods on protocol messages
 //  TODO: replace with lookup table, since ID is one byte
 
@@ -460,7 +460,7 @@ s_protocol_event ($(proto)_t *request)
 }
 
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  Client methods
 
 static s_client_t *
@@ -948,7 +948,7 @@ s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
 }
 
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  This is the server actor, which polls its two sockets and processes
 //  incoming messages
 
@@ -999,7 +999,7 @@ $(class.name) (zsock_t *pipe, void *args)
 #include "../include/$(class.proto).h"
 #include "../include/$(class.name).h"
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
 
 typedef struct _server_t server_t;
@@ -1017,7 +1017,7 @@ struct _server_t {
     //  Add any properties you need here
 };
 
-//  ---------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  This structure defines the state for each client connection. It will
 //  be passed to each action in the 'self' argument.
 
@@ -1079,7 +1079,7 @@ client_terminate (client_t *self)
     //  Destroy properties here
 }
 
-//  --------------------------------------------------------------------------
+//  ---------------------------------------------------------------------------
 //  Selftest
 
 void
@@ -1137,7 +1137,7 @@ for class.prototype where exists = 0
     echo "Generating stub for $(name)..."
     >
     >
-    >//  --------------------------------------------------------------------------
+    >//  ---------------------------------------------------------------------------
     >//  $(name)
     >//
     >
