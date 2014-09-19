@@ -26,11 +26,12 @@ function set_defaults ()
     resolve_types ()
     
     class.signature ?= 0
-    class.header ?= "../include"
-    class.source ?= "."
-    class.export ?= ""
-    if class.export <> ""
-        class.export += " "
+    class.package_dir ?= "../include"
+    class.source_dir ?= "."
+    
+    class.export_macro ?= ""
+    if class.export_macro <> ""
+        class.export_macro += " "
     endif
 
     for message

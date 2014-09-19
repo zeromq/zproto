@@ -10,7 +10,7 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.output "$(class.header)/$(class.name).h"
+.output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
     
@@ -72,45 +72,45 @@ typedef struct _$(class.name)_t $(class.name)_t;
 
 //  @interface
 //  Create a new $(class.name)
-$(CLASS.EXPORT)$(class.name)_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (int id);
 
 //  Destroy the $(class.name)
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. Destroys msg and 
 //  nullifies the msg reference.
-$(CLASS.EXPORT)$(class.name)_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_decode (zmsg_t **msg_p);
 
 //  Encode $(class.name) into zmsg and destroy it. Returns a newly created
 //  object or NULL if error. Use when not in control of sending the message.
-$(CLASS.EXPORT)zmsg_t *
+$(CLASS.EXPORT_MACRO)zmsg_t *
     $(class.name)_encode ($(class.name)_t **self_p);
 
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
 //  or NULL if error. Will block if there's no message waiting.
-$(CLASS.EXPORT)$(class.name)_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_recv (void *input);
 
 //  Receive and parse a $(class.name) from the socket. Returns new object, 
 //  or NULL either if there was no input waiting, or the recv was interrupted.
-$(CLASS.EXPORT)$(class.name)_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_recv_nowait (void *input);
 
 //  Send the $(class.name) to the output, and destroy it
-$(CLASS.EXPORT)int
+$(CLASS.EXPORT_MACRO)int
     $(class.name)_send ($(class.name)_t **self_p, void *output);
 
 //  Send the $(class.name) to the output, and do not destroy it
-$(CLASS.EXPORT)int
+$(CLASS.EXPORT_MACRO)int
     $(class.name)_send_again ($(class.name)_t *self, void *output);
 
 .for message
 //  Encode the $(message.NAME) 
-$(CLASS.EXPORT)zmsg_t *
+$(CLASS.EXPORT_MACRO)zmsg_t *
     $(class.name)_encode_$(name) (
 .for field where !defined (value)
 .   if !first ()
@@ -139,7 +139,7 @@ $(CLASS.EXPORT)zmsg_t *
 .for message
 //  Send the $(message.NAME) to the output in one step
 //  WARNING, this call will fail if output is of type ZMQ_ROUTER.
-$(CLASS.EXPORT)int
+$(CLASS.EXPORT_MACRO)int
     $(class.name)_send_$(name) (void *output\
 .for field where !defined (value)
 ,
@@ -161,103 +161,103 @@ $(CLASS.EXPORT)int
     
 .endfor
 //  Duplicate the $(class.name) message
-$(CLASS.EXPORT)$(class.name)_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_dup ($(class.name)_t *self);
 
 //  Print contents of message to stdout
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_print ($(class.name)_t *self);
 
 //  Get/set the message routing id
-$(CLASS.EXPORT)zframe_t *
+$(CLASS.EXPORT_MACRO)zframe_t *
     $(class.name)_routing_id ($(class.name)_t *self);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_routing_id ($(class.name)_t *self, zframe_t *routing_id);
 
 //  Get the $(class.name) id and printable command
-$(CLASS.EXPORT)int
+$(CLASS.EXPORT_MACRO)int
     $(class.name)_id ($(class.name)_t *self);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_id ($(class.name)_t *self, int id);
-$(CLASS.EXPORT)const char *
+$(CLASS.EXPORT_MACRO)const char *
     $(class.name)_command ($(class.name)_t *self);
 
 .for class.field where !defined (value)
 .   if type = "number"
 //  Get/set the $(name) field
-$(CLASS.EXPORT)$(ctype)
+$(CLASS.EXPORT_MACRO)$(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, $(ctype) $(name));
 .#
 .   elsif type = "octets"
 //  Get/set the $(name) field
-$(CLASS.EXPORT)byte *
+$(CLASS.EXPORT_MACRO)byte *
     $(class.name)_$(name) ($(class.name)_t *self);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name));
 .#
 .   elsif type = "string" | type = "longstr"
 //  Get/set the $(name) field
-$(CLASS.EXPORT)const char *
+$(CLASS.EXPORT_MACRO)const char *
     $(class.name)_$(name) ($(class.name)_t *self);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...);
 .#
 .   elsif type = "strings"
 //  Get/set the $(name) field
-$(CLASS.EXPORT)zlist_t *
+$(CLASS.EXPORT_MACRO)zlist_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 //  Get the $(name) field and transfer ownership to caller
-$(CLASS.EXPORT)zlist_t *
+$(CLASS.EXPORT_MACRO)zlist_t *
     $(class.name)_get_$(name) ($(class.name)_t *self);
 //  Set the $(name) field, transferring ownership from caller
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
 
 //  Iterate through the $(name) field, and append a $(name) value
-$(CLASS.EXPORT)const char *
+$(CLASS.EXPORT_MACRO)const char *
     $(class.name)_$(name)_first ($(class.name)_t *self);
-$(CLASS.EXPORT)const char *
+$(CLASS.EXPORT_MACRO)const char *
     $(class.name)_$(name)_next ($(class.name)_t *self);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_$(name)_append ($(class.name)_t *self, const char *format, ...);
-$(CLASS.EXPORT)size_t
+$(CLASS.EXPORT_MACRO)size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
 .   elsif type = "dictionary"
 //  Get/set the $(name) field
-$(CLASS.EXPORT)zhash_t *
+$(CLASS.EXPORT_MACRO)zhash_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 //  Get the $(name) field and transfer ownership to caller
-$(CLASS.EXPORT)zhash_t *
+$(CLASS.EXPORT_MACRO)zhash_t *
     $(class.name)_get_$(name) ($(class.name)_t *self);
 //  Set the $(name) field, transferring ownership from caller
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
     
 //  Get/set a value in the $(name) dictionary
-$(CLASS.EXPORT)const char *
+$(CLASS.EXPORT_MACRO)const char *
     $(class.name)_$(name)_string ($(class.name)_t *self,
         const char *key, const char *default_value);
-$(CLASS.EXPORT)uint64_t
+$(CLASS.EXPORT_MACRO)uint64_t
     $(class.name)_$(name)_number ($(class.name)_t *self,
         const char *key, uint64_t default_value);
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_$(name)_insert ($(class.name)_t *self,
         const char *key, const char *format, ...);
-$(CLASS.EXPORT)size_t
+$(CLASS.EXPORT_MACRO)size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
 //  Get a copy of the $(name) field
-$(CLASS.EXPORT)z$(type)_t *
+$(CLASS.EXPORT_MACRO)z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 //  Get the $(name) field and transfer ownership to caller
-$(CLASS.EXPORT)z$(type)_t *
+$(CLASS.EXPORT_MACRO)z$(type)_t *
     $(class.name)_get_$(name) ($(class.name)_t *self);
 //  Set the $(name) field, transferring ownership from caller
-$(CLASS.EXPORT)void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p);
 .#
 .   else
@@ -266,7 +266,7 @@ $(CLASS.EXPORT)void
 
 .endfor
 //  Self test of this class
-$(CLASS.EXPORT)int
+$(CLASS.EXPORT_MACRO)int
     $(class.name)_test (bool verbose);
 //  @end
 
@@ -278,7 +278,7 @@ $(CLASS.EXPORT)int
 #endif
 
 #endif
-.output "$(class.source)/$(class.name).c"
+.output "$(class.source_dir)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -307,10 +307,10 @@ $(CLASS.EXPORT)int
 @end
 */
 
-.if defined (class.include)
-#include "$(class.include)"
+.if defined (class.project_header)
+#include "$(class.project_header)"
 .endif
-#include "$(class.header)/$(class.name).h"
+#include "$(class.package_dir)/$(class.name).h"
 
 //  Structure of our class
 

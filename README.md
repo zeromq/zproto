@@ -106,14 +106,15 @@ The zproto_server_c.gsl code generator outputs a single .h file called an *engin
 
 The server is a "actor" built on the CZMQ/zactor class. CZMQ zactors use a simple, consistent API based on message passing:
 
-    zactor_t *server = zactor_new (zpipes_server, "myserver");
-    zstr_sendx (server, "SET", "server/animate", verbose? "1": "0", NULL);
-    zstr_sendx (server, "BIND", "ipc://@/zpipes/local", NULL);
+    zactor_t *server = zactor_new (some_server, "myserver");
+    zstr_send (server, "VERBOSE");
+    zstr_sendx (server, "BIND", endpoint, NULL);
     ...
     zactor_destroy (&server);
 
 Where "myserver" is used in logging. Note that a zactor is effectively a background thread with a socket API, and you can pass zactor_t instances to all CZMQ message passing methods. The generated zactor accepts these messages:
 
+    VERBOSE
     CONFIGURE configfile
     SET configpath value
     BIND localendpoint
@@ -125,8 +126,11 @@ Your input to the code generator is two XML files (without schemas, DTDs, entity
     <class
         name = "hello_server"
         title = "Hello server"
-        proto = "hello_msg"
         script = "zproto_server_c"
+        protocol_class = "hello_msg"
+        package_dir = "../include"
+        source_dir = "."
+        project_header = "hello.h"
         >
         A Hello, World server
 
