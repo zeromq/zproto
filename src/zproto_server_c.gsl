@@ -9,7 +9,8 @@ resolve_includes ()
 set_defaults ()
 
 #   Load message structures for this engine
-global.proto = xml.load_file (class.proto + ".xml")
+global.proto = xml.load_file (class.protocol_class + ".xml")
+class.proto = class.protocol_class
 
 #   Lowercase state/event/action names
 for class.state
@@ -74,7 +75,7 @@ endfor
 
 .endtemplate
 .#  This is the API for the server
-.output "$(class.header)/$(class.name).h"
+.output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -114,7 +115,7 @@ extern "C" {
 //  
 //  Enable verbose logging of commands and activity:
 //
-//      zstr_send (ca, "VERBOSE");
+//      zstr_send (server, "VERBOSE");
 //
 //  Bind $(class.title) to specified endpoint. TCP endpoints may specify
 //  the port number as "*" to aquire an ephemeral port:
@@ -148,11 +149,11 @@ extern "C" {
 //
 //  This is the $(class.name) constructor as a zactor_fn:
 //
-CZMQ_EXPORT void
+$(CLASS.EXPORT_MACRO)void
     $(class.name) (zsock_t *pipe, void *args);
 
 //  Self test of this class
-CZMQ_EXPORT void
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_test (bool verbose);
 //  @end
 
@@ -995,9 +996,12 @@ $(class.name) (zsock_t *pipe, void *args)
 @end
 */
 
-#include <czmq.h>
-#include "../include/$(class.proto).h"
-#include "../include/$(class.name).h"
+.if defined (class.project_header)
+#include "$(class.project_header)"
+.endif
+//  TODO: Change these to match your project's needs
+#include "$(class.package_dir)/$(class.protocol_class).h"
+#include "$(class.package_dir)/$(class.name).h"
 
 //  ---------------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
@@ -1014,7 +1018,7 @@ struct _server_t {
     zsock_t *pipe;              //  Actor pipe back to caller
     zconfig_t *config;          //  Current loaded configuration
     
-    //  Add any properties you need here
+    //  TODO: Add any properties you need here
 };
 
 //  ---------------------------------------------------------------------------
@@ -1028,7 +1032,7 @@ struct _client_t {
     $(proto)_t *request;        //  Last received request
     $(proto)_t *reply;          //  Reply to send out, if any
 
-    //  These properties are specific for this application
+    //  TODO: Add specific properties for your application
 };
 
 //  Include the generated server engine

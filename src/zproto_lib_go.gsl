@@ -28,8 +28,8 @@ function set_defaults ()
     resolve_types ()
     
     class.signature ?= 0
-    class.header ?= "go"
-    class.source ?= "."
+    class.package_dir ?= "go"
+    class.source_dir ?= "."
 
     for message
         message.name = "$(message.name:c)"
@@ -109,7 +109,7 @@ endfunction
 
 function go_package_path ()
     my.name = string.replace(class.name, "_|/")
-    my.path = directory.resolve(class.header + "/" + my.name)
+    my.path = directory.resolve(class.package_dir + "/" + my.name)
     directory.create(my.path)
     return my.path
 endfunction
