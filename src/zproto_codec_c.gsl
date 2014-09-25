@@ -832,16 +832,22 @@ $(class.name)_encode ($(class.name)_t **self_p)
     }
 .endfor
 .for class.message where count (field, type = "msg")
-.   for field where type = "msg"
-    //  Now send the $(field.name) field if set
+    //  Now send the message field if there is any
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
-        zframe_t *$(field.name)_part = zmsg_pop (self->$(field.name));
-        while ($(field.name)_part) {
-            zmsg_append (msg, &$(field.name)_part);
-            $(field.name)_part = zmsg_pop (self->$(field.name));
+.   for field where type = "msg"
+        if (self->$(field.name)) {
+            zframe_t *frame = zmsg_pop (self->$(field.name));
+            while (frame) {
+                zmsg_append (msg, &frame);
+                frame = zmsg_pop (self->$(field.name));
+            }
         }
-    }
+        else {
+            zframe_t *frame = zframe_new (NULL, 0);
+            zmsg_append (msg, &frame);
+        }
 .   endfor
+    }
 .endfor
     //  Destroy $(class.name) object
     $(class.name)_destroy (self_p);
