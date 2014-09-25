@@ -141,7 +141,7 @@ Your input to the code generator is two XML files (without schemas, DTDs, entity
         </state>
     </class>
 
-Names of states, events, and actions are case insensitive. By convention however we use uppercase for protocol events. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
+Names of states, events, and actions are case insensitive. By convention however we use uppercase for protocol events. Protocol events can also contain embedded spaces or hyphens, which are mapped to underscores. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
 
 The generated server manages clients automatically. To build this, do:
 
@@ -296,13 +296,13 @@ In your server code, you have two structures, client_t and server_t. Note that t
 
 ### Client Connection Expiry
 
-If you define an "expired" event anywhere in your dialog, the server will automatically expire idle clients after a timeout, which defaults to 60 seconds. It's smart to put this into a superstate:
+If you define an "inactive" event anywhere in your dialog, the server will automatically expire idle clients after a timeout, which defaults to 60 seconds. It's smart to put this into a superstate:
 
     <state name = "defaults">
         <event name = "PING">
             <action name = "send" message = "PONG" />
         </event>
-        <event name = "expired">
+        <event name = "inactive">
             <action name = "terminate" />
         </event>
     </state>

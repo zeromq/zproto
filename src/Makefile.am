@@ -12,6 +12,7 @@ zproto_DATA = \
 	zproto_codec_go.gsl \
 	zproto_codec_java.gsl \
 	zproto_server_c.gsl \
+	zproto_client_c.gsl \
 	zproto_bnf.gsl \
 	zproto_lib.gsl \
 	zproto_lib_go.gsl \

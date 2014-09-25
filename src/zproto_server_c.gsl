@@ -574,11 +574,11 @@ s_client_filter_mailbox (s_client_t *self)
 .       for action
                     if (!self->exception) {
 .           if name = "send"
-                        //  send $(message)
+                        //  send $(MESSAGE:C)
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ $(name) $(MESSAGE)",
+                            zsys_debug ("%s:         $ $(name) $(MESSAGE:C)",
                                 self->log_prefix);
-                        $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE));
+                        $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
                         zsys_debug ("%s: Send message to client", self->log_prefix);
                         $(proto)_print (self->client.reply);
