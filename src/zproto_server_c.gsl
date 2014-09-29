@@ -1,5 +1,5 @@
 .template 0
-#   zproto_class_c.gsl
+#   zproto_server_c.gsl
 #
 #   Generates a server class for a protocol specification
 #   This manages ROUTER server talking to DEALER clients
@@ -26,15 +26,16 @@ for class.state
     endfor
 endfor
 
-#   Lowecase protocol message names
+#   Lowercase protocol message names and normalize spaces/hyphens
 for proto.message
-    message.name = "$(name)"
+    message.name = "$(name:c)"
 endfor
 
 #  Collect all events and actions at class level
 for class.state
     state.comma = last()?? ""? ","
     for event where name <> "*"
+        event.name = "$(name:c)"
         #   Mark event as external if it a protocol message
         if count (proto.message, message.name = event.name)
             event.external = 1
@@ -85,8 +86,8 @@ endfor
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: $(filename)
-    * The code generation script that built this file: $(script)
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
     ************************************************************************
 
 .   for class.license
@@ -115,7 +116,7 @@ extern "C" {
 //  
 //  Enable verbose logging of commands and activity:
 //
-//      zstr_send (server, "VERBOSE");
+//      zstr_send ($(class.title:c), "VERBOSE");
 //
 //  Bind $(class.title) to specified endpoint. TCP endpoints may specify
 //  the port number as "*" to aquire an ephemeral port:
@@ -172,8 +173,8 @@ $(CLASS.EXPORT_MACRO)void
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: $(filename)
-    * The code generation script that built this file: $(script)
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
     ************************************************************************
 
 .   for class.license
@@ -198,7 +199,7 @@ typedef enum {
     NULL_event = 0,
 .for class.event
 .   event.comma = last()?? ""? ","
-    $(name:c)_event = $(index ())$(comma)
+    $(name)_event = $(index ())$(comma)
 .endfor
 } event_t;
 
@@ -279,7 +280,7 @@ static void
 static void
     s_client_execute (s_client_t *client, int event);
 static int
-    s_client_wakeup (zloop_t *loop, int timer_id, void *argument);
+    s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument);
 .for class.prototype
 static $(ctype)
     $(name) ($(args));
@@ -327,7 +328,7 @@ engine_set_wakeup_event (client_t *client, size_t delay, event_t event)
             self->wakeup_timer = 0;
         }
         self->wakeup_timer = zloop_timer (
-            self->server->loop, delay, 1, s_client_wakeup, self);
+            self->server->loop, delay, 1, s_client_handle_wakeup, self);
         self->wakeup_event = event;
     }
 }
@@ -450,8 +451,8 @@ s_protocol_event ($(proto)_t *request)
     assert (request);
     switch ($(proto)_id (request)) {
 .   for proto.message where count (class.event, event.name = message.name) = 1
-        case $(PROTO)_$(NAME:C):
-            return $(name:c)_event;
+        case $(PROTO)_$(NAME):
+            return $(name)_event;
             break;
 .   endfor
         default:
@@ -550,7 +551,7 @@ s_client_filter_mailbox (s_client_t *self)
         else
 .   else
 .       for event where defined (external)
-        if (self->state == $(state.name:c)_state && event == $(name:c)_event)
+        if (self->state == $(state.name:c)_state && event == $(name)_event)
             event_is_valid = true;
         else
 .       endfor
@@ -573,9 +574,9 @@ s_client_filter_mailbox (s_client_t *self)
 .       for action
                     if (!self->exception) {
 .           if name = "send"
-                        //  send $(message:c)
+                        //  send $(MESSAGE:C)
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ $(name) $(MESSAGE:c)",
+                            zsys_debug ("%s:         $ $(name) $(MESSAGE:C)",
                                 self->log_prefix);
                         $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
@@ -607,9 +608,9 @@ s_client_filter_mailbox (s_client_t *self)
 //  Execute state machine as long as we have events
 
 static void
-s_client_execute (s_client_t *self, int event)
+s_client_execute (s_client_t *self, event_t event)
 {
-    self->next_event = (event_t) event;
+    self->next_event = event;
     //  Cancel wakeup timer, if any was pending
     if (self->wakeup_timer) {
         zloop_timer_end (self->server->loop, self->wakeup_timer);
@@ -635,7 +636,7 @@ s_client_execute (s_client_t *self, int event)
 .       if index () > 1
                 else
 .       endif
-                if (self->event == $(name:c)_event) {
+                if (self->event == $(name)_event) {
 .       output_action_body ()
                 }
 .   endfor
@@ -690,7 +691,7 @@ s_client_execute (s_client_t *self, int event)
 //  zloop callback when client inactivity timer expires
 
 static int
-s_client_expired (zloop_t *loop, int timer_id, void *argument)
+s_client_handle_timeout (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, expired_event);
@@ -701,7 +702,7 @@ s_client_expired (zloop_t *loop, int timer_id, void *argument)
 //  zloop callback when client wakeup timer expires
 
 static int
-s_client_wakeup (zloop_t *loop, int timer_id, void *argument)
+s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, self->wakeup_event);
@@ -803,7 +804,7 @@ s_server_apply_config (s_server_t *self)
         if (streq (zconfig_name (section), "bind")) {
             char *endpoint = zconfig_resolve (section, "endpoint", "?");
             if (zsock_bind (self->router, "%s", endpoint) == -1)
-                zsys_warning ("failed to bind to %s", endpoint);
+                zsys_warning ("could not bind to %s", endpoint);
         }
         section = zconfig_next (section);
     }
@@ -842,7 +843,7 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
         char *endpoint = zmsg_popstr (msg);
         self->port = zsock_bind (self->router, "%s", endpoint);
         if (self->port == -1)
-            zsys_warning ("failed to bind to %s", endpoint);
+            zsys_warning ("could not bind to %s", endpoint);
         free (endpoint);
     }
     else
@@ -920,7 +921,7 @@ s_server_client_message (zloop_t *loop, zsock_t *reader, void *argument)
         zloop_timer_end (self->loop, client->expiry_timer);
     //  Reset expiry timer
     client->expiry_timer = zloop_timer (
-        self->loop, self->timeout, 1, s_client_expired, client);
+        self->loop, self->timeout, 1, s_client_handle_timeout, client);
         
 .endif
     //  Queue request and possibly pass it to client state machine
