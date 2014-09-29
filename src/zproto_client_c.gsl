@@ -107,7 +107,7 @@ endfor
 
 for class.method
     method.args = ""
-    method.ctype = "void"
+    method.ctype = "int"
     method.pattern = ""
     for field
         if defined (field.constant)
@@ -189,6 +189,13 @@ $(CLASS.EXPORT_MACRO)zactor_t *
 
 .for class.method
 //  $(method.:justify,block%-80s)
+.   if count (method.accept)
+.       if method.ctype = "int"
+//  Returns >= 0 if successful, -1 if interrupted.
+.       else
+//  Returns NULL on an interrupt.
+.       endif
+.   endif
 $(CLASS.EXPORT_MACRO)$(ctype)
     $(class.name)_$(name:c) ($(class.name)_t *self$(args));
 
@@ -811,6 +818,13 @@ s_accept_reply ($(class.name)_t *self, ...)
 
 //  ---------------------------------------------------------------------------
 //  $(method.:justify,block%-80s)
+.   if count (method.accept)
+.       if method.ctype = "int"
+//  Returns >= 0 if successful, -1 if interrupted.
+.       else
+//  Returns NULL on an interrupt.
+.       endif
+.   endif
 
 $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self$(args))
@@ -828,12 +842,16 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 );
 .   endif
 .   if count (method.accept)
-    //  For now we don't catch an interrupt or timeout
-    s_accept_reply (self\
+    if (s_accept_reply (self\
 .       for method.accept
 , "$(accept.reply:)"\
 .       endfor
-, NULL);
+, NULL))
+.       if method.ctype = "int"
+        return -1;              //  Interrupted or timed-out
+.       else
+        return NULL;            //  Interrupted or timed-out
+.       endif
 .   endif
 .   if defined (method.return)
     return $(return);
