@@ -83,7 +83,7 @@ for class.reply
         elsif defined (field.property)
             if count (class.property, property.name = field.property) = 0
                 new class.property
-                    property.name = field.property
+                    property.name = "$(field.property:c)"
                     property.type = field.type
                     if field.type = "string"
                         property.ctype = "char *"
@@ -115,10 +115,10 @@ for class.method
         elsif defined (field.argument)
             if field.type = "string"
                 method.pattern += "s"
-                method.args += ", const char *$(argument)"
+                method.args += ", const char *$(argument:c)"
             elsif field.type = "number"
                 method.pattern += "i"
-                method.args += ", int $(argument)"
+                method.args += ", int $(argument:c)"
             else
                 echo "E: we didn't add support for $(type)s in method fields"
             endif
@@ -127,6 +127,7 @@ for class.method
         endif
     endfor
     if defined (method.return)
+        method.return = "$(return:c)"
         for class.property where name = method.return
             method.return = "self->" + method.return
             if property.type = "string"
@@ -792,11 +793,11 @@ s_accept_reply ($(class.name)_t *self, ...)
 .   endif
                 if (streq (reply, "$(reply.name:)")) {
 .   for field where type = "string"
-                    zstr_free (&self->$(property:));
+                    zstr_free (&self->$(property:c));
 .   endfor
                     zsock_recv (self->actor, "$(reply.pattern:)"\
 .   for field where defined (property)
-, &self->$(property:)\
+, &self->$(property:c)\
 .   endfor
 );
                 }
@@ -836,7 +837,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .           if defined (constant)
 , \"$(constant:)\"\
 .           else
-, $(argument)\
+, $(argument:c)\
 .           endif
 .       endfor
 );
