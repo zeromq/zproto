@@ -22,8 +22,8 @@ set_defaults ()
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: $(filename)
-    * The code generation script that built this file: $(script)
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
     ************************************************************************
 .   for class.license
     $(string.trim (license.):block                                         )
@@ -290,8 +290,8 @@ $(CLASS.EXPORT_MACRO)int
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: $(filename)
-    * The code generation script that built this file: $(script)
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
     ************************************************************************
     
 .   for class.license

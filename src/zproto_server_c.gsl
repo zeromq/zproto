@@ -86,8 +86,8 @@ endfor
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: $(filename)
-    * The code generation script that built this file: $(script)
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
     ************************************************************************
 
 .   for class.license
@@ -173,8 +173,8 @@ $(CLASS.EXPORT_MACRO)void
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: $(filename)
-    * The code generation script that built this file: $(script)
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
     ************************************************************************
 
 .   for class.license
@@ -280,7 +280,7 @@ static void
 static void
     s_client_execute (s_client_t *client, int event);
 static int
-    s_client_wakeup (zloop_t *loop, int timer_id, void *argument);
+    s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument);
 .for class.prototype
 static $(ctype)
     $(name) ($(args));
@@ -328,7 +328,7 @@ engine_set_wakeup_event (client_t *client, size_t delay, event_t event)
             self->wakeup_timer = 0;
         }
         self->wakeup_timer = zloop_timer (
-            self->server->loop, delay, 1, s_client_wakeup, self);
+            self->server->loop, delay, 1, s_client_handle_wakeup, self);
         self->wakeup_event = event;
     }
 }
@@ -691,7 +691,7 @@ s_client_execute (s_client_t *self, event_t event)
 //  zloop callback when client inactivity timer expires
 
 static int
-s_client_expired (zloop_t *loop, int timer_id, void *argument)
+s_client_handle_timeout (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, expired_event);
@@ -702,7 +702,7 @@ s_client_expired (zloop_t *loop, int timer_id, void *argument)
 //  zloop callback when client wakeup timer expires
 
 static int
-s_client_wakeup (zloop_t *loop, int timer_id, void *argument)
+s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, self->wakeup_event);
@@ -921,7 +921,7 @@ s_server_client_message (zloop_t *loop, zsock_t *reader, void *argument)
         zloop_timer_end (self->loop, client->expiry_timer);
     //  Reset expiry timer
     client->expiry_timer = zloop_timer (
-        self->loop, self->timeout, 1, s_client_expired, client);
+        self->loop, self->timeout, 1, s_client_handle_timeout, client);
         
 .endif
     //  Queue request and possibly pass it to client state machine
