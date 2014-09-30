@@ -655,7 +655,7 @@ s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
     $(proto)_destroy (&self->client.msgin);
     self->client.msgin = msgin;
 
-.   if count (class.event, name = "timeout")
+.if count (class.event, name = "expired")
     //  Any input from client counts as activity
     if (self->expiry_timer)
         zloop_timer_end (self->loop, self->expiry_timer);
@@ -809,8 +809,10 @@ s_accept_reply ($(class.name)_t *self, ...)
             zsock_flush (self->actor);
         }
         va_end (args);
-        if (filter)
+        if (filter) {
+            zstr_free (&reply);
             return 0;           //  We matched one of the filters
+        }
     }
 }
 .endif
