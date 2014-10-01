@@ -1090,7 +1090,7 @@ client_terminate (client_t *self)
 void
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name): \\n");
+    printf (" * $(class.name): ");
     if (verbose)
         printf ("\\n");
     
