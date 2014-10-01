@@ -804,11 +804,11 @@ s_accept_reply ($(class.name)_t *self, ...)
 .endfor
                 break;
             }
-            //  Get next filter, and discard rest of message on the pipe
             filter = va_arg (args, char *);
-            zsock_flush (self->actor);
         }
         va_end (args);
+        //  If anything was remaining on pipe, flush it
+        zsock_flush (self->actor);
         if (filter) {
             zstr_free (&reply);
             return 0;           //  We matched one of the filters
@@ -952,7 +952,7 @@ client_method (client_t *self, const char *method)
 void
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name): \\n");
+    printf (" * $(class.name): ");
     if (verbose)
         printf ("\\n");
     
