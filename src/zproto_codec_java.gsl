@@ -377,6 +377,10 @@ public class $(ClassName) implements java.io.Closeable
         assert (socket != null);
 
         ZMsg msg = new ZMsg();
+        //  If we're sending to a ROUTER, send the routingId first
+        if (socket.getType () == ZMQ.ROUTER) {
+            msg.add (routingId);
+        }
 
         int frameSize = 2 + 1;          //  Signature and message ID
         switch (id) {
