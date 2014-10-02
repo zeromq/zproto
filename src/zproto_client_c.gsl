@@ -154,7 +154,6 @@ endfor
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
@@ -230,7 +229,6 @@ $(CLASS.EXPORT_MACRO)void
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
@@ -655,7 +653,7 @@ s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
     $(proto)_destroy (&self->client.msgin);
     self->client.msgin = msgin;
 
-.   if count (class.event, name = "timeout")
+.if count (class.event, name = "expired")
     //  Any input from client counts as activity
     if (self->expiry_timer)
         zloop_timer_end (self->loop, self->expiry_timer);
@@ -804,13 +802,15 @@ s_accept_reply ($(class.name)_t *self, ...)
 .endfor
                 break;
             }
-            //  Get next filter, and discard rest of message on the pipe
             filter = va_arg (args, char *);
-            zsock_flush (self->actor);
         }
         va_end (args);
-        if (filter)
+        //  If anything was remaining on pipe, flush it
+        zsock_flush (self->actor);
+        if (filter) {
+            zstr_free (&reply);
             return 0;           //  We matched one of the filters
+        }
     }
 }
 .endif
@@ -950,7 +950,7 @@ client_method (client_t *self, const char *method)
 void
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name): \\n");
+    printf (" * $(class.name): ");
     if (verbose)
         printf ("\\n");
     

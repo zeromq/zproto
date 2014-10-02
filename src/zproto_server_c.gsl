@@ -89,7 +89,6 @@ endfor
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
@@ -176,7 +175,6 @@ $(CLASS.EXPORT_MACRO)void
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
@@ -1090,7 +1088,7 @@ client_terminate (client_t *self)
 void
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name): \\n");
+    printf (" * $(class.name): ");
     if (verbose)
         printf ("\\n");
     

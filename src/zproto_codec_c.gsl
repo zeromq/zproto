@@ -293,7 +293,6 @@ $(CLASS.EXPORT_MACRO)int
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-    
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
