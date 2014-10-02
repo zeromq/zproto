@@ -89,7 +89,6 @@ endfor
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
@@ -176,7 +175,6 @@ $(CLASS.EXPORT_MACRO)void
      * The XML model used for this code generation: $(filename), or
      * The code generation script that built this file: $(script)
     ************************************************************************
-
 .   for class.license
     $(string.trim (license.):block                                         )
 .   endfor
