@@ -391,8 +391,12 @@ public class $(ClassName) implements java.io.Closeable
             frameSize += $(size);
 .       elsif type = "string"
             //  $(name) is a string with 1-byte length
+.           if defined (field.value)
+            frameSize += 1 + "$(field.value:)".length());
+.           else
             frameSize ++;
             frameSize += ($(name) != null) ? $(name).length() : 0;
+.           endif
 .       elsif type = "longstr"
             //  $(name) is a long string with 4-byte length
             frameSize += 4;
@@ -589,7 +593,7 @@ public class $(ClassName) implements java.io.Closeable
     {
         $(ClassName) self = new $(ClassName) ($(ClassName).$(MESSAGE.NAME));
 .for field where !defined (value)
-.   if type = "number" | type = "octets" | type = "string" | type = "longstr" | type = "uuid"
+.   if type = "number" | type = "octets" | type = "string" | type = "longstr" | type = "uuid" | type = "chunk"
         self.set$(Name) ($(name));
 .   elsif type = "strings"
         self.set$(Name) (new ArrayList <String> ($(name)));
@@ -620,7 +624,7 @@ public class $(ClassName) implements java.io.Closeable
             copy.$(name) = this.$(name);
 .       elsif type = "octets"
             System.arraycopy (copy.$(name), 0, this.$(name), 0, $(size));
-.       elsif type = "string" | type = "longstr"
+.       elsif type = "string" | type = "longstr" | type = "chunk"
             copy.$(name) = this.$(name);
 .       elsif type = "strings"
             copy.$(name) = new ArrayList <String> (this.$(name));
