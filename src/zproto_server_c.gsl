@@ -503,7 +503,7 @@ s_client_destroy (s_client_t **self_p)
             zloop_timer_end (self->server->loop, self->wakeup_timer);
         if (self->expiry_timer)
             zloop_timer_end (self->server->loop, self->expiry_timer);
-
+            
         //  Empty and destroy mailbox
         $(proto)_t *request = ($(proto)_t *) zlist_first (self->mailbox);
         while (request) {
@@ -915,11 +915,14 @@ s_server_client_message (zloop_t *loop, zsock_t *reader, void *argument)
 
 .   if count (class.event, name = "expired")
     //  Any input from client counts as activity
-    if (client->expiry_timer)
+    if (client->expiry_timer) {
         zloop_timer_end (self->loop, client->expiry_timer);
-    //  Reset expiry timer
-    client->expiry_timer = zloop_timer (
-        self->loop, self->timeout, 1, s_client_handle_timeout, client);
+        client->expiry_timer = 0;
+    }
+    //  Reset expiry timer if timeout is not zero
+    if (self->timeout)
+        client->expiry_timer = zloop_timer (
+            self->loop, self->timeout, 1, s_client_handle_timeout, client);
         
 .endif
     //  Queue request and possibly pass it to client state machine
