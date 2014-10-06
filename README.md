@@ -314,7 +314,7 @@ If you define an "expired" event anywhere in your dialog, the server will automa
 
 To tune the expiry time, use this method (e.g. to set to 1 second):
 
-    hello_server_set (self, "server/timeout", "1000");
+    hello_server_set (self, "server/timeout", "5000");
 
 The server timeout can also come from a configuration file, see below. It is good practice to do heartbeating by sending a PING from the client and responding to that with a PONG or suchlike. Do not heartbeat from the server to clients; that is fragile.
 
@@ -502,7 +502,7 @@ Your client code (the actions) gets a small API to work with:
     //  or until the process is interrupted. The timeout is in milliseconds.
     //  The state machine must handle the "expired" event.
     static void
-    engine_set_timeout (client_t *client, int timeout);
+    engine_set_timeout (client_t *client, size_t timeout);
 
     //  Poll socket for activity, invoke handler on any received message.
     //  Handler must be a CZMQ zloop_fn function; receives server as arg.
@@ -659,6 +659,26 @@ When the calling application uses the method, this can do any or several of thes
 All possible replies are defined as <reply> objects. The actor's replies are always several frames. The first is the reply name, and the following are the reply fields.
 
 We currently support only two field types: string, and number, which map to char * and int.
+
+## Protocol Design Notes
+
+This section covers some learned experience designing protocols, using zproto and more generally:
+
+### Heartbeating and Client Expiry
+
+The simplest and most robust heartbeat / connection expiry model appears to be the following:
+
+* The server disconnects unresponsive clients after some timeout, which you can set using the SET message and the "server/timeout" property. A good timeout is perhaps 3 to 10 seconds.
+
+* The client heartbeats the server by sending a PING heartbeat every second if there is no other activity. You can do this by calling "engine_set_timeout (self, 1000);" in the client and in expired_event handling, send a PING command (or similar).
+
+* The server responds to PING commands with a PING-OK (or similar), when it is in a valid connected state. When the server does not consider the client as connected, it responds with INVALID (or similar).
+
+* The client accepts and discards PING-OK. If it receives INVALID, it re-starts the protocol session by sending OPEN (or similar).
+
+* The server accepts OPEN in all external states and always treats this as a request to start a new protocol session.
+
+This approach resolves stale TCP connections, as well as dead clients and dead servers. It makes the heartbeating interval a client-side decision, and client expiry a server-side decision (this seems best in both cases).
 
 ## For More Information
 
