@@ -188,7 +188,7 @@ $(CLASS.EXPORT_MACRO)zactor_t *
     $(class.name)_actor ($(class.name)_t *self);
 
 .for class.method
-//  $(method.:justify,block%-80s)
+//  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
 .       if method.ctype = "int"
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -829,7 +829,7 @@ s_accept_reply ($(class.name)_t *self, ...)
 
 
 //  ---------------------------------------------------------------------------
-//  $(method.:justify,block%-80s)
+//  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
 .       if method.ctype = "int"
 //  Returns >= 0 if successful, -1 if interrupted.
