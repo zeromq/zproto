@@ -2,10 +2,16 @@
 
 function help() {
 	echo "usage:"
-	echo "  $0 <project directory>"
+	echo "  $0 [--no-git] <project directory>"
 	echo
 	exit 1
 }
+
+DO_GIT_INIT=1
+if [ $# -gt 1 ]; then
+    [ "$1" == "--no-git" ] && DO_GIT_INIT=0 || help
+    shift
+fi
 
 [ $# -eq 1 ] || help
 if [ -d "$1" ];then
@@ -26,7 +32,10 @@ MY_PROJ_NAME_CAPS=`echo $MY_PROJ_NAME | tr '[a-z]' '[A-Z]'`
 
 cp -r $PROJECT_DIR/skeleton/* "$1"/ || exit 2
 cd "$1" || exit 3
-git init || exit 4
+
+if [ $DO_GIT_INIT -eq 1 ]; then
+    git init || exit 4
+fi
 
 find ./ -type f -exec sed -i -e 's/myproj/'$MY_PROJ_NAME'/g' {} \; || exit 5
 find ./ -type f -exec sed -i -e 's/MYPROJ/'${MY_PROJ_NAME_CAPS}'/g' {} \; || exit 6
