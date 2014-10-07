@@ -59,7 +59,7 @@ To use:
 
 * Write your protocol as an XML file, using model/zproto_example.xml as a starting point.
 * Generate your protocol, using model/generate as a starting point.
-* Add the generated .h and .c class to your git repository.
+* Add the generated .h and .c files to your git repository.
 * Don't modify generated codecs. Change the model, and regenerate.
 
 ## The Server Generator
@@ -102,7 +102,7 @@ State machines are a little unusual, conceptually. If you're not familiar with t
 
 ### The zproto Server Model
 
-The zproto_server_c.gsl code generator outputs a single .h file called an *engine* that does the hard work. If needed, it'll also generate you a skeleton .c file for your server, which you edit and build. It doesn't re-create that file again, though it will append new action stubs.
+The zproto_server_c.gsl code generator outputs a single .inc file called an *engine* that does the hard work. If needed, it'll also generate you a skeleton .c file for your server, which you edit and build. It doesn't re-create that file again, though it will append new action stubs.
 
 The server is a "actor" built on the CZMQ/zactor class. CZMQ zactors use a simple, consistent API based on message passing:
 
@@ -118,6 +118,7 @@ Where "myserver" is used in logging. Note that a zactor is effectively a backgro
     CONFIGURE configfile
     SET configpath value
     BIND localendpoint
+    $TERM
     
 Rather than run the server as a main program, you write a main program that creates and works with server actors. These run as background services, accepting clients on a ZMQ ROUTER port. The bind method exposes that port to the outside world.
 
@@ -141,15 +142,15 @@ Your input to the code generator is two XML files (without schemas, DTDs, entity
         </state>
     </class>
 
-Names of states, events, and actions are case insensitive. By convention however we use uppercase for protocol events. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
+Names of states, events, and actions are case insensitive. By convention however we use uppercase for protocol events. Protocol events can also contain embedded spaces or hyphens, which are mapped to underscores. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
 
 The generated server manages clients automatically. To build this, do:
 
-    gsl -q -trace:1 -animate:1 hello_server.xml
+    gsl -q -trace:1 hello_server.xml
 
-The first time you do this, you'll get a hello_server.c source file. You can edit that; it won't be regenerated. The generated code goes, instead, into hello_server_engine.h. Take a look if you like.
+The first time you do this, you'll get a hello_server.c source file. You can edit that; it won't be regenerated. The generated code goes, instead, into hello_server_engine.inc. Take a look if you like.
 
-The trace option shows all protocol messages received and sent. The animate option shows the state machine as it moves through states and actions.
+The trace option shows all protocol messages received and sent.
 
 There are two predefined actions: "send", which sends a specific protocol message, and "terminate", which ends the client connection. Other actions map to functions in your own code, e.g.:
 
@@ -204,9 +205,8 @@ Your server code (the actions) gets a small API to work with:
     engine_set_log_prefix (client_t *client, const char *string);
 
     //  Set a configuration value in the server's configuration tree.
-    //  The properties this engine uses are: server/animate,
-    //  server/timeout, and server/background. You can also configure
-    //  other abitrary properties.
+    //  The properties this engine uses are: server/timeout, and
+    //  server/background. You can also configure other abitrary properties.
     static void
     engine_configure (server_t *server, const char *path, const char *value);
     
@@ -272,7 +272,7 @@ Superstates are a shorthand to reduce the amount of error-prone repetition in a 
         </event>
     </state>
 
-Note the logic of PING, which says, "when the client sends PING, respond by sending PONG, and then stay in the same state." You can't currently use super-superstates.
+Note the logic of PING, which says, "when the client sends PING, respond by sending PONG, and then stay in the same state."
 
 For complex protocols you can collect error handling together using the wildcard event, "*", which means "all other protocol events in this state". For example:
 
@@ -288,11 +288,16 @@ For complex protocols you can collect error handling together using the wildcard
 
 ### Client and Server Properties
 
-In your server code, you have two structures, client_t and server_t. Note that the client_t structure MUST always contain these variables (the request and reply will use whatever protocol name you defined):
+In your server code, you have two structures, client_t and server_t. Note that the client_t structure MUST always start with these variables (the request and reply will use whatever protocol name you defined):
 
     server_t *server;           //  Reference to parent server
     hello_msg_t *request;       //  Last received request
     hello_msg_t *reply;         //  Reply to send out, if any
+
+And the server_t structure MUST always start with these variables:
+
+    zsock_t *pipe;              //  Actor pipe back to caller
+    zconfig_t *config;          //  Current loaded configuration
 
 ### Client Connection Expiry
 
@@ -309,7 +314,7 @@ If you define an "expired" event anywhere in your dialog, the server will automa
 
 To tune the expiry time, use this method (e.g. to set to 1 second):
 
-    hello_server_set (self, "server/timeout", "1000");
+    hello_server_set (self, "server/timeout", "5000");
 
 The server timeout can also come from a configuration file, see below. It is good practice to do heartbeating by sending a PING from the client and responding to that with a PONG or suchlike. Do not heartbeat from the server to clients; that is fragile.
 
@@ -380,7 +385,302 @@ Were 'some_monitor' looks like this:
         return 0;                   //  0 = continue, -1 = end reactor
     }
 
-### For More Information
+## The Client Generator
+
+The zproto project lets you generate full asynchronous client stacks in C to talk to the server engines. Overall the model and toolchain is similar to that used for servers. See the zproto_client_c.gsl code generator. The main differences is that:
+
+* A client manages one connection to a server;
+* We generate a full CLASS API that wraps the client actor with conventional methods;
+* The client XML model has a language for defining these methods.
+
+### The zproto Client Model
+
+The zproto_client_c.gsl code generator produces:
+
+* A .h file that acts as the public API for your client
+* An .inc file called an *engine* that runs the state machine
+* The first time, a skeleton .c file for your client class
+
+The client is a "actor" built on the CZMQ/zactor class. The generated zactor accepts these messages:
+
+    VERBOSE
+    $TERM
+
+The client stack is then wrapped in a classic CLASS API like this:
+
+    //  Create a new my_client
+    my_client_t *
+        my_client_new (void);
+
+    //  Destroy the my_client
+    void
+        my_client_destroy (my_client_t **self_p);
+
+    //  Enable verbose logging of client activity
+    void
+        my_client_verbose (my_client_t *self);
+
+    //  Return actor for low-level command control and polling
+    zactor_t *
+        my_client_actor (my_client_t *self);
+
+Your input to the code generator is two XML files that defines a set of 'states', and the protocol messages as used to generate the codec. Here is a minimal 'hello_client.xml' example that defines a Hello, World client:
+
+    <class
+        name = "hello_client"
+        title = "Hello Client"
+        script = "zproto_client_c"
+        protocol_class = "hello_msg"
+        project_header = "czmq.h"
+        package_dir = "."
+        >
+        <state name = "start">
+            <event name = "connect" next = "connected">
+                <action name = "connect to server" />
+                <action name = "send" message = "HELLO" />
+            </event>
+        </state>
+        <state name = "connected">
+            <event name = "WORLD" next = "connected" />
+                <action name = "terminate" />
+            </event>
+        </state>
+        <method name = "connect">
+        Connect to server.
+            <field constant = "CONNECT" />
+            <field argument = "endpoint" type = "string" />
+        </method>
+    </class>
+
+Names are case insensitive. By convention however we use uppercase for protocol events and methods. Protocol events can also contain embedded spaces or hyphens, which are mapped to underscores. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
+
+To build this, do:
+
+    gsl -q -trace:1 hello_client.xml
+
+The first time you do this, you'll get a hello_client.c source file. You can edit that; it won't be regenerated. The generated code goes, instead, into hello_client_engine.inc and hello_client.h. Take a look if you like.
+
+The trace option shows all protocol messages received and sent.
+
+There are two predefined actions: "send", which sends a specific protocol message, and "terminate", which ends the client. Other actions map to functions in your own code, e.g.:
+
+    <state name = "start">
+        <event name = "HELLO" next = "start">
+            <action name = "tell the user hello too" />
+            <action name = "send" message = "WORLD" />
+        </event>
+    </state>
+
+    ...
+
+    static void
+    tell_the_user_hello_too (client_t *self)
+    {
+        puts ("Hello, World!");
+    }
+
+Your client code (the actions) gets a small API to work with:
+
+    //  Set the next event, needed in at least one action in an internal
+    //  state; otherwise the state machine will wait for a message on the
+    //  dealer socket and treat that as the event.
+    static void
+    engine_set_next_event (client_t *client, event_t event);
+
+    //  Raise an exception with 'event', halting any actions in progress.
+    //  Continues execution of actions defined for the exception event.
+    static void
+    engine_set_exception (client_t *client, event_t event);
+
+    //  Set wakeup alarm after 'delay' msecs. The next state should
+    //  handle the wakeup event. The alarm is cancelled on any other
+    //  event.
+    static void
+    engine_set_wakeup_event (client_t *self, size_t delay, event_t event);
+
+    //  Set timeout for next protocol read. By default, will wait forever
+    //  or until the process is interrupted. The timeout is in milliseconds.
+    //  The state machine must handle the "expired" event.
+    static void
+    engine_set_timeout (client_t *client, size_t timeout);
+
+    //  Poll socket for activity, invoke handler on any received message.
+    //  Handler must be a CZMQ zloop_fn function; receives server as arg.
+    static void
+    engine_handle_socket (client_t *client, zsock_t *socket, zloop_reader_fn handler);
+
+### Superstates
+
+Superstates are a shorthand to reduce the amount of error-prone repetition in a state machine. Here is the same state machine using a superstate:
+
+    <state name = "subscribing" inherit = "defaults">
+        <event name = "SUBSCRIBE OK" next = "connected">
+            <action name = "signal success" />
+        </event>
+    </state>
+
+    <state name = "disconnecting" inherit = "defaults">
+        <event name = "GOODBYE OK">
+            <action name = "terminate" />
+        </event>
+        <event name = "timeout">
+            <action name = "terminate" />
+        </event>
+    </state>
+
+   <state name = "defaults">
+        <!-- Server didn't respond for some time -->
+        <event name = "timeout" next = "reconnecting">
+            <action name = "use connect timeout" />
+            <action name = "send" message = "HELLO" />
+        </event>
+        <!-- Server lost our connection state -->
+        <event name = "INVALID" next = "reconnecting">
+            <action name = "use connect timeout" />
+            <action name = "send" message = "HELLO" />
+        </event>
+        <event name = "*">
+            <!-- Discard any other incoming events -->
+        </event>
+    </state>
+
+For complex protocols you can collect error handling together using the wildcard event, "*", which means "all other protocol events in this state". For example:
+
+    <state name = "defaults">
+        <event name = "PING">
+            <action name = "send" message = "PONG" />
+        </event>
+        <event name = "*">
+            <action name = "log unexpected server message" />
+            <action name = "terminate" />
+        </event>
+    </state>
+
+### Client Properties
+
+In your client code, you have a client_t structure. Note that the client_t structure MUST always start with these variables (the msgout and msgin will use whatever protocol name you defined):
+
+    zsock_t *pipe;              //  Actor pipe back to caller
+    zsock_t *dealer;            //  Socket to talk to server
+    my_msg_t *msgout;           //  Message to send to server
+    my_msg_t *msgin;            //  Message received from server
+
+### Client Expiry Timer
+
+If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the timeout, use engine_set_timeout ().
+
+### Method Framework
+
+To simplify the delivery of a conventional non-actor API, you can define methods in your state machine. Here are some examples taken from real projects:
+
+    <!-- API methods -->
+    <method name = "connect" return = "status">
+    Connect to server and return only when there's a successful connection or
+    the timeout in msecs expires. Returns 0 if successfully connected, else -1.
+        <field constant = "CONNECT" />
+        <field argument = "endpoint" type = "string" />
+        <field argument = "timeout" type = "number" />
+        <accept reply = "SUCCESS" />
+        <accept reply = "FAILURE" />
+    </method>
+
+    <method name = "subscribe" return = "status">
+    Subscribe to all messages sent to matching addresses. The expression is a
+    regular expression using the CZMQ zrex syntax. The most useful elements
+    are: ^ and $ to match the start and end, . to match any character,
+    \s and \S to match whitespace and non-whitespace, \d and \D to match a
+    digit and non-digit, \a and \A to match alphabetic and non-alphabetic,
+    \w and \W to match alphanumeric and non-alphanumeric, + for one or more
+    repetitions, * for zero or more repetitions, and ( ) to create groups.
+    Returns 0 if subscription was successful, else -1.
+        <field constant = "SUBSCRIBE" />
+        <field argument = "expression" type = "string" />
+        <accept reply = "SUCCESS" />
+        <accept reply = "FAILURE" />
+    </method>
+
+    <method name = "publish">
+    Publish a message on the server, using a logical address. All subscribers
+    to that address will receive a copy of the message. The server does not
+    store messages. If a message is published before subscribers arrive, they
+    will miss it. Currently only supports string contents. Does not return a
+    status value; publish commands are asynchronous and unconfirmed.
+        <field constant = "PUBLISH" />
+        <field argument = "address" type = "string" />
+        <field argument = "content" type = "string" />
+    </method>
+
+    <method name = "recv" return = "content">
+    Receive next message from server. Returns the message content, as a string,
+    if any. The caller should not modify or free this string.
+        <accept reply = "MESSAGE" />
+    </method>
+
+    <!-- These are the replies from the actor to the API -->
+    <reply name = "SUCCESS">
+        <field property = "status" type = "number" />
+    </reply>
+
+    <reply name = "FAILURE">
+        <field property = "status" type = "number" />
+        <field property = "reason" type = "string" />
+    </reply>
+
+    <reply name = "MESSAGE">
+        <field property = "sender" type = "string" />
+        <field property = "address" type = "string" />
+        <field property = "content" type = "string" />
+    </reply>
+
+Each method is implemented as a classic CLASS method, with the public API in the generated .h header, and the body in the generated .inc engine. For example:
+
+    //  ---------------------------------------------------------------------------
+    //  Connect to server and return only when there's a successful connection or the
+    //  timeout in msecs expires. Returns 0 if successfully connected, else -1.
+
+    int
+    zccp_client_connect (zccp_client_t *self, const char *endpoint, int timeout)
+    {
+        assert (self);
+        zsock_send (self->actor, "ssi", "CONNECT", endpoint, timeout);
+        //  For now we don't catch an interrupt or timeout
+        s_accept_reply (self, "SUCCESS", "FAILURE", NULL);
+        return self->status;
+    }
+
+When the calling application uses the method, this can do any or several of these things:
+
+* Send a message to the client actor, if the method has one or more <field> definitions. This generates an event in the client state machine, corresponding the the method name.
+
+* Wait for one of a set of replies from the actor, and store reply properties in the client object. These are defined by one or more <accept> tags.
+
+* Return a propery to the caller. This is defined by the "return" attribute of the <method> tag.
+
+All possible replies are defined as <reply> objects. The actor's replies are always several frames. The first is the reply name, and the following are the reply fields.
+
+We currently support only two field types: string, and number, which map to char * and int.
+
+## Protocol Design Notes
+
+This section covers some learned experience designing protocols, using zproto and more generally:
+
+### Heartbeating and Client Expiry
+
+The simplest and most robust heartbeat / connection expiry model appears to be the following:
+
+* The server disconnects unresponsive clients after some timeout, which you can set using the SET message and the "server/timeout" property. A good timeout is perhaps 3 to 10 seconds.
+
+* The client heartbeats the server by sending a PING heartbeat every second if there is no other activity. You can do this by calling "engine_set_timeout (self, 1000);" in the client and in expired_event handling, send a PING command (or similar).
+
+* The server responds to PING commands with a PING-OK (or similar), when it is in a valid connected state. When the server does not consider the client as connected, it responds with INVALID (or similar).
+
+* The client accepts and discards PING-OK. If it receives INVALID, it re-starts the protocol session by sending OPEN (or similar).
+
+* The server accepts OPEN in all external states and always treats this as a request to start a new protocol session.
+
+This approach resolves stale TCP connections, as well as dead clients and dead servers. It makes the heartbeating interval a client-side decision, and client expiry a server-side decision (this seems best in both cases).
+
+## For More Information
 
 Though [the Libero documentation](http://legacy.imatix.com/html/libero/) is quite old now, it's useful as a guide to what's possible with state machines. The Libero model added superstates, substates, and other useful ways to manage larger state machines.
 

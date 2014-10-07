@@ -1,0 +1,1015 @@
+.template 0
+#   zproto_client_c.gsl
+#
+#   Generates a client class for a protocol specification
+#   This manages a DEALER client talking to a ROUTER server.
+#
+include "zproto_lib.gsl"
+resolve_includes ()
+set_defaults ()
+
+#   Load message structures for this engine
+global.proto = xml.load_file (class.protocol_class + ".xml")
+class.proto = class.protocol_class
+
+#   Lowercase state/event/action names
+for class.state
+    state.name = "$(name)"
+    for event
+        event.name = "$(name)"
+        if defined (event.next)
+            event.next = "$(next)"
+        endif
+        for action
+            action.name = "$(name)"
+        endfor
+    endfor
+endfor
+
+#   Lowercase protocol message names and normalize spaces/hyphens
+for proto.message
+    message.name = "$(name:c)"
+endfor
+
+#  Collect all events and actions at class level
+for class.state
+    state.comma = last()?? ""? ","
+    for event where name <> "*"
+        event.name = "$(event.name:c)"
+        #   Mark event as external if it a protocol message
+        if count (proto.message, message.name = event.name)
+            event.external = 1
+        endif
+        #   Copy event to class if not yet defined there
+        if count (class.event, name = -1.name) = 0
+            copy event to class
+        endif
+        for action where count (class.action, name = -1.name) = 0
+            copy action to class
+        endfor
+    endfor
+endfor
+
+#   Process super states
+for class.state where defined (inherit)
+    for class.state as superstate where name = inherit
+        for event where count (state.event, name = -1.name) = 0
+            copy event to state
+        endfor
+    else
+        echo "E: superstate $(inherit) isn't defined"
+    endfor
+endfor
+
+#   Collect prototypes that we need
+for class.action
+    if name <> "send" \
+    &  name <> "terminate"
+        new class.prototype
+            prototype.name = "$(action.name:c)"
+            prototype.ctype = "void"
+            prototype.exists = 0
+            prototype.args = "client_t *self"
+        endnew
+    endif
+endfor
+
+#   Process replies from actor, and methods to actor
+for class.reply
+    reply.pattern = ""
+    for field
+        if defined (field.constant)
+            field.type = ""
+        elsif defined (field.property)
+            if count (class.property, property.name = field.property) = 0
+                new class.property
+                    property.name = "$(field.property:c)"
+                    property.type = field.type
+                    if field.type = "string"
+                        property.ctype = "char *"
+                    else
+                        property.ctype = "int"
+                    endif
+                endnew
+            endif
+            if field.type = "string"
+                reply.pattern += "s"
+            elsif field.type = "number"
+                reply.pattern += "i"
+            else
+                echo "E: we didn't add support for $(type)s in method fields"
+            endif
+        else
+            echo "E: reply field must be a constant or property"
+        endif
+    endfor
+endfor
+
+for class.method
+    method.args = ""
+    method.ctype = "int"
+    method.pattern = ""
+    for field
+        if defined (field.constant)
+            method.pattern += "s"
+        elsif defined (field.argument)
+            if field.type = "string"
+                method.pattern += "s"
+                method.args += ", const char *$(argument:c)"
+            elsif field.type = "number"
+                method.pattern += "i"
+                method.args += ", int $(argument:c)"
+            else
+                echo "E: we didn't add support for $(type)s in method fields"
+            endif
+        else
+            echo "E: send field must be a constant or argument"
+        endif
+    endfor
+    if defined (method.return)
+        method.return = "$(return:c)"
+        for class.property where name = method.return
+            method.return = "self->" + method.return
+            if property.type = "string"
+                method.ctype = "char *"
+            elsif property.type = "number"
+                method.ctype = "int"
+            endif
+        endfor
+    endif
+endfor
+
+.endtemplate
+.#  This is the API for the client
+.output "$(class.package_dir)/$(class.name).h"
+/*  =========================================================================
+    $(class.name) - $(class.title:)
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
+    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+    =========================================================================
+*/
+
+#ifndef __$(CLASS.NAME)_H_INCLUDED__
+#define __$(CLASS.NAME)_H_INCLUDED__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+//  Opaque class structure
+typedef struct _$(class.name)_t $(class.name)_t;
+
+//  @interface
+//  Create a new $(class.name)
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_new (void);
+
+//  Destroy the $(class.name)
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_destroy ($(class.name)_t **self_p);
+
+//  Enable verbose logging of client activity
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_verbose ($(class.name)_t *self);
+
+//  Return actor for low-level command control and polling
+$(CLASS.EXPORT_MACRO)zactor_t *
+    $(class.name)_actor ($(class.name)_t *self);
+
+.for class.method
+//  $(method.:justify,block%-80s)
+.   if count (method.accept)
+.       if method.ctype = "int"
+//  Returns >= 0 if successful, -1 if interrupted.
+.       else
+//  Returns NULL on an interrupt.
+.       endif
+.   endif
+$(CLASS.EXPORT_MACRO)$(ctype)
+    $(class.name)_$(name:c) ($(class.name)_t *self$(args));
+
+.endfor
+.for class.property
+//  Return last received $(property.name)
+$(CLASS.EXPORT_MACRO)$(ctype)
+    $(class.name)_$(name:c) ($(class.name)_t *self);
+
+.endfor
+//  Self test of this class
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_test (bool verbose);
+//  @end
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+.output "$(class.name)_engine.inc"
+/*  =========================================================================
+    $(class.name)_engine - $(class.title:) engine
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
+    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+    =========================================================================
+*/
+
+
+//  ---------------------------------------------------------------------------
+//  State machine constants
+
+typedef enum {
+.for class.state
+.   state.comma = last()?? ""? ","
+    $(name:c)_state = $(index ())$(comma)
+.endfor
+} state_t;
+
+typedef enum {
+    NULL_event = 0,
+.for class.event
+.   event.comma = last()?? ""? ","
+    $(name)_event = $(index ())$(comma)
+.endfor
+} event_t;
+
+//  Names for state machine logging and error reporting
+static char *
+s_state_name [] = {
+    "(NONE)",
+.for class.state
+    "$(name)"$(comma)
+.endfor
+};
+
+static char *
+s_event_name [] = {
+    "(NONE)",
+.for class.event
+.   if defined (event.external)
+    "$(NAME)"$(comma)
+.   else
+    "$(name)"$(comma)
+.   endif
+.endfor
+};
+ 
+
+//  ---------------------------------------------------------------------------
+//  Context for the client. This embeds the application-level client context
+//  at its start (the entire structure, not a reference), so we can cast a
+//  pointer between client_t and s_client_t arbitrarily.
+
+typedef struct {
+    client_t client;            //  Application-level client context
+    zsock_t *pipe;              //  Socket to back to caller API
+    zsock_t *dealer;            //  Socket to talk to server
+    zloop_t *loop;              //  Listen to pipe and dealer
+    bool terminated;            //  True if client is shutdown
+    size_t timeout;             //  inactivity timeout, msecs
+    state_t state;              //  Current state
+    event_t event;              //  Current event
+    event_t next_event;         //  The next event
+    event_t exception;          //  Exception event, if any
+    int expiry_timer;           //  zloop timer for timeouts
+    int wakeup_timer;           //  zloop timer for alarms
+    event_t wakeup_event;       //  Wake up with this event
+    bool verbose;               //  Verbose logging enabled?
+} s_client_t;
+
+
+static int
+    client_initialize (client_t *self);
+static void
+    client_terminate (client_t *self);
+static event_t
+    client_method (client_t *self, const char *method);
+static void
+    s_client_destroy (s_client_t **self_p);
+static void
+    s_client_execute (s_client_t *self, event_t event);
+static int
+    s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument);
+.if count (class.event, name = "expired")
+static int
+    s_client_handle_timeout (zloop_t *loop, int timer_id, void *argument);
+.endif
+static void
+    s_satisfy_pedantic_compilers (void);
+.for class.prototype
+static $(ctype)
+    $(name) ($(args));
+.endfor
+
+//  Create a new client connection
+
+static s_client_t *
+s_client_new (zsock_t *pipe)
+{
+    s_client_t *self = (s_client_t *) zmalloc (sizeof (s_client_t));
+    if (self) {
+        assert ((s_client_t *) &self->client == self);
+        self->pipe = pipe;
+        self->dealer = zsock_new (ZMQ_DEALER);
+        if (self->dealer)
+            self->loop = zloop_new ();
+        if (self->loop)
+            self->client.msgout = $(proto)_new (0);
+        if (self->client.msgout) {
+            //  Give application chance to initialize and set next event
+.for class.state where item () = 1
+            self->state = $(name:c)_state;
+.endfor
+            self->event = NULL_event;
+            self->client.pipe = self->pipe;
+            self->client.dealer = self->dealer;
+            if (client_initialize (&self->client))
+                s_client_destroy (&self);
+        }
+        else
+            s_client_destroy (&self);
+    }
+    s_satisfy_pedantic_compilers ();
+    return self;
+}
+
+//  Destroy the client connection
+
+static void
+s_client_destroy (s_client_t **self_p)
+{
+    assert (self_p);
+    if (*self_p) {
+        s_client_t *self = *self_p;
+        client_terminate (&self->client);
+        $(proto)_destroy (&self->client.msgout);
+        $(proto)_destroy (&self->client.msgin);
+        zsock_destroy (&self->dealer);
+        zloop_destroy (&self->loop);
+        free (self);
+        *self_p = NULL;
+    }
+}
+
+//  ---------------------------------------------------------------------------
+//  These methods are an internal API for actions
+
+//  Set the next event, needed in at least one action in an internal
+//  state; otherwise the state machine will wait for a message on the
+//  dealer socket and treat that as the event.
+
+static void
+engine_set_next_event (client_t *client, event_t event)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        self->next_event = event;
+    }
+}
+
+//  Raise an exception with 'event', halting any actions in progress.
+//  Continues execution of actions defined for the exception event.
+
+static void
+engine_set_exception (client_t *client, event_t event)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        self->exception = event;
+    }
+}
+
+//  Set wakeup alarm after 'delay' msecs. The next state should handle the
+//  wakeup event. The alarm is cancelled on any other event.
+
+static void
+engine_set_wakeup_event (client_t *client, size_t delay, event_t event)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        if (self->wakeup_timer) {
+            zloop_timer_end (self->loop, self->wakeup_timer);
+            self->wakeup_timer = 0;
+        }
+        self->wakeup_timer = zloop_timer (
+            self->loop, delay, 1, s_client_handle_wakeup, self);
+        self->wakeup_event = event;
+    }
+}
+
+//  Set timeout for next protocol read. By default, will wait forever
+//  or until the process is interrupted. The timeout is in milliseconds.
+//  The state machine must handle the "expired" event.
+
+static void
+engine_set_timeout (client_t *client, size_t timeout)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        self->timeout = timeout;
+.if count (class.event, name = "expired")
+        if (self->timeout)
+            self->expiry_timer = zloop_timer (
+                self->loop, self->timeout, 1, s_client_handle_timeout, self);
+.endif
+    }
+}
+
+//  Poll socket for activity, invoke handler on any received message.
+//  Handler must be a CZMQ zloop_fn function; receives client as arg.
+
+static void
+engine_handle_socket (client_t *client, zsock_t *socket, zloop_reader_fn handler)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        if (handler != NULL) {
+            int rc = zloop_reader (self->loop, socket, handler, self);
+            assert (rc == 0);
+            zloop_reader_set_tolerant (self->loop, socket);
+        }
+        else
+            zloop_reader_end (self->loop, socket);
+    }
+}
+
+//  Pedantic compilers don't like unused functions, so we call the whole
+//  API, passing null references. It's nasty and horrid and sufficient.
+
+static void
+s_satisfy_pedantic_compilers (void)
+{
+    engine_set_next_event (NULL, NULL_event);
+    engine_set_exception (NULL, NULL_event);
+    engine_set_timeout (NULL, 0);
+    engine_set_wakeup_event (NULL, 0, NULL_event);
+    engine_handle_socket (NULL, 0, NULL);
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Generic methods on protocol messages
+//  TODO: replace with lookup table, since ID is one byte
+
+static event_t
+s_protocol_event (s_client_t *self, $(proto)_t *msgin)
+{
+    assert (msgin);
+    switch ($(proto)_id (msgin)) {
+.   for proto.message where count (class.event, event.name = message.name) = 1
+        case $(PROTO)_$(NAME):
+            return $(name)_event;
+            break;
+.   endfor
+        default:
+            zsys_error ("$(class.name): invalid protocol event, halting");
+            self->terminated = true;
+            return NULL_event;
+    }
+}
+
+.macro output_action_body ()
+.       for action
+                    if (!self->exception) {
+.           if name = "send"
+                        //  send $(MESSAGE:C)
+                        if (self->verbose)
+                            zsys_debug ("$(class.name):         $ $(name) $(MESSAGE:C)");
+                        $(proto)_set_id (self->client.msgout, $(PROTO)_$(MESSAGE:C));
+.               if switches.trace ?= 1
+                        zsys_debug ("$(class.name): Send message to server");
+                        $(proto)_print (self->client.msgout);
+.               endif
+                        $(proto)_send (&self->client.msgout, self->dealer);
+                        self->client.msgout = $(proto)_new (0);
+.           elsif name = "terminate"
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("$(class.name):         $ $(name)");
+                        self->terminated = true;
+.           else
+                        //  $(name)
+                        if (self->verbose)
+                            zsys_debug ("$(class.name):         $ $(name)");
+                        $(name:c) (&self->client);
+.           endif
+                    }
+.       endfor
+.       if defined (event.next)
+                    if (!self->exception)
+                        self->state = $(next:c)_state;
+.       endif
+.endmacro
+
+//  Execute state machine as long as we have events; if event is NULL_event,
+//  or state machine is terminated, do nothing.
+
+static void
+s_client_execute (s_client_t *self, event_t event)
+{
+    self->next_event = event;
+    //  Cancel wakeup timer, if any was pending
+    if (self->wakeup_timer) {
+        zloop_timer_end (self->loop, self->wakeup_timer);
+        self->wakeup_timer = 0;
+    }
+    while (!self->terminated && self->next_event != NULL_event) {
+        self->event = self->next_event;
+        self->next_event = NULL_event;
+        self->exception = NULL_event;
+        if (self->verbose) {
+            zsys_debug ("$(class.name): %s:", s_state_name [self->state]);
+            zsys_debug ("$(class.name):     %s", s_event_name [self->event]);
+        }
+        switch (self->state) {
+.for class.state
+.   if index () > 1
+
+.   endif
+            case $(name:c)_state:
+.   for event where name <> "*"
+.       if index () > 1
+                else
+.       endif
+                if (self->event == $(name)_event) {
+.       output_action_body ()
+                }
+.   endfor
+.   for event where name = "*"
+.       if item () > 1
+                else {
+.       else
+                {
+.       endif
+                    //  Handle unexpected protocol events
+.       output_action_body ()
+                }
+.   else
+                else {
+                    //  Handle unexpected internal events
+                    zsys_warning ("$(class.name): unhandled event %s in %s",
+                        s_event_name [self->event], s_state_name [self->state]);
+                    assert (false);
+                }
+.   endfor
+                break;
+.endfor
+        }
+        //  If we had an exception event, interrupt normal programming
+        if (self->exception) {
+            if (self->verbose)
+                zsys_debug ("$(class.name):         ! %s", s_event_name [self->exception]);
+            self->next_event = self->exception;
+        }
+        else
+        if (self->verbose)
+            zsys_debug ("$(class.name):         > %s", s_state_name [self->state]);
+    }
+}
+
+.if count (class.event, name = "expired")
+//  zloop callback when client inactivity timer expires
+
+static int
+s_client_handle_timeout (zloop_t *loop, int timer_id, void *argument)
+{
+    s_client_t *self = (s_client_t *) argument;
+    s_client_execute (self, expired_event);
+    return self->terminated? -1: 0;
+}
+
+.endif
+//  zloop callback when client wakeup timer expires
+
+static int
+s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument)
+{
+    s_client_t *self = (s_client_t *) argument;
+    s_client_execute (self, self->wakeup_event);
+    return 0;
+}
+
+
+//  Process message from pipe
+
+static int
+s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
+{
+    s_client_t *self = (s_client_t *) argument;
+    char *method = zstr_recv (self->pipe);
+    if (!method)
+        return -1;              //  Interrupted; exit zloop
+    if (self->verbose)
+        zsys_debug ("$(class.name):     API command=%s", method);
+    
+    if (streq (method, "VERBOSE"))
+        self->verbose = true;
+    else
+    if (streq (method, "$TERM")) {
+        //  Shutdown the engine
+        zstr_free (&method);
+        self->terminated = true;
+    }
+    else
+        //  Execute custom method
+        s_client_execute (self, client_method (&self->client, method));
+
+    if (zsock_rcvmore (self->pipe)) {
+        zsys_error ("$(class.name): trailing API command frames (%s)", method);
+        zmsg_t *more = zmsg_recv (self->pipe);
+        zmsg_print (more);
+        zmsg_destroy (&more);
+    }
+    zstr_free (&method);
+    return self->terminated? -1: 0;
+}
+
+//  Handle a message (a protocol reply) from the server
+
+static int
+s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
+{
+    s_client_t *self = (s_client_t *) argument;
+    $(proto)_t *msgin = $(proto)_recv (self->dealer);
+    if (!msgin)
+        return -1;              //  Interrupted; exit zloop
+
+.if switches.trace ?= 1
+    zsys_debug ("%d: Server message", self->unique_id);
+    $(proto)_print (msgin);
+.endif
+    $(proto)_destroy (&self->client.msgin);
+    self->client.msgin = msgin;
+
+.if count (class.event, name = "expired")
+    //  Any input from client counts as activity
+    if (self->expiry_timer) {
+        zloop_timer_end (self->loop, self->expiry_timer);
+        self->expiry_timer = 0;
+    }
+    //  Reset expiry timer if timeout is not zero
+    if (self->timeout)
+        self->expiry_timer = zloop_timer (
+            self->loop, self->timeout, 1, s_client_handle_timeout, self);
+.endif
+    s_client_execute (self, s_protocol_event (self, msgin));
+    return self->terminated? -1: 0;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  This is the client actor, which polls its two sockets and processes
+//  incoming messages
+
+void
+$(class.name) (zsock_t *pipe, void *args)
+{
+    //  Initialize
+    s_client_t *self = s_client_new (pipe);
+    if (self) {
+        zsock_signal (pipe, 0);
+        
+        //  Set up handler for the two main sockets the client uses
+        engine_handle_socket ((client_t *) self, self->pipe, s_client_handle_pipe);
+        engine_handle_socket ((client_t *) self, self->dealer, s_client_handle_protocol);
+
+        //  Run reactor until there's a termination signal
+        zloop_start (self->loop);
+
+        //  Reactor has ended
+        s_client_destroy (&self);
+    }
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Class interface
+
+struct _$(class.name)_t {
+    zactor_t *actor;            //  Client actor
+.for class.property
+.   if type = "string"
+    char *$(name:);             //  Returned by actor reply
+.   elsif type = "number"
+    int $(name:);               //  Returned by actor reply
+.   endif
+.endfor
+};
+
+
+//  ---------------------------------------------------------------------------
+//  Create a new $(class.name)
+
+$(class.name)_t *
+$(class.name)_new (void)
+{
+    $(class.name)_t *self = ($(class.name)_t *) zmalloc (sizeof ($(class.name)_t));
+    if (self) {
+        self->actor = zactor_new ($(class.name), NULL);
+        if (!self->actor)
+            $(class.name)_destroy (&self);
+    }
+    return self;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Destroy the $(class.name)
+
+void
+$(class.name)_destroy ($(class.name)_t **self_p)
+{
+    assert (self_p);
+    if (*self_p) {
+        $(class.name)_t *self = *self_p;
+        zactor_destroy (&self->actor);
+.for class.property where type = "string"
+        zstr_free (&self->$(name));
+.endfor
+        free (self);
+        *self_p = NULL;
+    }
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Enable verbose logging of client activity
+
+void
+$(class.name)_verbose ($(class.name)_t *self)
+{
+    assert (self);
+    zsock_send (self->actor, "s", "VERBOSE");
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return actor for low-level command control and polling
+
+zactor_t *
+$(class.name)_actor ($(class.name)_t *self)
+{
+    assert (self);
+    return self->actor;
+}
+.if count (class.reply)
+
+
+//  ---------------------------------------------------------------------------
+//  Get valid reply from actor; discard replies that does not match. Current
+//  implementation filters on first frame of message. Blocks until a valid
+//  reply is received, and properties can be loaded from it. Returns 0 if
+//  matched, -1 if interrupted or timed-out.
+
+static int
+s_accept_reply ($(class.name)_t *self, ...)
+{
+    assert (self);
+    while (true) {
+        char *reply = zstr_recv (self->actor);
+        if (!reply)
+            return -1;          //  Interrupted or timed-out
+        
+        va_list args;
+        va_start (args, self);
+        char *filter = va_arg (args, char *);
+        while (filter) {
+            if (streq (reply, filter)) {
+.for class.reply
+.   if index () > 1
+                else
+.   endif
+                if (streq (reply, "$(reply.name:)")) {
+.   for field where type = "string"
+                    zstr_free (&self->$(property:c));
+.   endfor
+                    zsock_recv (self->actor, "$(reply.pattern:)"\
+.   for field where defined (property)
+, &self->$(property:c)\
+.   endfor
+);
+                }
+.endfor
+                break;
+            }
+            filter = va_arg (args, char *);
+        }
+        va_end (args);
+        //  If anything was remaining on pipe, flush it
+        zsock_flush (self->actor);
+        if (filter) {
+            zstr_free (&reply);
+            return 0;           //  We matched one of the filters
+        }
+    }
+}
+.endif
+.for class.method
+
+
+//  ---------------------------------------------------------------------------
+//  $(method.:justify,block%-80s)
+.   if count (method.accept)
+.       if method.ctype = "int"
+//  Returns >= 0 if successful, -1 if interrupted.
+.       else
+//  Returns NULL on an interrupt.
+.       endif
+.   endif
+
+$(ctype)
+$(class.name)_$(name:c) ($(class.name)_t *self$(args))
+{
+    assert (self);
+.   if method.pattern <> ""
+    zsock_send (self->actor, "$(pattern)"\
+.       for field
+.           if defined (constant)
+, \"$(constant:)\"\
+.           else
+, $(argument:c)\
+.           endif
+.       endfor
+);
+.   endif
+.   if count (method.accept)
+    if (s_accept_reply (self\
+.       for method.accept
+, "$(accept.reply:)"\
+.       endfor
+, NULL))
+.       if method.ctype = "int"
+        return -1;              //  Interrupted or timed-out
+.       else
+        return NULL;            //  Interrupted or timed-out
+.       endif
+.   endif
+.   if defined (method.return)
+    return $(return);
+.   endif
+}
+.endfor
+.for class.property
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received $(property.name)
+
+$(ctype)
+$(class.name)_$(name:c) ($(class.name)_t *self)
+{
+    assert (self);
+    return self->$(name);
+}
+.endfor
+.#  Generate source file first time only
+.source_file = "$(class.name).c"
+.if !file.exists (source_file)
+.   output source_file
+/*  =========================================================================
+    $(class.name) - $(class.title:)
+
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+    =========================================================================
+*/
+
+/*
+@header
+    Description of class for man page.
+@discuss
+    Detailed discussion of the class, if any.
+@end
+*/
+
+.if defined (class.project_header)
+#include "$(class.project_header)"
+.endif
+//  TODO: Change these to match your project's needs
+#include "$(class.package_dir)/$(class.protocol_class).h"
+#include "$(class.package_dir)/$(class.name).h"
+
+//  This structure defines the context for a client connection
+
+typedef struct {
+    //  These properties must always be present in the client_t
+    //  and are set by the generated engine.
+    zsock_t *pipe;              //  Actor pipe back to caller
+    zsock_t *dealer;            //  Socket to talk to server
+    $(proto)_t *msgout;         //  Message to send to server
+    $(proto)_t *msgin;          //  Message received from server
+    
+    //  TODO: Add specific properties for your application
+} client_t;
+
+//  Include the generated client engine
+#include "$(class.name)_engine.inc"
+
+//  Allocate properties and structures for a new client instance.
+//  Return 0 if OK, -1 if failed
+
+static int
+client_initialize (client_t *self)
+{
+    return 0;
+}
+
+//  Free properties and structures for a client instance
+
+static void
+client_terminate (client_t *self)
+{
+    //  Destroy properties here
+}
+
+//  Process client API method, return event for state machine to process
+//  Note that arguments to method are sitting on pipe and can be read
+//  using zsock_recv.
+
+static event_t
+client_method (client_t *self, const char *method)
+{
+    return NULL_event;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Selftest
+
+void
+$(class.name)_test (bool verbose)
+{
+    printf (" * $(class.name): ");
+    if (verbose)
+        printf ("\\n");
+    
+    //  @selftest
+    zactor_t *client = zactor_new ($(class.name), "client");
+    if (verbose)
+        zstr_send (client, "VERBOSE");
+    zactor_destroy (&client);
+    //  @end
+    printf ("OK\\n");
+}
+.endif
+.close
+.template 0
+
+#   Append missing prototypes to source file
+input = file.open (source_file)
+xline = file.read (input)
+while defined (xline)
+    #   Look for function declarations
+    if regexp.match ("^(\\w+) \\(", xline, token)
+        for class.prototype where name = token
+            prototype.exists = 1
+        endfor
+    endif
+    xline = file.read (input)?
+endwhile
+file.close (input)
+
+append source_file
+for class.prototype where exists = 0
+    echo "Generating stub for $(name)..."
+    >
+    >
+    >//  ---------------------------------------------------------------------------
+    >//  $(name)
+    >//
+    >
+    >static $(ctype)
+    >$(name) ($(args))
+    >{
+    if ctype = "long"
+        >    return 0;
+    elsif ctype = "char *"
+        >    return NULL
+    else
+        >
+    endif
+    >}
+endfor
+.endtemplate
