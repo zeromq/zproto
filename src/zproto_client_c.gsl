@@ -136,6 +136,8 @@ for class.method
                 method.ctype = "int"
             endif
         endfor
+    else
+        method.return = "0"
     endif
 endfor
 
