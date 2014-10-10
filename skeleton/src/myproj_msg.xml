@@ -5,6 +5,7 @@
     script = "zproto_codec_c"
     header = "../include"
     source = "."
+    project_header = "myproj.h"
     >
 This is an example protocol designed to teach you how this stuff works.
 
