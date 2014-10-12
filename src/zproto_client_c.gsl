@@ -44,6 +44,8 @@ for class.state
         if count (class.event, name = -1.name) = 0
             copy event to class
         endif
+    endfor
+    for event
         for action where count (class.action, name = -1.name) = 0
             copy action to class
         endfor

@@ -9,10 +9,9 @@
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: zproto_example.xml
-    * The code generation script that built this file: zproto_codec_c
+     * The XML model used for this code generation: zproto_example.xml, or
+     * The code generation script that built this file: zproto_codec_c
     ************************************************************************
-    
     Copyright (C) 2014 the Authors                                         
                                                                            
     Permission is hereby granted, free of charge, to any person obtaining  
@@ -658,12 +657,18 @@ zproto_example_encode (zproto_example_t **self_p)
             return NULL;
         }
     }
-    //  Now send the content field if set
+    //  Now send the message field if there is any
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
-        zframe_t *content_part = zmsg_pop (self->content);
-        while (content_part) {
-            zmsg_append (msg, &content_part);
-            content_part = zmsg_pop (self->content);
+        if (self->content) {
+            zframe_t *frame = zmsg_pop (self->content);
+            while (frame) {
+                zmsg_append (msg, &frame);
+                frame = zmsg_pop (self->content);
+            }
+        }
+        else {
+            zframe_t *frame = zframe_new (NULL, 0);
+            zmsg_append (msg, &frame);
         }
     }
     //  Destroy zproto_example object
@@ -681,6 +686,8 @@ zproto_example_recv (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv (input);
+    if (!msg)
+        return NULL;            //  Interrupted
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
     if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
@@ -706,6 +713,8 @@ zproto_example_recv_nowait (void *input)
 {
     assert (input);
     zmsg_t *msg = zmsg_recv_nowait (input);
+    if (!msg)
+        return NULL;            //  Interrupted
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
     if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
@@ -739,7 +748,7 @@ zproto_example_send (zproto_example_t **self_p, void *output)
     self->routing_id = NULL;
 
     //  Encode zproto_example message to a single zmsg
-    zmsg_t *msg = zproto_example_encode (&self);
+    zmsg_t *msg = zproto_example_encode (self_p);
     
     //  If we're sending to a ROUTER, send the routing_id first
     if (zsocket_type (zsock_resolve (output)) == ZMQ_ROUTER) {

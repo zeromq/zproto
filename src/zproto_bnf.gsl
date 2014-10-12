@@ -3,17 +3,27 @@
 #  The grammar may need manual reworking to be sensible
 
 function generate_bnf
+    [gsl].shuffle = 1
     output "$(class.name).bnf"
     >The following ABNF grammar defines the $(class.title:):
     >
 
+    for message
+        message.name = "$(message.name:COBOL,upper)"
+    endfor
     class.signature ?= 0
     for class.grammar
         >$(string.trim (grammar.?''):)
     else
         >    $(class.name)   = *(\
         for message
+            if role ?= "client"
+            >    C:$(message.name:)\
+            elsif role ?= "server"
+            >    S:$(message.name:)\
+            else
             >    $(message.name:)\
+            endif
             if !last ()
                 > |\
             endif
@@ -22,20 +32,13 @@ function generate_bnf
     endfor
 
     for message
-        message.name = "$(message.name:c)"
         if !defined (message.id)
             message.id = item ()
         endif
         >
-        >    ; $(string.trim (message.?''):)
-        if role ?= "client"
-        >    C:$(message.name:)\
-        elsif role ?= "server"
-        >    S:$(message.name:)\
-        else
-        >    $(message.name:)\
-        endif
-        >                    = signature %d$(id)\
+        >    ;  $(message.?'No description':justify,block%-70s)
+        >
+            >    $(name:)        = signature %d$(id)\
         for field
             > $(field.name)\
         endfor
@@ -142,5 +145,6 @@ function generate_bnf
     if defined (class.use_number_8)
     >    number-8        = 8OCTET
     endif
+    [gsl].shuffle = 2
 endfunction
 .endtemplate
