@@ -1,6 +1,6 @@
 The following ABNF grammar defines the zproto example protocol:
 
-    zproto_example  = *(  LOG |  STRUCTURES |  BINARY |  TYPES )
+    zproto_example  = *( LOG | STRUCTURES | BINARY | TYPES )
 
     ;  Log an event.                                                         
 
