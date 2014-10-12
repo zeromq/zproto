@@ -44,6 +44,8 @@ for class.state
         if count (class.event, name = -1.name) = 0
             copy event to class
         endif
+    endfor
+    for event
         for action where count (class.action, name = -1.name) = 0
             copy action to class
         endfor
@@ -421,6 +423,18 @@ engine_configure (server_t *server, const char *path, const char *value)
     }
 }
 
+//  Return true if server is running in verbose mode, else return false.
+
+static bool
+engine_verbose (server_t *server)
+{
+    if (server) {
+        s_server_t *self = (s_server_t *) server;
+        return self->verbose;
+    }
+    return false;
+}
+
 //  Pedantic compilers don't like unused functions, so we call the whole
 //  API, passing null references. It's nasty and horrid and sufficient.
 
@@ -436,6 +450,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_monitor (NULL, 0, NULL);
     engine_set_log_prefix (NULL, NULL);
     engine_configure (NULL, NULL, NULL);
+    engine_verbose (NULL);
 }
 
 
@@ -870,7 +885,6 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
         char *path = zmsg_popstr (msg);
         char *value = zmsg_popstr (msg);
         zconfig_put (self->config, path, value);
-        //  TODO: remove after October 9, 2014
         if (streq (path, "server/animate")) {
             zsys_warning ("'%s' is deprecated, use VERBOSE command instead", path);
             self->verbose = atoi (value);

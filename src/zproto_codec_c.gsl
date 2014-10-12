@@ -834,6 +834,9 @@ $(class.name)_encode ($(class.name)_t **self_p)
     //  Now send the message field if there is any
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
 .   for field where type = "msg"
+.       if item () <> count (message.field)
+.           echo "E: in $(message.name:), $(field.name) must come last"
+.       endif
         if (self->$(field.name)) {
             zframe_t *frame = zmsg_pop (self->$(field.name));
             while (frame) {

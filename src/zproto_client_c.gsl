@@ -44,6 +44,8 @@ for class.state
         if count (class.event, name = -1.name) = 0
             copy event to class
         endif
+    endfor
+    for event
         for action where count (class.action, name = -1.name) = 0
             copy action to class
         endfor
@@ -136,6 +138,8 @@ for class.method
                 method.ctype = "int"
             endif
         endfor
+    else
+        method.return = "0"
     endif
 endfor
 
@@ -188,7 +192,7 @@ $(CLASS.EXPORT_MACRO)zactor_t *
     $(class.name)_actor ($(class.name)_t *self);
 
 .for class.method
-//  $(method.:justify,block%-80s)
+//  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
 .       if method.ctype = "int"
 //  Returns >= 0 if successful, -1 if interrupted.
@@ -829,7 +833,7 @@ s_accept_reply ($(class.name)_t *self, ...)
 
 
 //  ---------------------------------------------------------------------------
-//  $(method.:justify,block%-80s)
+//  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
 .       if method.ctype = "int"
 //  Returns >= 0 if successful, -1 if interrupted.

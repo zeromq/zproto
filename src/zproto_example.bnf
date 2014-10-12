@@ -1,9 +1,10 @@
 The following ABNF grammar defines the zproto example protocol:
 
-    example         = log | structures | binary
+    zproto_example  = *(  LOG |  STRUCTURES |  BINARY |  TYPES )
 
-    ; Log an event.
-    log             = signature %d1 sequence version level event node peer time host data
+    ;  Log an event.                                                         
+
+    LOG             = signature %d1 sequence version level event node peer time host data
     signature       = %xAA %xA0             ; two octets
     sequence        = number-2              ; 
     version         = number-2              ; Version
@@ -15,14 +16,16 @@ The following ABNF grammar defines the zproto example protocol:
     host            = string                ; Originating hostname
     data            = longstr               ; Actual log message
 
-    ; This message contains a list and a hash.
-    structures      = signature %d2 sequence aliases headers
+    ;  This message contains a list and a hash.                              
+
+    STRUCTURES      = signature %d2 sequence aliases headers
     sequence        = number-2              ; 
     aliases         = strings               ; List of strings
     headers         = dictionary            ; Other random properties
 
-    ; Deliver a multi-part message.
-    binary          = signature %d3 sequence flags public key identifier address content
+    ;  Deliver a multi-part message.                                         
+
+    BINARY          = signature %d3 sequence flags public key identifier address content
     sequence        = number-2              ; 
     flags           = 4OCTET                ; A set of flags
     public key      = chunk                 ; Our public key
@@ -30,8 +33,9 @@ The following ABNF grammar defines the zproto example protocol:
     address         = frame                 ; Return address as frame
     content         = msg                   ; Message to be delivered
 
-    ; Demonstrate custom-defined types
-    types           = signature %d4 sequence client supplier
+    ;  Demonstrate custom-defined types                                      
+
+    TYPES           = signature %d4 sequence client supplier
     sequence        = number-2              ; 
     client          = person                ; Client contact
     supplier        = person                ; Supplier contact

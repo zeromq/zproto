@@ -7,8 +7,8 @@
     statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
     for commits are:
 
-    * The XML model used for this code generation: zproto_example_java.xml
-    * The code generation script that built this file: zproto_codec_java
+    * The XML model used for this code generation: zproto_example.xml
+    * The code generation script that built this file: zproto_codec_c
     ************************************************************************
     Copyright (C) 2014 the Authors                                         
                                                                            
@@ -382,6 +382,10 @@ public class ZprotoExample implements java.io.Closeable
         assert (socket != null);
 
         ZMsg msg = new ZMsg();
+        //  If we're sending to a ROUTER, send the routingId first
+        if (socket.getType () == ZMQ.ROUTER) {
+            msg.add (routingId);
+        }
 
         int frameSize = 2 + 1;          //  Signature and message ID
         switch (id) {
@@ -664,6 +668,7 @@ public class ZprotoExample implements java.io.Closeable
         ZprotoExample self = new ZprotoExample (ZprotoExample.BINARY);
         self.setSequence (sequence);
         self.setFlags (flags);
+        self.setPublic_Key (public_key);
         self.setIdentifier (identifier);
         self.setAddress (address.duplicate ());
         self.setContent (content.duplicate ());
@@ -727,6 +732,7 @@ public class ZprotoExample implements java.io.Closeable
         case BINARY:
             copy.sequence = this.sequence;
             System.arraycopy (copy.flags, 0, this.flags, 0, 4);
+            copy.public_key = this.public_key;
             copy.address = this.address.duplicate ();
         break;
         case TYPES:

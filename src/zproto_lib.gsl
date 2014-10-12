@@ -24,7 +24,7 @@ endfunction
 
 function set_defaults ()
     resolve_types ()
-    
+
     class.signature ?= 0
     class.package_dir ?= "../include"
     class.source_dir ?= "."
