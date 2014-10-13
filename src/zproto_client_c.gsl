@@ -80,29 +80,23 @@ endfor
 for class.reply
     reply.pattern = ""
     for field
-        if defined (field.constant)
-            field.type = ""
-        elsif defined (field.property)
-            if count (class.property, property.name = field.property) = 0
-                new class.property
-                    property.name = "$(field.property:c)"
-                    property.type = field.type
-                    if field.type = "string"
-                        property.ctype = "char *"
-                    else
-                        property.ctype = "int"
-                    endif
-                endnew
-            endif
-            if field.type = "string"
-                reply.pattern += "s"
-            elsif field.type = "number"
-                reply.pattern += "i"
-            else
-                echo "E: we didn't add support for $(type)s in method fields"
-            endif
+        if count (class.property, property.name = field.name) = 0
+            new class.property
+                property.name = "$(field.name:c)"
+                property.type = field.type
+                if field.type = "string"
+                    property.ctype = "char *"
+                else
+                    property.ctype = "int"
+                endif
+            endnew
+        endif
+        if field.type = "string"
+            reply.pattern += "s"
+        elsif field.type = "number"
+            reply.pattern += "i"
         else
-            echo "E: reply field must be a constant or property"
+            echo "E: we didn't add support for $(type)s in method fields"
         endif
     endfor
 endfor
@@ -110,22 +104,16 @@ endfor
 for class.method
     method.args = ""
     method.ctype = "int"
-    method.pattern = ""
+    method.pattern = "s"
     for field
-        if defined (field.constant)
+        if field.type = "string"
             method.pattern += "s"
-        elsif defined (field.argument)
-            if field.type = "string"
-                method.pattern += "s"
-                method.args += ", const char *$(argument:c)"
-            elsif field.type = "number"
-                method.pattern += "i"
-                method.args += ", int $(argument:c)"
-            else
-                echo "E: we didn't add support for $(type)s in method fields"
-            endif
+            method.args += ", const char *$(name:c)"
+        elsif field.type = "number"
+            method.pattern += "i"
+            method.args += ", int $(name:c)"
         else
-            echo "E: send field must be a constant or argument"
+            echo "E: we didn't add support for $(type)s in method fields"
         endif
     endfor
     if defined (method.return)
@@ -806,11 +794,11 @@ s_accept_reply ($(class.name)_t *self, ...)
 .   endif
                 if (streq (reply, "$(reply.name:)")) {
 .   for field where type = "string"
-                    zstr_free (&self->$(property:c));
+                    zstr_free (&self->$(name:c));
 .   endfor
                     zsock_recv (self->actor, "$(reply.pattern:)"\
-.   for field where defined (property)
-, &self->$(property:c)\
+.   for field
+, &self->$(name:c)\
 .   endfor
 );
                 }
@@ -846,14 +834,10 @@ $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 {
     assert (self);
-.   if method.pattern <> ""
-    zsock_send (self->actor, "$(pattern)"\
+.   if method.immediate?0 = 0
+    zsock_send (self->actor, "$(pattern)", "$(NAME)"\
 .       for field
-.           if defined (constant)
-, \"$(constant:)\"\
-.           else
-, $(argument:c)\
-.           endif
+, $(name:c)\
 .       endfor
 );
 .   endif

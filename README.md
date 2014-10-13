@@ -447,8 +447,7 @@ Your input to the code generator is two XML files that defines a set of 'states'
         </state>
         <method name = "connect">
         Connect to server.
-            <field constant = "CONNECT" />
-            <field argument = "endpoint" type = "string" />
+            <field name = "endpoint" type = "string" />
         </method>
     </class>
 
@@ -577,9 +576,8 @@ To simplify the delivery of a conventional non-actor API, you can define methods
     <method name = "connect" return = "status">
     Connect to server and return only when there's a successful connection or
     the timeout in msecs expires. Returns 0 if successfully connected, else -1.
-        <field constant = "CONNECT" />
-        <field argument = "endpoint" type = "string" />
-        <field argument = "timeout" type = "number" />
+        <field name = "endpoint" type = "string" />
+        <field name = "timeout" type = "number" />
         <accept reply = "SUCCESS" />
         <accept reply = "FAILURE" />
     </method>
@@ -593,8 +591,7 @@ To simplify the delivery of a conventional non-actor API, you can define methods
     \w and \W to match alphanumeric and non-alphanumeric, + for one or more
     repetitions, * for zero or more repetitions, and ( ) to create groups.
     Returns 0 if subscription was successful, else -1.
-        <field constant = "SUBSCRIBE" />
-        <field argument = "expression" type = "string" />
+        <field name = "expression" type = "string" />
         <accept reply = "SUCCESS" />
         <accept reply = "FAILURE" />
     </method>
@@ -605,9 +602,8 @@ To simplify the delivery of a conventional non-actor API, you can define methods
     store messages. If a message is published before subscribers arrive, they
     will miss it. Currently only supports string contents. Does not return a
     status value; publish commands are asynchronous and unconfirmed.
-        <field constant = "PUBLISH" />
-        <field argument = "address" type = "string" />
-        <field argument = "content" type = "string" />
+        <field name = "address" type = "string" />
+        <field name = "content" type = "string" />
     </method>
 
     <method name = "recv" return = "content">
@@ -618,18 +614,18 @@ To simplify the delivery of a conventional non-actor API, you can define methods
 
     <!-- These are the replies from the actor to the API -->
     <reply name = "SUCCESS">
-        <field property = "status" type = "number" />
+        <field name = "status" type = "number" />
     </reply>
 
     <reply name = "FAILURE">
-        <field property = "status" type = "number" />
-        <field property = "reason" type = "string" />
+        <field name = "status" type = "number" />
+        <field name = "reason" type = "string" />
     </reply>
 
     <reply name = "MESSAGE">
-        <field property = "sender" type = "string" />
-        <field property = "address" type = "string" />
-        <field property = "content" type = "string" />
+        <field name = "sender" type = "string" />
+        <field name = "address" type = "string" />
+        <field name = "content" type = "string" />
     </reply>
 
 Each method is implemented as a classic CLASS method, with the public API in the generated .h header, and the body in the generated .inc engine. For example:
