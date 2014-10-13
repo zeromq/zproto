@@ -87,7 +87,7 @@ for class.reply
                 if field.type = "string"
                     property.ctype = "char *"
                 else
-                    property.ctype = "int"
+                    property.ctype = "int "
                 endif
             endnew
         endif
@@ -104,16 +104,31 @@ endfor
 for class.method
     method.args = ""
     method.ctype = "int"
-    method.pattern = "s"
+    method.pattern = ""
+    method.immediate ?= 0
     for field
+        field.name = "$(name:c)"
         if field.type = "string"
             method.pattern += "s"
-            method.args += ", const char *$(name:c)"
+            method.args += ", const char *$(name)"
         elsif field.type = "number"
             method.pattern += "i"
-            method.args += ", int $(name:c)"
+            method.args += ", int $(name)"
         else
             echo "E: we didn't add support for $(type)s in method fields"
+        endif
+
+        #   Collect all fields into class.argument block
+        if count (class.argument, argument.name = field.name) = 0
+            new class.argument
+                argument.name = field.name
+                argument.type = field.type
+                if field.type = "string"
+                    argument.ctype = "char *"
+                else
+                    argument.ctype = "int "
+                endif
+            endnew
         endif
     endfor
     if defined (method.return)
@@ -128,6 +143,12 @@ for class.method
         endfor
     else
         method.return = "0"
+    endif
+    if method.name = "constructor"
+        method.args = string.substr (method.args, 2)
+        if method.args = ""
+            method.args = "void"
+        endif
     endif
 endfor
 
@@ -164,8 +185,15 @@ typedef struct _$(class.name)_t $(class.name)_t;
 
 //  @interface
 //  Create a new $(class.name)
+.for class.method where name = "constructor"
+//  $(method.?'No explanation':justify,block%-80s)
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_new ($(args));
+.else
+
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (void);
+.endfor
 
 //  Destroy the $(class.name)
 $(CLASS.EXPORT_MACRO)void
@@ -179,7 +207,7 @@ $(CLASS.EXPORT_MACRO)void
 $(CLASS.EXPORT_MACRO)zactor_t *
     $(class.name)_actor ($(class.name)_t *self);
 
-.for class.method
+.for class.method where name <> "constructor" & name <> "destructor"
 //  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
 .       if method.ctype = "int"
@@ -193,9 +221,9 @@ $(CLASS.EXPORT_MACRO)$(ctype)
 
 .endfor
 .for class.property
-//  Return last received $(property.name)
+//  Return last received $(name)
 $(CLASS.EXPORT_MACRO)$(ctype)
-    $(class.name)_$(name:c) ($(class.name)_t *self);
+    $(class.name)_$(name) ($(class.name)_t *self);
 
 .endfor
 //  Self test of this class
@@ -273,11 +301,21 @@ s_event_name [] = {
 //  at its start (the entire structure, not a reference), so we can cast a
 //  pointer between client_t and s_client_t arbitrarily.
 
+//  These are the different method arguments we manage automatically
+struct _client_args_t {
+.   for class.argument
+    $(ctype)$(name);
+.   else
+    int struct_cannot_be_empty;
+.   endfor
+};
+
 typedef struct {
     client_t client;            //  Application-level client context
     zsock_t *pipe;              //  Socket to back to caller API
     zsock_t *dealer;            //  Socket to talk to server
     zloop_t *loop;              //  Listen to pipe and dealer
+    client_args_t args;         //  Method arguments structure
     bool terminated;            //  True if client is shutdown
     size_t timeout;             //  inactivity timeout, msecs
     state_t state;              //  Current state
@@ -290,13 +328,10 @@ typedef struct {
     bool verbose;               //  Verbose logging enabled?
 } s_client_t;
 
-
 static int
     client_initialize (client_t *self);
 static void
     client_terminate (client_t *self);
-static event_t
-    client_method (client_t *self, const char *method);
 static void
     s_client_destroy (s_client_t **self_p);
 static void
@@ -336,6 +371,7 @@ s_client_new (zsock_t *pipe)
             self->event = NULL_event;
             self->client.pipe = self->pipe;
             self->client.dealer = self->dealer;
+            self->client.args = &self->args;
             if (client_initialize (&self->client))
                 s_client_destroy (&self);
         }
@@ -354,6 +390,9 @@ s_client_destroy (s_client_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_client_t *self = *self_p;
+.for class.argument where type = "string"
+        zstr_free (&self->args.$(name));
+.endfor
         client_terminate (&self->client);
         $(proto)_destroy (&self->client.msgout);
         $(proto)_destroy (&self->client.msgin);
@@ -623,10 +662,23 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         zstr_free (&method);
         self->terminated = true;
     }
+.for class.method where immediate = 0
     else
-        //  Execute custom method
-        s_client_execute (self, client_method (&self->client, method));
-
+    if (streq (method, "$(NAME)")) {
+.   if pattern <> ""
+.       for field where type = "string"
+        zstr_free (&self->args.$(name));
+.       endfor
+        zsock_recv (self->pipe, "$(pattern)"\
+.       for field
+, &self->args.$(name)\
+.       endfor
+);
+.   endif
+        s_client_execute (self, $(name)_event);
+    }
+.endfor
+    //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->pipe)) {
         zsys_error ("$(class.name): trailing API command frames (%s)", method);
         zmsg_t *more = zmsg_recv (self->pipe);
@@ -702,9 +754,9 @@ struct _$(class.name)_t {
     zactor_t *actor;            //  Client actor
 .for class.property
 .   if type = "string"
-    char *$(name:);             //  Returned by actor reply
+    char *$(name);              //  Returned by actor reply
 .   elsif type = "number"
-    int $(name:);               //  Returned by actor reply
+    int $(name);                //  Returned by actor reply
 .   endif
 .endfor
 };
@@ -712,13 +764,33 @@ struct _$(class.name)_t {
 
 //  ---------------------------------------------------------------------------
 //  Create a new $(class.name)
+.for class.method where name = "constructor"
+//  $(method.?'No explanation':justify,block%-80s)
 
-$(class.name)_t *
+static $(ctype)
+$(class.name)_$(name:c) ($(class.name)_t *self, $(args));
+
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+$(class.name)_new ($(args))
+.else
+
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(class.name)_new (void)
+.endfor
 {
     $(class.name)_t *self = ($(class.name)_t *) zmalloc (sizeof ($(class.name)_t));
     if (self) {
         self->actor = zactor_new ($(class.name), NULL);
+.for class.method where name = "constructor"
+        if (self->actor)
+            $(return) = $(class.name)_constructor (self\
+.       for field
+, $(name:c)\
+.       endfor
+);
+        if ($(return) == -1)
+            zactor_destroy (&self->actor);
+.endfor
         if (!self->actor)
             $(class.name)_destroy (&self);
     }
@@ -728,6 +800,12 @@ $(class.name)_new (void)
 
 //  ---------------------------------------------------------------------------
 //  Destroy the $(class.name)
+.for class.method where name = "destructor"
+//  $(method.?'No explanation':justify,block%-80s)
+
+static $(ctype)
+$(class.name)_$(name:c) ($(class.name)_t *self);
+.endfor
 
 void
 $(class.name)_destroy ($(class.name)_t **self_p)
@@ -735,6 +813,10 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     assert (self_p);
     if (*self_p) {
         $(class.name)_t *self = *self_p;
+.for class.method where name = "constructor"
+        if (self->actor)
+            $(class.name)_destructor (self);
+.endfor
         zactor_destroy (&self->actor);
 .for class.property where type = "string"
         zstr_free (&self->$(name));
@@ -830,14 +912,19 @@ s_accept_reply ($(class.name)_t *self, ...)
 .       endif
 .   endif
 
+.   if name = "constructor"
+static $(ctype)
+$(class.name)_$(name:c) ($(class.name)_t *self, $(args))
+.   else
 $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self$(args))
+.   endif
 {
     assert (self);
-.   if method.immediate?0 = 0
-    zsock_send (self->actor, "$(pattern)", "$(NAME)"\
+.   if method.immediate = 0
+    zsock_send (self->actor, "s$(pattern)", "$(NAME)"\
 .       for field
-, $(name:c)\
+, $(name)\
 .       endfor
 );
 .   endif
@@ -862,10 +949,10 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 
 
 //  ---------------------------------------------------------------------------
-//  Return last received $(property.name)
+//  Return last received $(name)
 
 $(ctype)
-$(class.name)_$(name:c) ($(class.name)_t *self)
+$(class.name)_$(name) ($(class.name)_t *self)
 {
     assert (self);
     return self->$(name);
@@ -899,7 +986,8 @@ $(class.name)_$(name:c) ($(class.name)_t *self)
 #include "$(class.package_dir)/$(class.protocol_class).h"
 #include "$(class.package_dir)/$(class.name).h"
 
-//  This structure defines the context for a client connection
+//  Forward reference to method arguments structure
+typedef struct _client_args_t client_args_t;
 
 typedef struct {
     //  These properties must always be present in the client_t
@@ -908,6 +996,7 @@ typedef struct {
     zsock_t *dealer;            //  Socket to talk to server
     $(proto)_t *msgout;         //  Message to send to server
     $(proto)_t *msgin;          //  Message received from server
+    client_args_t *args;        //  Arguments from methods
     
     //  TODO: Add specific properties for your application
 } client_t;
@@ -930,16 +1019,6 @@ static void
 client_terminate (client_t *self)
 {
     //  Destroy properties here
-}
-
-//  Process client API method, return event for state machine to process
-//  Note that arguments to method are sitting on pipe and can be read
-//  using zsock_recv.
-
-static event_t
-client_method (client_t *self, const char *method)
-{
-    return NULL_event;
 }
 
 
@@ -991,7 +1070,7 @@ for class.prototype where exists = 0
     >static $(ctype)
     >$(name) ($(args))
     >{
-    if ctype = "long"
+    if ctype = "int"
         >    return 0;
     elsif ctype = "char *"
         >    return NULL

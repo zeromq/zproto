@@ -395,35 +395,6 @@ The zproto project lets you generate full asynchronous client stacks in C to tal
 
 ### The zproto Client Model
 
-The zproto_client_c.gsl code generator produces:
-
-* A .h file that acts as the public API for your client
-* An .inc file called an *engine* that runs the state machine
-* The first time, a skeleton .c file for your client class
-
-The client is a "actor" built on the CZMQ/zactor class. The generated zactor accepts these messages:
-
-    VERBOSE
-    $TERM
-
-The client stack is then wrapped in a classic CLASS API like this:
-
-    //  Create a new my_client
-    my_client_t *
-        my_client_new (void);
-
-    //  Destroy the my_client
-    void
-        my_client_destroy (my_client_t **self_p);
-
-    //  Enable verbose logging of client activity
-    void
-        my_client_verbose (my_client_t *self);
-
-    //  Return actor for low-level command control and polling
-    zactor_t *
-        my_client_actor (my_client_t *self);
-
 Your input to the code generator is two XML files that defines a set of 'states', and the protocol messages as used to generate the codec. Here is a minimal 'hello_client.xml' example that defines a Hello, World client:
 
     <class
@@ -435,7 +406,7 @@ Your input to the code generator is two XML files that defines a set of 'states'
         package_dir = "."
         >
         <state name = "start">
-            <event name = "connect" next = "connected">
+            <event name = "constructor" next = "connected">
                 <action name = "connect to server" />
                 <action name = "send" message = "HELLO" />
             </event>
@@ -445,11 +416,42 @@ Your input to the code generator is two XML files that defines a set of 'states'
                 <action name = "terminate" />
             </event>
         </state>
-        <method name = "connect">
+        <method name = "constructor">
         Connect to server.
             <field name = "endpoint" type = "string" />
         </method>
     </class>
+
+The zproto_client_c.gsl code generator produces:
+
+* A .h file that acts as the public API for your client
+* An .inc file called an *engine* that runs the state machine
+* The first time, a skeleton .c file for your client class
+
+The client is a "actor" built on the CZMQ/zactor class. The generated zactor accepts these messages:
+
+    VERBOSE
+    $TERM
+
+Plus one message for each method defined in the model, including the pre-defined "constructor" and "destructor" methods (called after, and before construction and destruction respectively).
+
+The client stack is then wrapped in a classic CLASS API like this:
+
+    //  Create a new hello_client
+    hello_client_t *
+        hello_client_new (const char *endpoint);
+
+    //  Destroy the hello_client
+    void
+        hello_client_destroy (hello_client_t **self_p);
+
+    //  Enable verbose logging of client activity
+    void
+        hello_client_verbose (hello_client_t *self);
+
+    //  Return actor for low-level command control and polling
+    zactor_t *
+        hello_client_actor (hello_client_t *self);
 
 Names are case insensitive. By convention however we use uppercase for protocol events and methods. Protocol events can also contain embedded spaces or hyphens, which are mapped to underscores. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
 
@@ -572,10 +574,9 @@ If you define an "expired" event anywhere in your dialog, the client will automa
 
 To simplify the delivery of a conventional non-actor API, you can define methods in your state machine. Here are some examples taken from real projects:
 
-    <!-- API methods -->
-    <method name = "connect" return = "status">
-    Connect to server and return only when there's a successful connection or
-    the timeout in msecs expires. Returns 0 if successfully connected, else -1.
+    <method name = "constructor" return = "status">
+    Connect to server endpoint, with specified timeout in msecs (zero means
+    wait forever). Constructor succeeds if connection is successful.
         <field name = "endpoint" type = "string" />
         <field name = "timeout" type = "number" />
         <accept reply = "SUCCESS" />
@@ -606,9 +607,10 @@ To simplify the delivery of a conventional non-actor API, you can define methods
         <field name = "content" type = "string" />
     </method>
 
-    <method name = "recv" return = "content">
+    <method name = "recv" return = "content" immediate = "1">
     Receive next message from server. Returns the message content, as a string,
-    if any. The caller should not modify or free this string.
+    if any. The caller should not modify or free this string. This method is
+    defined as "immediate" and so does not send any message to the client actor.
         <accept reply = "MESSAGE" />
     </method>
 
@@ -630,23 +632,22 @@ To simplify the delivery of a conventional non-actor API, you can define methods
 
 Each method is implemented as a classic CLASS method, with the public API in the generated .h header, and the body in the generated .inc engine. For example:
 
-    //  ---------------------------------------------------------------------------
-    //  Connect to server and return only when there's a successful connection or the
-    //  timeout in msecs expires. Returns 0 if successfully connected, else -1.
-
+    //  ------------------------------------------------------------------
+    //  Subscribe to all messages sent to matching addresses...
+    
     int
-    zccp_client_connect (zccp_client_t *self, const char *endpoint, int timeout)
+    mlm_client_subscribe (mlm_client_t *self, const char *stream, const char *pattern)
     {
         assert (self);
-        zsock_send (self->actor, "ssi", "CONNECT", endpoint, timeout);
-        //  For now we don't catch an interrupt or timeout
-        s_accept_reply (self, "SUCCESS", "FAILURE", NULL);
-        return self->status;
+        zsock_send (self->actor, "ss", "SUBSCRIBE", stream, pattern);
+        if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
+            return -1;              //  Interrupted or timed-out
+        return 0;
     }
 
 When the calling application uses the method, this can do any or several of these things:
 
-* Send a message to the client actor, if the method has one or more <field> definitions. This generates an event in the client state machine, corresponding the the method name.
+* Send a message to the client actor, if the method does not have the 'immediate = "1"' attribute. This generates an event in the client state machine, corresponding the the method name.
 
 * Wait for one of a set of replies from the actor, and store reply properties in the client object. These are defined by one or more <accept> tags.
 
@@ -655,6 +656,13 @@ When the calling application uses the method, this can do any or several of thes
 All possible replies are defined as <reply> objects. The actor's replies are always several frames. The first is the reply name, and the following are the reply fields.
 
 We currently support only two field types: string, and number, which map to char * and int.
+
+The fields you pass in a method are accessible to client state machine actions via the self->args structure. For example:
+
+    if (zsock_connect (self->dealer, "%s", self->args->endpoint)) {
+        engine_set_exception (self, error_event);
+        zsys_warning ("could not connect to %s", self->args->endpoint);
+    }
 
 ## Protocol Design Notes
 
