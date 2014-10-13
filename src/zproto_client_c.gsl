@@ -675,7 +675,7 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
 .       endfor
 );
 .   endif
-        s_client_execute (self, $(name)_event);
+        s_client_execute (self, $(name:c)_event);
     }
 .endfor
     //  Cleanup pipe if any argument frames are still waiting to be eaten
@@ -989,6 +989,7 @@ $(class.name)_$(name) ($(class.name)_t *self)
 //  Forward reference to method arguments structure
 typedef struct _client_args_t client_args_t;
 
+//  This structure defines the context for a client connection
 typedef struct {
     //  These properties must always be present in the client_t
     //  and are set by the generated engine.
