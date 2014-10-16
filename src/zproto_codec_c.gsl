@@ -63,7 +63,11 @@ set_defaults ()
 #define $(CLASS.NAME)_$(FIELD.NAME)_SIZE    $(size)
 .endfor
 
+.if file.exists ("../include/czmq.h")
 #include "czmq.h"
+.else
+#include <czmq.h>
+.endif
 
 #ifdef __cplusplus
 extern "C" {
