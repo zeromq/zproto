@@ -84,6 +84,8 @@
 #define ZPROTO_EXAMPLE_TYPES                4
 #define ZPROTO_EXAMPLE_FLAGS_SIZE           4
 
+#include <czmq.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
