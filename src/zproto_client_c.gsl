@@ -80,7 +80,8 @@ endfor
 for class.reply
     reply.pattern = ""
     for field
-        if count (class.property, property.name = field.name) = 0
+        field.name = "$(field.name:c)"
+        if count (class.property, name = field.name) = 0
             new class.property
                 property.name = "$(field.name:c)"
                 property.type = field.type
