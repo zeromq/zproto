@@ -80,7 +80,7 @@ endfor
 .#  This is the API for the server
 .output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
-    $(class.name) - $(class.title:)
+    $(class.name) - $(class.name:)
 
     ** WARNING *************************************************************
     THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
@@ -107,47 +107,47 @@ extern "C" {
 //  @interface
 //  To work with $(class.name), use the CZMQ zactor API:
 //
-//  Create new $(class.title) instance, passing logging prefix:
+//  Create new $(class.name) instance, passing logging prefix:
 //
-//      zactor_t *$(class.title:c) = zactor_new ($(class.name), "myname");
+//      zactor_t *$(class.name:c) = zactor_new ($(class.name), "myname");
 //  
-//  Destroy $(class.title) instance
+//  Destroy $(class.name) instance
 //
-//      zactor_destroy (&$(class.title:c));
+//      zactor_destroy (&$(class.name:c));
 //  
 //  Enable verbose logging of commands and activity:
 //
-//      zstr_send ($(class.title:c), "VERBOSE");
+//      zstr_send ($(class.name:c), "VERBOSE");
 //
-//  Bind $(class.title) to specified endpoint. TCP endpoints may specify
+//  Bind $(class.name) to specified endpoint. TCP endpoints may specify
 //  the port number as "*" to aquire an ephemeral port:
 //
-//      zstr_sendx ($(class.title:c), "BIND", endpoint, NULL);
+//      zstr_sendx ($(class.name:c), "BIND", endpoint, NULL);
 //
 //  Return assigned port number, specifically when BIND was done using an
 //  an ephemeral port:
 //
-//      zstr_sendx ($(class.title:c), "PORT", NULL);
+//      zstr_sendx ($(class.name:c), "PORT", NULL);
 //      char *command, *port_str;
-//      zstr_recvx ($(class.title:c), &command, &port_str, NULL);
+//      zstr_recvx ($(class.name:c), &command, &port_str, NULL);
 //      assert (streq (command, "PORT"));
 //
 //  Specify configuration file to load, overwriting any previous loaded
 //  configuration file or options:
 //
-//      zstr_sendx ($(class.title:c), "CONFIGURE", filename, NULL);
+//      zstr_sendx ($(class.name:c), "CONFIGURE", filename, NULL);
 //
 //  Set configuration path value:
 //
-//      zstr_sendx ($(class.title:c), "SET", path, value, NULL);
+//      zstr_sendx ($(class.name:c), "SET", path, value, NULL);
 //    
-//  Send zmsg_t instance to $(class.title):
+//  Send zmsg_t instance to $(class.name):
 //
-//      zactor_send ($(class.title:c), &msg);
+//      zactor_send ($(class.name:c), &msg);
 //
-//  Receive zmsg_t instance from $(class.title):
+//  Receive zmsg_t instance from $(class.name):
 //
-//      zmsg_t *msg = zactor_recv ($(class.title:c));
+//      zmsg_t *msg = zactor_recv ($(class.name:c));
 //
 //  This is the $(class.name) constructor as a zactor_fn:
 //
@@ -166,7 +166,7 @@ $(CLASS.EXPORT_MACRO)void
 #endif
 .output "$(class.name)_engine.inc"
 /*  =========================================================================
-    $(class.name)_engine - $(class.title:) engine
+    $(class.name)_engine - $(class.name:) engine
 
     ** WARNING *************************************************************
     THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
@@ -996,7 +996,7 @@ $(class.name) (zsock_t *pipe, void *args)
 .if !file.exists (source_file)
 .   output source_file
 /*  =========================================================================
-    $(class.name) - $(class.title:)
+    $(class.name) - $(class.name:)
 
 .   for class.license
     $(string.trim (license.):block                                         )
