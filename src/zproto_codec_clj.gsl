@@ -1,0 +1,123 @@
+.template 0
+#   zproto_codec_clj.gsl
+#
+#   Generates a codec for a protocol specification
+#
+include "zproto_codec_java.gsl"
+include "zproto_lib_clj.gsl"
+.endtemplate
+.global.ClassName = java_class_name($(class.name))
+.global.namespace = "org.zproto"
+.global.java_source_path = "main/java"
+.global.source_path = "main/clojure/src"
+.global.test_path = "main/clojure/test"
+
+.output "project.clj"
+;;  =========================================================================
+;;    $(class.title:)
+;;
+;;    ** WARNING *************************************************************
+;;    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+;;    your changes at the next build cycle. This is great for temporary printf
+;;    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+;;    for commits are:
+;;
+;;    * The XML model used for this code generation: $(filename)
+;;    * The code generation script that built this file: $(script)
+;;    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+;;    =========================================================================
+(defproject $(clj_name(class.title)) "0.1.0-SNAPSHOT"
+  :description "FIXME: write description"
+  :url "http://example.com/FIXME"
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :java-source-paths ["$(java_source_path)"]
+  :source-paths ["$(source_path)"]
+  :test-paths ["$(test_path)"]
+  :prep-tasks ["javac"]
+  :dependencies [[org.clojure/clojure "1.6.0"]
+                 [junit/junit "4.11"]
+                 [org.zeromq/cljzmq "0.1.4" :exclusions [jzmq]]
+                 [org.zeromq/jeromq "0.3.4"]])
+.output "main/clojure/src/$(string.replace(namespace, '.|/'))/$(class.name).clj"
+;;  =========================================================================
+;;    $(ClassName) - $(class.title:)
+;;
+;;    ** WARNING *************************************************************
+;;    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+;;    your changes at the next build cycle. This is great for temporary printf
+;;    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+;;    for commits are:
+;;
+;;    * The XML model used for this code generation: $(filename)
+;;    * The code generation script that built this file: $(script)
+;;    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+;;    =========================================================================
+
+(ns $(namespace).$(clj_name(class.name))
+  (:require [zeromq.zmq :as zmq])
+  (:import [$(namespace) $(ClassName)]))
+
+(defprotocol P$(ClassName)
+.for message
+  ($(clj_name(message.name)) [this\
+.for field where !defined (value)
+ $(clj_name(name))\
+.endfor
+])\
+.if last()
+\
+.else
+
+.endif
+.endfor
+)
+
+(defrecord $(ClassName)Socket [socket]
+  P$(ClassName)
+.for message
+  ($(clj_name(message.name)) [this\
+. for field where !defined (value)
+ $(clj_name(name))\
+. endfor
+]
+    ($(ClassName)/send$(Name) socket\
+. for field where !defined (value)
+ $(clj_name(field))\
+. endfor
+)
+    ($(ClassName)/recv socket))\
+.if last()
+\
+.else
+
+.endif
+.endfor
+)
+
+(defn client-socket [endpoint]
+  (let [context (zmq/context)
+        socket (doto (zmq/socket context :dealer)
+                 (zmq/set-receive-timeout 1000)
+                 (zmq/connect endpoint))]
+    (->$(ClassName)Socket socket)))
+
+(defn server-socket [endpoint]
+  (let [context (zmq/context)
+        socket (doto (zmq/socket context :router)
+                 (zmq/set-receive-timeout 1000)
+                 (zmq/bind endpoint))]
+    (->$(ClassName)Socket socket)))
+.output "main/clojure/test/$(string.replace(namespace, '.|/'))/$(class.name)_test.clj"
+(ns $(namespace).$(clj_name(class.name))-test
+  (:require [clojure.test :refer :all])
+  (:import [$(namespace) Test$(ClassName)]))
+
+(deftest test-$(clj_name(class.name))
+  (is (nil? (.test$(ClassName) (Test$(ClassName).)))))

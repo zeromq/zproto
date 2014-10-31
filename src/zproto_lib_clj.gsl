@@ -1,0 +1,8 @@
+.template 0
+#  Library functions
+
+function clj_name (name)
+    return "$(string.replace (name, '_|-'))"
+endfunction
+
+.endtemplate
