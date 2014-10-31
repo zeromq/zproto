@@ -11,15 +11,19 @@ zproto_DATA = \
 	zproto_codec_c.gsl \
 	zproto_codec_go.gsl \
 	zproto_codec_java.gsl \
+	zproto_codec_clj.gsl \
 	zproto_server_c.gsl \
 	zproto_client_c.gsl \
 	zproto_bnf.gsl \
 	zproto_lib.gsl \
 	zproto_lib_go.gsl \
-	zproto_lib_java.gsl
+	zproto_lib_java.gsl \
+	zproto_lib_clj.gsl
 
 # Produce generated models; do this manually in src directory
 code:
 	gsl -q -script:zproto_codec_c zproto_example.xml
 	gsl -q -script:zproto_codec_go zproto_example.xml
 	gsl -q -script:zproto_codec_java zproto_example.xml
+	gsl -q -script:zproto_codec_clj zproto_example.xml
+
