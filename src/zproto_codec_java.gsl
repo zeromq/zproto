@@ -13,7 +13,9 @@ set_defaults ()
 .endtemplate
 .global.ClassName = java_class_name($(class.name))
 .global.namespace = "org.zproto"
-.output "main/java/$(string.replace(namespace, '.|/'))/$(ClassName).java"
+.global.name_path = "org/zproto"
+.directory.create ("main/java/$(name_path)")
+.output "main/java/$(name_path)/$(ClassName).java"
 /*  =========================================================================
     $(ClassName) - $(class.title:)
 
@@ -924,7 +926,7 @@ public class $(ClassName) implements java.io.Closeable
 .endfor
 }
 
-.output "main/java/$(string.replace(namespace, '.|/'))/Test$(ClassName).java"
+.output "main/java/$(name_path)/Test$(ClassName).java"
 package $(namespace);
 
 import static org.junit.Assert.*;
