@@ -182,7 +182,10 @@ extern "C" {
 #endif
 
 //  Opaque class structure
+#ifndef $(CLASS.NAME)_T_DEFINED
 typedef struct _$(class.name)_t $(class.name)_t;
+#define $(CLASS.NAME)_T_DEFINED
+#endif
 
 //  @interface
 //  Create a new $(class.name)
