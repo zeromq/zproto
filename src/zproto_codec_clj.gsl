@@ -113,6 +113,9 @@
                  (zmq/set-receive-timeout 1000)
                  (zmq/bind endpoint))]
     (->$(ClassName)Socket socket)))
+
+(defn recv [socket]
+  ($(ClassName)/recv socket))
 .directory.create ("$(test_path)/$(name_path)")
 .output "$(test_path)/$(name_path)/$(class.name)_test.clj"
 (ns $(namespace).$(clj_name(class.name))-test
