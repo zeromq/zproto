@@ -114,7 +114,7 @@
                  (zmq/bind endpoint))]
     (->$(ClassName)Socket socket)))
 
-(defn recv [socket]
+(defn recv [{:keys [socket]}]
   ($(ClassName)/recv socket))
 .directory.create ("$(test_path)/$(name_path)")
 .output "$(test_path)/$(name_path)/$(class.name)_test.clj"
