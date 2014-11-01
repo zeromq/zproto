@@ -70,6 +70,11 @@
 .for field where !defined (value)
  $(clj_name(name))\
 .endfor
+]
+    [this routing-id\
+.for field where !defined (value)
+ $(clj_name(name))\
+.endfor
 ])\
 .if last()
 \
@@ -88,6 +93,16 @@
 . endfor
 ]
     ($(ClassName)/send$(Name) socket\
+. for field where !defined (value)
+ $(clj_name(field))\
+. endfor
+))
+  ($(clj_name(message.name)) [this routing-id\
+. for field where !defined (value)
+ $(clj_name(field))\
+. endfor
+]
+    ($(ClassName)/send$(Name) socket routing-id\
 . for field where !defined (value)
  $(clj_name(field))\
 . endfor
