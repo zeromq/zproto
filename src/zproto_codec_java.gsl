@@ -598,7 +598,61 @@ public class $(ClassName) implements java.io.Closeable
 .endfor
 )
     {
+	send$(Name) (
+		    output,
+		    null\
+.              for field where !defined (value)
+,
+		    $(name)\
+.              endfor
+);
+    }
+
+//  --------------------------------------------------------------------------
+//  Send the $(message.NAME) to a router socket in one step
+
+    public static void send$(Name) (
+        Socket output,
+	ZFrame routingId\
+.for field where !defined (value)
+,
+.   if type = "number"
+.       if size = 1
+        int $(name)\
+.       elsif size = 2
+        int $(name)\
+.       elsif size = 4
+        long $(name)\
+.       elsif size = 8
+        long $(name)\
+.       else
+.           echo "E: bad size $(size) for $(name)"
+.       endif
+.   elsif type = "octets"
+        byte [] $(name)\
+.   elsif type = "string" | type = "longstr"
+        String $(name)\
+.   elsif type = "strings"
+        List <String> $(name)\
+.   elsif type = "dictionary"
+        Map <String, String> $(name)\
+.   elsif type = "frame" | type = "msg"
+        Z$(Type) $(name)\
+.   elsif type = "uuid"
+        UUID $(name)\
+.   elsif type = "chunk"
+        byte[] $(name)\
+.   else
+        $(type) $(name)\
+.   endif
+.endfor
+)
+    {
         $(ClassName) self = new $(ClassName) ($(ClassName).$(MESSAGE.NAME));
+        if (routingId != null)
+        {
+	        self.setRoutingId (routingId);
+        }
 .for field where !defined (value)
 .   if type = "number" | type = "octets" | type = "string" | type = "longstr" | type = "uuid" | type = "chunk"
         self.set$(Name) ($(name));
