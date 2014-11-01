@@ -11,7 +11,7 @@
 .global.java_source_path = "$(root_path)/java"
 .global.source_path = "$(root_path)/clojure/src"
 .global.test_path = "$(root_path)/clojure/test"
-.output "project.clj"
+.output "../project.clj"
 ;;  =========================================================================
 ;;    $(class.title:)
 ;;
@@ -33,9 +33,9 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :java-source-paths ["$(java_source_path)"]
-  :source-paths ["$(source_path)"]
-  :test-paths ["$(test_path)"]
+  :java-source-paths ["$(string.defix (java_source_path, "../"))"]
+  :source-paths ["$(string.defix (source_path, "../"))"]
+  :test-paths ["$(string.defix (test_path, "../"))"]
   :prep-tasks ["javac"]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [junit/junit "4.11"]
