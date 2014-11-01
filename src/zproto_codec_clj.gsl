@@ -7,10 +7,10 @@
 .global.ClassName = java_class_name($(class.name))
 .global.namespace = "org.zproto"
 .global.name_path = "org/zproto"
-.global.java_source_path = "main/java"
-.global.source_path = "main/clojure/src"
-.global.test_path = "main/clojure/test"
-
+.global.root_path ?= switches.root_path? "main"
+.global.java_source_path = "$(root_path)/java"
+.global.source_path = "$(root_path)/clojure/src"
+.global.test_path = "$(root_path)/clojure/test"
 .output "project.clj"
 ;;  =========================================================================
 ;;    $(class.title:)
