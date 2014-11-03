@@ -11,6 +11,7 @@
 .global.java_source_path = "$(root_path)/java"
 .global.source_path = "$(root_path)/clojure/src"
 .global.test_path = "$(root_path)/clojure/test"
+.if !file.exists ("../project.clj")
 .output "../project.clj"
 ;;  =========================================================================
 ;;    $(class.title:)
@@ -31,8 +32,6 @@
 (defproject $(clj_name(class.title)) "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
   :java-source-paths ["$(string.defix (java_source_path, "../"))"]
   :source-paths ["$(string.defix (source_path, "../"))"]
   :test-paths ["$(string.defix (test_path, "../"))"]
@@ -42,6 +41,7 @@
                  [org.zeromq/cljzmq "0.1.4" :exclusions [jzmq]]
                  [org.zeromq/jeromq "0.3.4"]])
 .directory.create ("$(source_path)/$(name_path)")
+.endif
 .output "$(source_path)/$(name_path)/$(class.name).clj"
 ;;  =========================================================================
 ;;    $(ClassName) - $(class.title:)
