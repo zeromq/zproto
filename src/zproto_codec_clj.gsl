@@ -11,6 +11,7 @@
 .global.java_source_path = "$(root_path)/java"
 .global.source_path = "$(root_path)/clojure/src"
 .global.test_path = "$(root_path)/clojure/test"
+.if !file.exists ("../project.clj")
 .output "../project.clj"
 ;;  =========================================================================
 ;;    $(class.title:)
@@ -40,6 +41,7 @@
                  [org.zeromq/cljzmq "0.1.4" :exclusions [jzmq]]
                  [org.zeromq/jeromq "0.3.4"]])
 .directory.create ("$(source_path)/$(name_path)")
+.endif
 .output "$(source_path)/$(name_path)/$(class.name).clj"
 ;;  =========================================================================
 ;;    $(ClassName) - $(class.title:)
