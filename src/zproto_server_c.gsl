@@ -802,7 +802,7 @@ s_server_apply_config (s_server_t *self)
 //  Process message from pipe
 
 static int
-s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
+s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
 {
     s_server_t *self = (s_server_t *) argument;
     zmsg_t *msg = zmsg_recv (self->pipe);
@@ -879,10 +879,10 @@ s_server_api_message (zloop_t *loop, zsock_t *reader, void *argument)
     return 0;
 }
 
-//  Handle a message (a protocol request) from the client
+//  Handle a protocol message from the client
 
 static int
-s_server_client_message (zloop_t *loop, zsock_t *reader, void *argument)
+s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
 {
     s_server_t *self = (s_server_t *) argument;
     $(proto)_t *msg = $(proto)_recv (self->router);
@@ -954,8 +954,8 @@ $(class.name) (zsock_t *pipe, void *args)
     //  Set-up server monitor to watch for config file changes
     engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);
     //  Set up handler for the two main sockets the server uses
-    engine_handle_socket ((server_t *) self, self->pipe, s_server_api_message);
-    engine_handle_socket ((server_t *) self, self->router, s_server_client_message);
+    engine_handle_socket ((server_t *) self, self->pipe, s_server_handle_pipe);
+    engine_handle_socket ((server_t *) self, self->router, s_server_handle_protocol);
 
     //  Run reactor until there's a termination signal
     zloop_start (self->loop);
