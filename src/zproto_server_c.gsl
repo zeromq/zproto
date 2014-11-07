@@ -223,7 +223,37 @@ s_event_name [] = {
 .   endif
 .endfor
 };
- 
+
+static bool
+s_event_matrix [$(count (class.state)) + 1][$(count (class.event)) + 1] = {
+    { 0, \
+.for class.event
+0, \
+.endfor
+}, // (NONE)
+.for class.state
+    { 0, \
+.   if count (event, event.name = "*")
+.       for class.event
+1, \
+.       endfor
+.   else
+.       for class.event as class_event
+.           if count (state.event, event.name = class_event.name)
+1, \
+.           else
+0, \
+.           endif
+.       endfor
+.   endif
+}\
+.   if last()
+  // $(state.name)_state
+.   else
+, // $(state.name)_state
+.   endif
+.endfor
+};
 
 //  ---------------------------------------------------------------------------
 //  Context for the whole server task. This embeds the application-level
@@ -554,25 +584,8 @@ s_client_filter_mailbox (s_client_t *self)
     $(proto)_t *request = ($(proto)_t *) zlist_first (self->mailbox);
     while (request) {
         //  Check whether current state can process event
-        //  This should be changed to a pre-built lookup table
         event_t event = s_protocol_event (request);
-        bool event_is_valid;
-.for class.state
-.   if count (event, event.name = "*")
-        if (self->state == $(state.name:c)_state)
-            event_is_valid = true;
-        else
-.   else
-.       for event where defined (external)
-        if (self->state == $(state.name:c)_state && event == $(name)_event)
-            event_is_valid = true;
-        else
-.       endfor
-.   endif
-.endfor
-            event_is_valid = false;
-            
-        if (event_is_valid) {
+        if (s_event_matrix [self->state] [event]) {
             zlist_remove (self->mailbox, request);
             $(proto)_destroy (&self->client.request);
             self->client.request = request;
