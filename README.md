@@ -288,11 +288,10 @@ For complex protocols you can collect error handling together using the wildcard
 
 ### Client and Server Properties
 
-In your server code, you have two structures, client_t and server_t. Note that the client_t structure MUST always start with these variables (the request and reply will use whatever protocol name you defined):
+In your server code, you have two structures, client_t and server_t. Note that the client_t structure MUST always start with these variables (the message uses whatever protocol name you defined):
 
     server_t *server;           //  Reference to parent server
-    hello_msg_t *request;       //  Last received request
-    hello_msg_t *reply;         //  Reply to send out, if any
+    hello_msg_t *message;       //  Message from/to clients
 
 And the server_t structure MUST always start with these variables:
 

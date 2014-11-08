@@ -236,6 +236,7 @@ typedef struct {
     zsock_t *router;            //  Socket to talk to clients
     int port;                   //  Server port bound to
     zloop_t *loop;              //  Reactor for server sockets
+    $(proto)_t *message;        //  Message received or sent
     zhash_t *clients;           //  Clients we're connected to
     zconfig_t *config;          //  Configuration tree
     uint client_id;             //  Client identifier counter
@@ -458,10 +459,10 @@ s_satisfy_pedantic_compilers (void)
 //  TODO: replace with lookup table, since ID is one byte
 
 static event_t
-s_protocol_event ($(proto)_t *request)
+s_protocol_event ($(proto)_t *message)
 {
-    assert (request);
-    switch ($(proto)_id (request)) {
+    assert (message);
+    switch ($(proto)_id (message)) {
 .   for proto.message where count (class.event, event.name = message.name) = 1
         case $(PROTO)_$(NAME):
             return $(name)_event;
@@ -491,8 +492,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     engine_set_log_prefix (&self->client, server->log_prefix);
 
     self->client.server = (server_t *) server;
-    self->client.reply = $(proto)_new (0);
-    $(proto)_set_routing_id (self->client.reply, self->routing_id);
+    self->client.message = server->message;
 
     //  Give application chance to initialize and set next event
 .for class.state where item () = 1
@@ -509,9 +509,6 @@ s_client_destroy (s_client_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_client_t *self = *self_p;
-        $(proto)_destroy (&self->client.request);
-        $(proto)_destroy (&self->client.reply);
-        
         if (self->wakeup_timer)
             zloop_timer_end (self->server->loop, self->wakeup_timer);
         if (self->expiry_timer)
@@ -540,14 +537,13 @@ s_client_free (void *argument)
                         if (self->server->verbose)
                             zsys_debug ("%s:         $ $(name) $(MESSAGE:C)",
                                 self->log_prefix);
-                        $(proto)_set_id (self->client.reply, $(PROTO)_$(MESSAGE:C));
+                        $(proto)_set_id (self->server->message, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
                         zsys_debug ("%s: Send message to client", self->log_prefix);
-                        $(proto)_print (self->client.reply);
+                        $(proto)_print (self->server->message);
 .               endif
-                        $(proto)_send (&self->client.reply, self->server->router);
-                        self->client.reply = $(proto)_new (0);
-                        $(proto)_set_routing_id (self->client.reply, self->routing_id);
+                        $(proto)_set_routing_id (self->server->message, self->routing_id);
+                        $(proto)_send (self->server->message, self->server->router);
 .           elsif name = "terminate"
                         //  terminate
                         if (self->server->verbose)
@@ -705,6 +701,7 @@ s_server_new (zsock_t *pipe)
     //  against queue overflow, they should use a credit-based flow
     //  control scheme.
     zsock_set_unbounded (self->router);
+    self->message = $(proto)_new ();
     self->clients = zhash_new ();
     self->config = zconfig_new ("root", NULL);
     self->loop = zloop_new ();
@@ -730,6 +727,7 @@ s_server_destroy (s_server_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_server_t *self = *self_p;
+        $(proto)_destroy (&self->message);
         //  Destroy clients before destroying the server
         zhash_destroy (&self->clients);
         server_terminate (&self->server);
@@ -854,21 +852,24 @@ static int
 s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
 {
     s_server_t *self = (s_server_t *) argument;
-    $(proto)_t *msg = $(proto)_recv (self->router);
-    if (!msg)
-        return -1;              //  Interrupted; exit zloop
+    //  We process as many messages as we can, to reduce the overhead
+    //  of polling and the reactor:
+    while (zsock_events (self->router) & ZMQ_POLLIN) {
+        if ($(proto)_recv (self->message, self->router))
+            return -1;              //  Interrupted; exit zloop
 
-    char *hashkey = zframe_strhex ($(proto)_routing_id (msg));
-    s_client_t *client = (s_client_t *) zhash_lookup (self->clients, hashkey);
-    if (client == NULL) {
-        client = s_client_new (self, $(proto)_routing_id (msg));
-        zhash_insert (self->clients, hashkey, client);
-        zhash_freefn (self->clients, hashkey, s_client_free);
-    }
-    free (hashkey);
+        //  TODO: use binary hashing on routing_id
+        char *hashkey = zframe_strhex ($(proto)_routing_id (self->message));
+        s_client_t *client = (s_client_t *) zhash_lookup (self->clients, hashkey);
+        if (client == NULL) {
+            client = s_client_new (self, $(proto)_routing_id (self->message));
+            zhash_insert (self->clients, hashkey, client);
+            zhash_freefn (self->clients, hashkey, s_client_free);
+        }
+        free (hashkey);
 .if switches.trace ?= 1
-    zsys_debug ("%d: Client message", client->unique_id);
-    $(proto)_print (msg);
+        zsys_debug ("%d: Client message", client->unique_id);
+        $(proto)_print (self->message);
 .endif
 
 .   if count (class.event, name = "expired")
@@ -882,10 +883,9 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
             client->expiry_timer = zloop_timer (
                 self->loop, self->timeout, 1, s_client_handle_timeout, client);
 .endif
-    //  Pass to client state machine
-    $(proto)_destroy (&client->client.request);
-    client->client.request = msg;
-    s_client_execute (client, s_protocol_event (client->client.request));
+        //  Pass to client state machine
+        s_client_execute (client, s_protocol_event (self->message));
+    }
     return 0;
 }
 
@@ -986,8 +986,7 @@ struct _client_t {
     //  These properties must always be present in the client_t
     //  and are set by the generated engine; do not modify them!
     server_t *server;           //  Reference to parent server
-    $(proto)_t *request;        //  Last received request
-    $(proto)_t *reply;          //  Reply to send out, if any
+    $(proto)_t *message;        //  Message in and out
 
     //  TODO: Add specific properties for your application
 };
@@ -1061,14 +1060,9 @@ $(class.name)_test (bool verbose)
     zsock_set_rcvtimeo (client, 2000);
     zsock_connect (client, "ipc://@/$(class.name)");
 
-    $(proto)_t *request, *reply;
-    request = $(proto)_new ($(PROTO)_something);
-    //  Set properties for test request
-    $(proto)_send (&request, client);
-    reply = $(proto)_recv (client);
-    assert (reply);
-    assert ($(proto)_id (reply) == $(PROTO)_something);
-    $(proto)_destroy (&reply);
+    //  TODO: fill this out
+    $(proto)_t *request = $(proto)_new ();
+    $(proto)_destroy (&request);
     
     zsock_destroy (&client);
     zactor_destroy (&server);

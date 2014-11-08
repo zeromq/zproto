@@ -156,7 +156,7 @@ func Clone(t Transit) Transit {
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
 .    for field
-.       if type = "dictionary"
+.       if type = "hash"
 		for key, val := range msg.$(name:no) {
 			cloned.$(name:no)[key] = val
 		}
@@ -270,7 +270,7 @@ type $(name:no) struct {
 func New$(name:no)() *$(name:no) {
 	$(name) := &$(name:no){}
 .struct = "$(name)"
-.for field where type = "dictionary"
+.for field where type = "hash"
 	$(struct).$(name:no) = make(map[string]string)
 .endfor
 	return $(name)
@@ -329,7 +329,7 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 	for _, val := range $(self).$(name:no) {
 		bufferSize += 4 + len(val)
 	}
-.    elsif type = "dictionary"
+.    elsif type = "hash"
 
 	// $(name:no) is a hash table
 	bufferSize += 4 // Size is 4 bytes
@@ -387,7 +387,7 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 	for _, val := range $(self).$(name:no) {
 		putLongString(buffer, val)
 	}
-.    elsif type = "dictionary"
+.    elsif type = "hash"
 
 	// $(name:no)
 	binary.Write(buffer, binary.BigEndian, uint32(len($(self).$(name:no))))
@@ -462,7 +462,7 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 	for ; $(_size:no) != 0; $(_size:no)-- {
 		$(self).$(name:no) = append($(self).$(name:no), getLongString(buffer))
 	}
-.    elsif type = "dictionary"
+.    elsif type = "hash"
 .        _size = "$(name)Size"
 	var $(_size:no) uint32
 	binary.Read(buffer, binary.BigEndian, &$(_size:no))
@@ -615,7 +615,7 @@ func Test$(name:no)(t *testing.T) {
 .       elsif type = "strings"
 
 	$(struct).$(name:no) = []string{"Name: Brutus", "Age: 43"}
-.       elsif type = "dictionary"
+.       elsif type = "hash"
 
 	$(struct).$(name:no) = map[string]string{"Name": "Brutus", "Age": "43"}
 .       elsif type = "frame" | type = "msg" | type = "uuid" | type = "chunk"
@@ -677,7 +677,7 @@ func Test$(name:no)(t *testing.T) {
 			t.Fatalf("expected %s, got %s", str, tr.$(name:no)[idx])
 		}
 	}
-.       elsif type = "dictionary"
+.       elsif type = "hash"
 
 	for key, val := range map[string]string{"Name": "Brutus", "Age": "43"} {
 		if tr.$(name:no)[key] != val {

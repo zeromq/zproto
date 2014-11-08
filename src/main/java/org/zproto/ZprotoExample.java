@@ -49,7 +49,7 @@
     STRUCTURES - This message contains a list and a hash.
         sequence            number 2    
         aliases             strings     List of strings
-        headers             dictionary  Other random properties
+        headers             hash        Other random properties
 
     BINARY - Deliver a multi-part message.
         sequence            number 2    
@@ -270,6 +270,8 @@ public class ZprotoExample implements java.io.Closeable
                     self.routingId = ZFrame.recvFrame (input);
                     if (self.routingId == null)
                         return null;         //  Interrupted
+                    if (!self.routingId.hasData())
+                        return null;         //  Empty Frame (eg recv-timeout)
                     if (!input.hasReceiveMore ())
                         throw new IllegalArgumentException ();
                 }
@@ -625,7 +627,39 @@ public class ZprotoExample implements java.io.Closeable
         String host,
         String data)
     {
+	sendLog (
+		    output,
+		    null,
+		    sequence,
+		    level,
+		    event,
+		    node,
+		    peer,
+		    time,
+		    host,
+		    data);
+    }
+
+//  --------------------------------------------------------------------------
+//  Send the LOG to a router socket in one step
+
+    public static void sendLog (
+        Socket output,
+	ZFrame routingId,
+        int sequence,
+        int level,
+        int event,
+        int node,
+        int peer,
+        long time,
+        String host,
+        String data)
+    {
         ZprotoExample self = new ZprotoExample (ZprotoExample.LOG);
+        if (routingId != null)
+        {
+	        self.setRoutingId (routingId);
+        }
         self.setSequence (sequence);
         self.setLevel (level);
         self.setEvent (event);
@@ -646,7 +680,29 @@ public class ZprotoExample implements java.io.Closeable
         List <String> aliases,
         Map <String, String> headers)
     {
+	sendStructures (
+		    output,
+		    null,
+		    sequence,
+		    aliases,
+		    headers);
+    }
+
+//  --------------------------------------------------------------------------
+//  Send the STRUCTURES to a router socket in one step
+
+    public static void sendStructures (
+        Socket output,
+	ZFrame routingId,
+        int sequence,
+        List <String> aliases,
+        Map <String, String> headers)
+    {
         ZprotoExample self = new ZprotoExample (ZprotoExample.STRUCTURES);
+        if (routingId != null)
+        {
+	        self.setRoutingId (routingId);
+        }
         self.setSequence (sequence);
         self.setAliases (new ArrayList <String> (aliases));
         self.setHeaders (new HashMap <String, String> (headers));
@@ -665,7 +721,35 @@ public class ZprotoExample implements java.io.Closeable
         ZFrame address,
         ZMsg content)
     {
+	sendBinary (
+		    output,
+		    null,
+		    sequence,
+		    flags,
+		    public_key,
+		    identifier,
+		    address,
+		    content);
+    }
+
+//  --------------------------------------------------------------------------
+//  Send the BINARY to a router socket in one step
+
+    public static void sendBinary (
+        Socket output,
+	ZFrame routingId,
+        int sequence,
+        byte [] flags,
+        byte[] public_key,
+        UUID identifier,
+        ZFrame address,
+        ZMsg content)
+    {
         ZprotoExample self = new ZprotoExample (ZprotoExample.BINARY);
+        if (routingId != null)
+        {
+	        self.setRoutingId (routingId);
+        }
         self.setSequence (sequence);
         self.setFlags (flags);
         self.setPublic_Key (public_key);
@@ -690,7 +774,41 @@ public class ZprotoExample implements java.io.Closeable
         String supplier_mobile,
         String supplier_email)
     {
+	sendTypes (
+		    output,
+		    null,
+		    sequence,
+		    client_forename,
+		    client_surname,
+		    client_mobile,
+		    client_email,
+		    supplier_forename,
+		    supplier_surname,
+		    supplier_mobile,
+		    supplier_email);
+    }
+
+//  --------------------------------------------------------------------------
+//  Send the TYPES to a router socket in one step
+
+    public static void sendTypes (
+        Socket output,
+	ZFrame routingId,
+        int sequence,
+        String client_forename,
+        String client_surname,
+        String client_mobile,
+        String client_email,
+        String supplier_forename,
+        String supplier_surname,
+        String supplier_mobile,
+        String supplier_email)
+    {
         ZprotoExample self = new ZprotoExample (ZprotoExample.TYPES);
+        if (routingId != null)
+        {
+	        self.setRoutingId (routingId);
+        }
         self.setSequence (sequence);
         self.setClient_Forename (client_forename);
         self.setClient_Surname (client_surname);
