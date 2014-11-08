@@ -319,6 +319,7 @@ typedef struct {
     zsock_t *pipe;              //  Socket to back to caller API
     zsock_t *dealer;            //  Socket to talk to server
     zloop_t *loop;              //  Listen to pipe and dealer
+    $(proto)_t *message;        //  Message received or sent
     client_args_t args;         //  Method arguments structure
     bool terminated;            //  True if client is shutdown
     size_t timeout;             //  inactivity timeout, msecs
@@ -364,10 +365,10 @@ s_client_new (zsock_t *pipe)
         self->pipe = pipe;
         self->dealer = zsock_new (ZMQ_DEALER);
         if (self->dealer)
+            self->message = $(proto)_new ();
+        if (self->message)
             self->loop = zloop_new ();
-        if (self->loop)
-            self->client.msgout = $(proto)_new (0);
-        if (self->client.msgout) {
+        if (self->loop) {
             //  Give application chance to initialize and set next event
 .for class.state where item () = 1
             self->state = $(name:c)_state;
@@ -375,6 +376,7 @@ s_client_new (zsock_t *pipe)
             self->event = NULL_event;
             self->client.pipe = self->pipe;
             self->client.dealer = self->dealer;
+            self->client.message = self->message;
             self->client.args = &self->args;
             if (client_initialize (&self->client))
                 s_client_destroy (&self);
@@ -398,8 +400,7 @@ s_client_destroy (s_client_t **self_p)
         zstr_free (&self->args.$(name));
 .endfor
         client_terminate (&self->client);
-        $(proto)_destroy (&self->client.msgout);
-        $(proto)_destroy (&self->client.msgin);
+        $(proto)_destroy (&self->message);
         zsock_destroy (&self->dealer);
         zloop_destroy (&self->loop);
         free (self);
@@ -508,10 +509,10 @@ s_satisfy_pedantic_compilers (void)
 //  TODO: replace with lookup table, since ID is one byte
 
 static event_t
-s_protocol_event (s_client_t *self, $(proto)_t *msgin)
+s_protocol_event (s_client_t *self, $(proto)_t *message)
 {
-    assert (msgin);
-    switch ($(proto)_id (msgin)) {
+    assert (message);
+    switch ($(proto)_id (message)) {
 .   for proto.message where count (class.event, event.name = message.name) = 1
         case $(PROTO)_$(NAME):
             return $(name)_event;
@@ -531,13 +532,12 @@ s_protocol_event (s_client_t *self, $(proto)_t *msgin)
                         //  send $(MESSAGE:C)
                         if (self->verbose)
                             zsys_debug ("$(class.name):         $ $(name) $(MESSAGE:C)");
-                        $(proto)_set_id (self->client.msgout, $(PROTO)_$(MESSAGE:C));
+                        $(proto)_set_id (self->message, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
                         zsys_debug ("$(class.name): Send message to server");
-                        $(proto)_print (self->client.msgout);
+                        $(proto)_print (self->message);
 .               endif
-                        $(proto)_send (&self->client.msgout, self->dealer);
-                        self->client.msgout = $(proto)_new (0);
+                        $(proto)_send (self->message, self->dealer);
 .           elsif name = "terminate"
                         //  terminate
                         if (self->verbose)
@@ -654,18 +654,15 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
     s_client_t *self = (s_client_t *) argument;
     char *method = zstr_recv (self->pipe);
     if (!method)
-        return -1;              //  Interrupted; exit zloop
+        return -1;                  //  Interrupted; exit zloop
     if (self->verbose)
         zsys_debug ("$(class.name):     API command=%s", method);
-    
+
     if (streq (method, "VERBOSE"))
-        self->verbose = true;
+        self->verbose = true;       //  Start verbose logging
     else
-    if (streq (method, "$TERM")) {
-        //  Shutdown the engine
-        zstr_free (&method);
-        self->terminated = true;
-    }
+    if (streq (method, "$TERM"))
+        self->terminated = true;    //  Shutdown the engine
 .for class.method where immediate = 0
     else
     if (streq (method, "$(NAME)")) {
@@ -680,6 +677,8 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
 );
 .   endif
         s_client_execute (self, $(name:c)_event);
+        if (self->terminated)
+            return -1;
     }
 .endfor
     //  Cleanup pipe if any argument frames are still waiting to be eaten
@@ -690,7 +689,7 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         zmsg_destroy (&more);
     }
     zstr_free (&method);
-    return self->terminated? -1: 0;
+    return 0;
 }
 
 //  Handle a message (a protocol reply) from the server
@@ -699,30 +698,33 @@ static int
 s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
-    $(proto)_t *msgin = $(proto)_recv (self->dealer);
-    if (!msgin)
-        return -1;              //  Interrupted; exit zloop
+
+    //  We will process as many messages as we can, to reduce the overhead
+    //  of polling and the reactor:
+    while (zsock_events (self->dealer) & ZMQ_POLLIN) {
+        if ($(proto)_recv (self->message, self->dealer))
+            return -1;              //  Interrupted; exit zloop
 
 .if switches.trace ?= 1
-    zsys_debug ("%d: Server message", self->unique_id);
-    $(proto)_print (msgin);
+        zsys_debug ("%d: Server message", self->unique_id);
+        $(proto)_print (self->message);
 .endif
-    $(proto)_destroy (&self->client.msgin);
-    self->client.msgin = msgin;
-
 .if count (class.event, name = "expired")
-    //  Any input from client counts as activity
-    if (self->expiry_timer) {
-        zloop_timer_end (self->loop, self->expiry_timer);
-        self->expiry_timer = 0;
-    }
-    //  Reset expiry timer if timeout is not zero
-    if (self->timeout)
-        self->expiry_timer = zloop_timer (
-            self->loop, self->timeout, 1, s_client_handle_timeout, self);
+        //  Any input from client counts as activity
+        if (self->expiry_timer) {
+            zloop_timer_end (self->loop, self->expiry_timer);
+            self->expiry_timer = 0;
+        }
+        //  Reset expiry timer if timeout is not zero
+        if (self->timeout)
+            self->expiry_timer = zloop_timer (
+                self->loop, self->timeout, 1, s_client_handle_timeout, self);
 .endif
-    s_client_execute (self, s_protocol_event (self, msgin));
-    return self->terminated? -1: 0;
+        s_client_execute (self, s_protocol_event (self, self->message));
+        if (self->terminated)
+            return -1;
+    }
+    return 0;
 }
 
 
@@ -999,8 +1001,7 @@ typedef struct {
     //  and are set by the generated engine.
     zsock_t *pipe;              //  Actor pipe back to caller
     zsock_t *dealer;            //  Socket to talk to server
-    $(proto)_t *msgout;         //  Message to send to server
-    $(proto)_t *msgin;          //  Message received from server
+    $(proto)_t *message;        //  Message to/from server
     client_args_t *args;        //  Arguments from methods
     
     //  TODO: Add specific properties for your application
