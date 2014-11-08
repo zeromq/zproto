@@ -225,37 +225,6 @@ s_event_name [] = {
 .endfor
 };
 
-static bool
-s_event_matrix [$(count (class.state)) + 1][$(count (class.event)) + 1] = {
-    { 0, \
-.for class.event
-0, \
-.endfor
-}, // (NONE)
-.for class.state
-    { 0, \
-.   if count (event, event.name = "*")
-.       for class.event
-1, \
-.       endfor
-.   else
-.       for class.event as class_event
-.           if count (state.event, event.name = class_event.name)
-1, \
-.           else
-0, \
-.           endif
-.       endfor
-.   endif
-}\
-.   if last()
-  // $(state.name)_state
-.   else
-, // $(state.name)_state
-.   endif
-.endfor
-};
-
 //  ---------------------------------------------------------------------------
 //  Context for the whole server task. This embeds the application-level
 //  server context at its start (the entire structure, not a reference),
