@@ -1,19 +1,7 @@
 .template 0
-#   zproto_codec_c_v2.gsl
+#   zproto_codec_c.gsl
 #
-#   Generates a codec for a protocol specification. This has the following
-#   changes over the v1 codec:
-#
-#   - uses the low-level zmq API for sending/receiving messages, instead
-#     of CZMQ, to reduce heap usage.
-#   - short strings are allocated together with the message object, as
-#     char [256] arrays.
-#   - the class API is simpler, without methods to work with hash and list
-#     contents.
-#   - sending is non-destructive. The goal is to reuse the object for many
-#     recvs and sends, and thus reduce heap allocations.
-#
-#   Note that the API is NOT compatible with v1.
+#   Generates a codec for a protocol specification
 #
 include "zproto_lib.gsl"
 include "zproto_bnf.gsl"
@@ -65,7 +53,7 @@ set_defaults ()
 */
 
 .for define
-#define $(CLASS.NAME)_$(DEFINE.NAME:C)      $(value:)
+#define $(CLASS.NAME)_$(DEFINE.NAME:C)      $(value)
 .endfor
 
 .for message
@@ -92,23 +80,99 @@ typedef struct _$(class.name)_t $(class.name)_t;
 #endif
 
 //  @interface
-//  Create a new empty $(class.name)
+//  Create a new $(class.name)
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
-    $(class.name)_new (void);
+    $(class.name)_new (int id);
 
-//  Destroy a $(class.name) instance
+//  Destroy the $(class.name)
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
-//  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
-$(CLASS.EXPORT_MACRO)int
-    $(class.name)_recv ($(class.name)_t *self, zsock_t *input);
+//  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
+//  the message could not be parsed, or was NULL. Destroys msg and 
+//  nullifies the msg reference.
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_decode (zmsg_t **msg_p);
 
-//  Send the $(class.name) to the output socket, does not destroy it
+//  Encode $(class.name) into zmsg and destroy it. Returns a newly created
+//  object or NULL if error. Use when not in control of sending the message.
+$(CLASS.EXPORT_MACRO)zmsg_t *
+    $(class.name)_encode ($(class.name)_t **self_p);
+
+//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  or NULL if error. Will block if there's no message waiting.
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_recv (void *input);
+
+//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  or NULL either if there was no input waiting, or the recv was interrupted.
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_recv_nowait (void *input);
+
+//  Send the $(class.name) to the output, and destroy it
 $(CLASS.EXPORT_MACRO)int
-    $(class.name)_send ($(class.name)_t *self, zsock_t *output);
+    $(class.name)_send ($(class.name)_t **self_p, void *output);
+
+//  Send the $(class.name) to the output, and do not destroy it
+$(CLASS.EXPORT_MACRO)int
+    $(class.name)_send_again ($(class.name)_t *self, void *output);
+
+.for message
+//  Encode the $(message.NAME) 
+$(CLASS.EXPORT_MACRO)zmsg_t *
+    $(class.name)_encode_$(name) (
+.for field where !defined (value)
+.   if !first ()
+,
+.   endif 
+.   if type = "number"
+        $(ctype) $(name)\
+.   elsif type = "octets"
+        byte *$(name)\
+.   elsif type = "string" | type = "longstr"
+        const char *$(name)\
+.   elsif type = "strings"
+        zlist_t *$(name)\
+.   elsif type = "dictionary"
+        zhash_t *$(name)\
+.   elsif type = "chunk" | type = "frame" | type = "uuid"
+        z$(type)_t *$(name)\
+.   elsif type = "msg"
+        zmsg_t *$(name)\
+.   endif
+.endfor
+);
+
+.endfor
+
+.for message
+//  Send the $(message.NAME) to the output in one step
+//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
+$(CLASS.EXPORT_MACRO)int
+    $(class.name)_send_$(name) (void *output\
+.for field where !defined (value)
+,
+.   if type = "number"
+        $(ctype) $(name)\
+.   elsif type = "octets"
+        byte *$(name)\
+.   elsif type = "string" | type = "longstr"
+        const char *$(name)\
+.   elsif type = "strings"
+        zlist_t *$(name)\
+.   elsif type = "dictionary"
+        zhash_t *$(name)\
+.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+        z$(type)_t *$(name)\
+.   endif
+.endfor
+);
     
+.endfor
+//  Duplicate the $(class.name) message
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_dup ($(class.name)_t *self);
+
 //  Print contents of message to stdout
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_print ($(class.name)_t *self);
@@ -147,7 +211,7 @@ $(CLASS.EXPORT_MACRO)void
 $(CLASS.EXPORT_MACRO)const char *
     $(class.name)_$(name) ($(class.name)_t *self);
 $(CLASS.EXPORT_MACRO)void
-    $(class.name)_set_$(name) ($(class.name)_t *self, const char *value);
+    $(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...);
 .#
 .   elsif type = "strings"
 //  Get/set the $(name) field
@@ -159,8 +223,42 @@ $(CLASS.EXPORT_MACRO)zlist_t *
 //  Set the $(name) field, transferring ownership from caller
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
+
+//  Iterate through the $(name) field, and append a $(name) value
+$(CLASS.EXPORT_MACRO)const char *
+    $(class.name)_$(name)_first ($(class.name)_t *self);
+$(CLASS.EXPORT_MACRO)const char *
+    $(class.name)_$(name)_next ($(class.name)_t *self);
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_$(name)_append ($(class.name)_t *self, const char *format, ...);
+$(CLASS.EXPORT_MACRO)size_t
+    $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
-.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+.   elsif type = "dictionary"
+//  Get/set the $(name) field
+$(CLASS.EXPORT_MACRO)zhash_t *
+    $(class.name)_$(name) ($(class.name)_t *self);
+//  Get the $(name) field and transfer ownership to caller
+$(CLASS.EXPORT_MACRO)zhash_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+//  Set the $(name) field, transferring ownership from caller
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
+    
+//  Get/set a value in the $(name) dictionary
+$(CLASS.EXPORT_MACRO)const char *
+    $(class.name)_$(name)_string ($(class.name)_t *self,
+        const char *key, const char *default_value);
+$(CLASS.EXPORT_MACRO)uint64_t
+    $(class.name)_$(name)_number ($(class.name)_t *self,
+        const char *key, uint64_t default_value);
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_$(name)_insert ($(class.name)_t *self,
+        const char *key, const char *format, ...);
+$(CLASS.EXPORT_MACRO)size_t
+    $(class.name)_$(name)_size ($(class.name)_t *self);
+.#
+.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
 //  Get a copy of the $(name) field
 $(CLASS.EXPORT_MACRO)z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -230,17 +328,15 @@ struct _$(class.name)_t {
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
 .for class.field
-.   if type = "number" & !defined (field.value)
+.   if type = "number"
     $(ctype) $(name);                   //  $(field.?'':)
 .   elsif type = "octets"
     byte $(name) [$(size)];             //  $(field.?'':)
-.   elsif type = "string" & !defined (field.value)
-    char $(name) [256];                 //  $(field.?'':)
-.   elsif type = "longstr"
+.   elsif type = "string" | type = "longstr"
     char *$(name);                      //  $(field.?'':)
 .   elsif type = "strings"
     zlist_t *$(name);                   //  $(field.?'':)
-.   elsif type = "hash"
+.   elsif type = "dictionary"
     zhash_t *$(name);                   //  $(field.?'':)
     size_t $(name)_bytes;               //  Size of dictionary content
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
@@ -260,10 +356,8 @@ struct _$(class.name)_t {
 
 //  Get a block of octets from the frame
 #define GET_OCTETS(host,size) { \\
-    if (self->needle + size > self->ceiling) { \\
-        zsys_warning ("$(class.name): GET_OCTETS failed"); \\
+    if (self->needle + size > self->ceiling) \\
         goto malformed; \\
-    } \\
     memcpy ((host), self->needle, size); \\
     self->needle += size; \\
 }
@@ -305,20 +399,16 @@ struct _$(class.name)_t {
 
 //  Get a 1-byte number from the frame
 #define GET_NUMBER1(host) { \\
-    if (self->needle + 1 > self->ceiling) { \\
-        zsys_warning ("$(class.name): GET_NUMBER1 failed"); \\
+    if (self->needle + 1 > self->ceiling) \\
         goto malformed; \\
-    } \\
     (host) = *(byte *) self->needle; \\
     self->needle++; \\
 }
 
 //  Get a 2-byte number from the frame
 #define GET_NUMBER2(host) { \\
-    if (self->needle + 2 > self->ceiling) { \\
-        zsys_warning ("$(class.name): GET_NUMBER2 failed"); \\
+    if (self->needle + 2 > self->ceiling) \\
         goto malformed; \\
-    } \\
     (host) = ((uint16_t) (self->needle [0]) << 8) \\
            +  (uint16_t) (self->needle [1]); \\
     self->needle += 2; \\
@@ -326,10 +416,8 @@ struct _$(class.name)_t {
 
 //  Get a 4-byte number from the frame
 #define GET_NUMBER4(host) { \\
-    if (self->needle + 4 > self->ceiling) { \\
-        zsys_warning ("$(class.name): GET_NUMBER4 failed"); \\
+    if (self->needle + 4 > self->ceiling) \\
         goto malformed; \\
-    } \\
     (host) = ((uint32_t) (self->needle [0]) << 24) \\
            + ((uint32_t) (self->needle [1]) << 16) \\
            + ((uint32_t) (self->needle [2]) << 8) \\
@@ -339,10 +427,8 @@ struct _$(class.name)_t {
 
 //  Get a 8-byte number from the frame
 #define GET_NUMBER8(host) { \\
-    if (self->needle + 8 > self->ceiling) { \\
-        zsys_warning ("$(class.name): GET_NUMBER8 failed"); \\
+    if (self->needle + 8 > self->ceiling) \\
         goto malformed; \\
-    } \\
     (host) = ((uint64_t) (self->needle [0]) << 56) \\
            + ((uint64_t) (self->needle [1]) << 48) \\
            + ((uint64_t) (self->needle [2]) << 40) \\
@@ -366,10 +452,9 @@ struct _$(class.name)_t {
 #define GET_STRING(host) { \\
     size_t string_size; \\
     GET_NUMBER1 (string_size); \\
-    if (self->needle + string_size > (self->ceiling)) { \\
-        zsys_warning ("$(class.name): GET_STRING failed"); \\
+    if (self->needle + string_size > (self->ceiling)) \\
         goto malformed; \\
-    } \\
+    (host) = (char *) malloc (string_size + 1); \\
     memcpy ((host), self->needle, string_size); \\
     (host) [string_size] = 0; \\
     self->needle += string_size; \\
@@ -387,10 +472,8 @@ struct _$(class.name)_t {
 #define GET_LONGSTR(host) { \\
     size_t string_size; \\
     GET_NUMBER4 (string_size); \\
-    if (self->needle + string_size > (self->ceiling)) { \\
-        zsys_warning ("$(class.name): GET_LONGSTR failed"); \\
+    if (self->needle + string_size > (self->ceiling)) \\
         goto malformed; \\
-    } \\
     (host) = (char *) malloc (string_size + 1); \\
     memcpy ((host), self->needle, string_size); \\
     (host) [string_size] = 0; \\
@@ -402,9 +485,10 @@ struct _$(class.name)_t {
 //  Create a new $(class.name)
 
 $(class.name)_t *
-$(class.name)_new (void)
+$(class.name)_new (int id)
 {
     $(class.name)_t *self = ($(class.name)_t *) zmalloc (sizeof ($(class.name)_t));
+    self->id = id;
     return self;
 }
 
@@ -422,12 +506,14 @@ $(class.name)_destroy ($(class.name)_t **self_p)
         //  Free class properties
         zframe_destroy (&self->routing_id);
 .for class.field
-.   if type = "longstr"
+.   if type = "string" | type = "longstr"
         free (self->$(name));
 .   elsif type = "strings"
         if (self->$(name))
             zlist_destroy (&self->$(name));
-.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+.   elsif type = "dictionary"
+        zhash_destroy (&self->$(name));
+.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
         z$(type)_destroy (&self->$(name));
 .   endif
 .endfor
@@ -440,41 +526,32 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
+//  the message could not be parsed, or was NULL. Destroys msg and 
+//  nullifies the msg reference.
 
-int
-$(class.name)_recv ($(class.name)_t *self, zsock_t *input)
+$(class.name)_t *
+$(class.name)_decode (zmsg_t **msg_p)
 {
-    assert (input);
-    
-    if (zsock_type (input) == ZMQ_ROUTER) {
-        zframe_destroy (&self->routing_id);
-        self->routing_id = zframe_recv (input);
-        if (!self->routing_id || !zsock_rcvmore (input)) {
-            zsys_warning ("$(class.name): no routing ID");
-            return -1;          //  Interrupted or malformed
-        }
-    }
-    zmq_msg_t frame;
-    zmq_msg_init (&frame);
-    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
-    if (size == -1) {
-        zsys_warning ("$(class.name): interrupted");
-        goto malformed;         //  Interrupted
-    }
+    assert (msg_p);
+    zmsg_t *msg = *msg_p;
+    if (msg == NULL)
+        return NULL;
+        
+    $(class.name)_t *self = $(class.name)_new (0);
+    //  Read and parse command in frame
+    zframe_t *frame = zmsg_pop (msg);
+    if (!frame) 
+        goto empty;             //  Malformed or empty
+
     //  Get and check protocol signature
-    self->needle = (byte *) zmq_msg_data (&frame);
-    self->ceiling = self->needle + zmq_msg_size (&frame);
-    
+    self->needle = zframe_data (frame);
+    self->ceiling = self->needle + zframe_size (frame);
     uint16_t signature;
     GET_NUMBER2 (signature);
-    if (signature != (0xAAA0 | $(class.signature))) {
-        zsys_warning ("$(class.name): invalid signature");
-        //  TODO: discard invalid messages and loop, and return
-        //  -1 only on interrupt
-        goto malformed;         //  Interrupted
-    }
+    if (signature != (0xAAA0 | $(class.signature)))
+        goto empty;             //  Invalid signature
+
     //  Get message id and parse per message type
     GET_NUMBER1 (self->id);
 
@@ -483,32 +560,18 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
         case $(CLASS.NAME)_$(MESSAGE.NAME):
 .   for field
 .       if type = "number"
-.           if defined (field.value)
-            {
-                $(ctype) $(name);
-                GET_NUMBER$(size) ($(name));
-                if ($(name) != $(value:)) {
-                    zsys_warning ("$(class.name): $(name) is invalid");
-                    goto malformed;
-                }
-            }
-.           else
             GET_NUMBER$(size) (self->$(name));
+.           if defined (field.value)
+            if (self->$(name) != $(field.value:))
+                goto malformed;
 .           endif
 .       elsif type = "octets"
             GET_OCTETS (self->$(name), $(size));
 .       elsif type = "string"
-.           if defined (field.value)
-            {
-                char $(name) [256];
-                GET_STRING ($(name));
-                if (strneq ($(name), "$(value:)")) {
-                    zsys_warning ("$(class.name): $(name) is invalid");
-                    goto malformed;
-                }
-            }
-.           else
             GET_STRING (self->$(name));
+.           if defined (field.value)
+            if (strneq (self->$(name), "$(field.value:)"))
+                goto malformed;
 .           endif
 .       elsif type = "longstr"
             GET_LONGSTR (self->$(name));
@@ -525,17 +588,18 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                     free (string);
                 }
             }
-.       elsif type = "hash"
+.       elsif type = "dictionary"
             {
                 size_t hash_size;
                 GET_NUMBER4 (hash_size);
                 self->$(name) = zhash_new ();
                 zhash_autofree (self->$(name));
                 while (hash_size--) {
-                    char key [256], *value;
+                    char *key, *value;
                     GET_STRING (key);
                     GET_LONGSTR (value);
                     zhash_insert (self->$(name), key, value);
+                    free (key);
                     free (value);
                 }
             }
@@ -543,146 +607,151 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
-                if (self->needle + chunk_size > (self->ceiling)) {
-                    zsys_warning ("$(class.name): $(name) is missing data");
+                if (self->needle + chunk_size > (self->ceiling))
                     goto malformed;
-                }
                 self->$(name) = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
 .       elsif type = "uuid"
-            if (self->needle + ZUUID_LEN > (self->ceiling)) {
-                zsys_warning ("$(class.name): $(name) is invalid");
-                goto malformed;
+            {
+                if (self->needle + ZUUID_LEN > (self->ceiling))
+                    goto malformed;
+                self->$(name) = zuuid_new ();
+                zuuid_set (self->$(name), self->needle);
+                self->needle += ZUUID_LEN;
             }
-            self->$(name) = zuuid_new ();
-            zuuid_set (self->$(name), self->needle);
-            self->needle += ZUUID_LEN;
 .       elsif type = "frame"
-            //  Get next frame off socket
-            if (!zsock_rcvmore (input)) {
-                zsys_warning ("$(class.name): $(name) is missing");
-                goto malformed;
+            {
+                //  Get next frame, leave current untouched
+                zframe_t *$(name) = zmsg_pop (msg);
+                if (!$(name))
+                    goto malformed;
+                self->$(name) = $(name);
             }
-            zframe_destroy (&self->$(name));
-            self->$(name) = zframe_recv (input);
 .       elsif type = "msg"
-            //  Get zero or more remaining frames
-            if (!zsock_rcvmore (input)) {
-                zsys_warning ("$(class.name): $(name) is missing");
-                goto malformed;
-            }
-            zmsg_destroy (&self->$(name));
-            self->$(name) = zmsg_recv (input);
+            //  Get zero or more remaining frames, leaving current
+            //  frame untouched
+            self->$(name) = zmsg_new ();
+            while (zmsg_size (msg))
+                zmsg_add (self->$(name), zmsg_pop (msg));
 .       endif
 .   endfor
             break;
 
 .endfor
         default:
-            zsys_warning ("$(class.name): bad message ID");
             goto malformed;
     }
     //  Successful return
-    zmq_msg_close (&frame);
-    return 0;
+    zframe_destroy (&frame);
+    zmsg_destroy (msg_p);
+    return self;
 
     //  Error returns
     malformed:
-        zsys_warning ("$(class.name): $(name) malformed message, fail");
-        zmq_msg_close (&frame);
-        return -1;              //  Invalid message
+        zsys_error ("malformed message '%d'\\n", self->id);
+    empty:
+        zframe_destroy (&frame);
+        zmsg_destroy (msg_p);
+        $(class.name)_destroy (&self);
+        return (NULL);
 }
 
 
 //  --------------------------------------------------------------------------
-//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
+//  Encode $(class.name) into zmsg and destroy it. Returns a newly created
+//  object or NULL if error. Use when not in control of sending the message.
 
-int
-$(class.name)_send ($(class.name)_t *self, zsock_t *output)
+zmsg_t *
+$(class.name)_encode ($(class.name)_t **self_p)
 {
-    assert (self);
-    assert (output);
-
-    if (zsock_type (output) == ZMQ_ROUTER)
-        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
+    assert (self_p);
+    assert (*self_p);
+    
+    $(class.name)_t *self = *self_p;
+    zmsg_t *msg = zmsg_new ();
 
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
-.for class.message where count (field)
+.for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
 .   for field
 .       if type = "number"
-            frame_size += $(size);      //  $(name)
+            //  $(name) is a $(size)-byte integer
+            frame_size += $(size);
 .       elsif type = "octets"
-            frame_size += $(size);      //  $(name)
+            //  $(name) is a block of $(size) bytes
+            frame_size += $(size);
 .       elsif type = "string"
+            //  $(name) is a string with 1-byte length
 .           if defined (field.value)
-            frame_size += 1 + strlen ("$(value:)");
+            frame_size += 1 + strlen ("$(field.value:)");
 .           else
-            frame_size += 1 + strlen (self->$(name));
+            frame_size++;       //  Size is one octet
+            if (self->$(name))
+                frame_size += strlen (self->$(name));
 .           endif
 .       elsif type = "longstr"
+            //  $(name) is a string with 4-byte length
             frame_size += 4;
             if (self->$(name))
                 frame_size += strlen (self->$(name));
 .       elsif type = "strings"
-            frame_size += 4;            //  Size is 4 octets
+            //  $(name) is an array of strings
+            frame_size += 4;    //  Size is 4 octets
             if (self->$(name)) {
+                //  Add up size of list contents
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
                     frame_size += 4 + strlen ($(name));
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
-.       elsif type = "hash"
-            frame_size += 4;            //  Size is 4 octets
+.       elsif type = "dictionary"
+            //  $(name) is an array of key=value strings
+            frame_size += 4;    //  Size is 4 octets
             if (self->$(name)) {
                 self->$(name)_bytes = 0;
+                //  Add up size of dictionary contents
                 char *item = (char *) zhash_first (self->$(name));
                 while (item) {
-                    self->$(name)_bytes += 1 + strlen (zhash_cursor (self->$(name)));
+                    self->$(name)_bytes += 1 + strlen ((const char *) zhash_cursor (self->$(name)));
                     self->$(name)_bytes += 4 + strlen (item);
                     item = (char *) zhash_next (self->$(name));
                 }
             }
             frame_size += self->$(name)_bytes;
 .       elsif type = "chunk"
-            frame_size += 4;            //  Size is 4 octets
+            //  $(name) is a chunk with 4-byte length
+            frame_size += 4;
             if (self->$(name))
                 frame_size += zchunk_size (self->$(name));
 .       elsif type = "uuid"
-            frame_size += ZUUID_LEN;    //  $(name)
-.       elsif type = "frame"
-.       elsif type = "msg"
-.           class.msg = name
-.           if item () <> count (message.field)
-.               echo "E: in $(message.name:), $(field.name) must come last"
-.           endif
+            //  $(name) is uuid with 16-byte length
+            frame_size += ZUUID_LEN;
 .       endif
 .   endfor
             break;
+            
 .endfor
+        default:
+            zsys_error ("bad message type '%d', not sent\\n", self->id);
+            //  No recovery, this is a fatal application error
+            assert (false);
     }
     //  Now serialize message into the frame
-    zmq_msg_t frame;
-    zmq_msg_init_size (&frame, frame_size);
-    self->needle = (byte *) zmq_msg_data (&frame);
+    zframe_t *frame = zframe_new (NULL, frame_size);
+    self->needle = zframe_data (frame);
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
-.if defined (class.msg)
-    bool send_$(class.msg) = false;
-.endif
-    size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
-.for class.message where count (field)
+.for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
 .   for field
 .       if type = "number"
 .           if defined (field.value)
-            PUT_NUMBER$(size) ($(value:));
+            PUT_NUMBER$(size) ($(field.value:));
 .           else
             PUT_NUMBER$(size) (self->$(name));
 .           endif
@@ -690,9 +759,13 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
             PUT_OCTETS (self->$(name), $(size));
 .       elsif type = "string"
 .           if defined (field.value)
-            PUT_STRING ("$(value:)");
+            PUT_STRING ("$(field.value:)");
 .           else
-            PUT_STRING (self->$(name));
+            if (self->$(name)) {
+                PUT_STRING (self->$(name));
+            }
+            else
+                PUT_NUMBER1 (0);    //  Empty string
 .           endif
 .       elsif type = "longstr"
             if (self->$(name)) {
@@ -711,12 +784,12 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty string array
-.       elsif type = "hash"
+.       elsif type = "dictionary"
             if (self->$(name)) {
                 PUT_NUMBER4 (zhash_size (self->$(name)));
                 char *item = (char *) zhash_first (self->$(name));
                 while (item) {
-                    PUT_STRING (zhash_cursor (self->$(name)));
+                    PUT_STRING ((const char *) zhash_cursor ((zhash_t *) self->$(name)));
                     PUT_LONGSTR (item);
                     item = (char *) zhash_next (self->$(name));
                 }
@@ -739,11 +812,6 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
             else
                 memset (self->needle, 0, ZUUID_LEN);
             self->needle += ZUUID_LEN;
-.       elsif type = "frame"
-            nbr_frames++;
-.       elsif type = "msg"
-            nbr_frames += self->$(name)? zmsg_size (self->$(name)): 1;
-            send_$(class.msg) = true;
 .       endif
 .   endfor
             break;
@@ -751,35 +819,286 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
 .endfor
     }
     //  Now send the data frame
-    zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+    if (zmsg_append (msg, &frame)) {
+        zmsg_destroy (&msg);
+        $(class.name)_destroy (self_p);
+        return NULL;
+    }
 .for class.message where count (field, type = "frame")
     //  Now send any frame fields, in order
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
 .   for field where type = "frame"
         //  If $(name) isn't set, send an empty frame
-        if (self->$(field.name))
-            zframe_send (&self->$(field.name), output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0))
-        else
-            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+        if (!self->$(field.name))
+            self->$(field.name) = zframe_new (NULL, 0);
+        if (zmsg_append (msg, &self->$(field.name))) {
+            zmsg_destroy (&msg);
+            $(class.name)_destroy (self_p);
+            return NULL;
+        }
 .   endfor
     }
 .endfor
-.if defined (class.msg)
-    //  Now send the $(class.msg) if necessary
-    if (send_$(class.msg)) {
-        if (self->$(class.msg)) {
-            zframe_t *frame = zmsg_first (self->$(class.msg));
+.for class.message where count (field, type = "msg")
+    //  Now send the message field if there is any
+    if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
+.   for field where type = "msg"
+.       if item () <> count (message.field)
+.           echo "E: in $(message.name:), $(field.name) must come last"
+.       endif
+        if (self->$(field.name)) {
+            zframe_t *frame = zmsg_pop (self->$(field.name));
             while (frame) {
-                zframe_send (&frame, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
-                frame = zmsg_next (self->$(class.msg));
+                zmsg_append (msg, &frame);
+                frame = zmsg_pop (self->$(field.name));
             }
         }
-        else
-            zmq_send (zsock_resolve (output), NULL, 0, 0);
+        else {
+            zframe_t *frame = zframe_new (NULL, 0);
+            zmsg_append (msg, &frame);
+        }
+.   endfor
     }
+.endfor
+    //  Destroy $(class.name) object
+    $(class.name)_destroy (self_p);
+    return msg;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive and parse a $(class.name) from the socket. Returns new object or
+//  NULL if error. Will block if there's no message waiting.
+
+$(class.name)_t *
+$(class.name)_recv (void *input)
+{
+    assert (input);
+    zmsg_t *msg = zmsg_recv (input);
+    if (!msg)
+        return NULL;            //  Interrupted
+.if switches.trace ?= 1
+    zmsg_print (msg);
 .endif
-    return 0;
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t *routing_id = NULL;
+    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg))
+            return NULL;        //  Malformed or empty
+    }
+    $(class.name)_t *$(class.name) = $(class.name)_decode (&msg);
+    if ($(class.name) && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
+        $(class.name)->routing_id = routing_id;
+
+    return $(class.name);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive and parse a $(class.name) from the socket. Returns new object,
+//  or NULL either if there was no input waiting, or the recv was interrupted.
+
+$(class.name)_t *
+$(class.name)_recv_nowait (void *input)
+{
+    assert (input);
+    zmsg_t *msg = zmsg_recv_nowait (input);
+    if (!msg)
+        return NULL;            //  Interrupted
+.if switches.trace ?= 1
+    zmsg_print (msg);
+.endif
+    //  If message came from a router socket, first frame is routing_id
+    zframe_t *routing_id = NULL;
+    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
+        routing_id = zmsg_pop (msg);
+        //  If message was not valid, forget about it
+        if (!routing_id || !zmsg_next (msg))
+            return NULL;        //  Malformed or empty
+    }
+    $(class.name)_t *$(class.name) = $(class.name)_decode (&msg);
+    if ($(class.name) && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
+        $(class.name)->routing_id = routing_id;
+
+    return $(class.name);
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the socket, and destroy it
+//  Returns 0 if OK, else -1
+
+int
+$(class.name)_send ($(class.name)_t **self_p, void *output)
+{
+    assert (self_p);
+    assert (*self_p);
+    assert (output);
+
+    //  Save routing_id if any, as encode will destroy it
+    $(class.name)_t *self = *self_p;
+    zframe_t *routing_id = self->routing_id;
+    self->routing_id = NULL;
+
+    //  Encode $(class.name) message to a single zmsg
+    zmsg_t *msg = $(class.name)_encode (self_p);
+    
+    //  If we're sending to a ROUTER, send the routing_id first
+    if (zsocket_type (zsock_resolve (output)) == ZMQ_ROUTER) {
+        assert (routing_id);
+        zmsg_prepend (msg, &routing_id);
+    }
+    else
+        zframe_destroy (&routing_id);
+        
+    if (msg && zmsg_send (&msg, output) == 0)
+        return 0;
+    else
+        return -1;              //  Failed to encode, or send
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the output, and do not destroy it
+
+int
+$(class.name)_send_again ($(class.name)_t *self, void *output)
+{
+    assert (self);
+    assert (output);
+    self = $(class.name)_dup (self);
+    return $(class.name)_send (&self, output);
+}
+
+
+.for message
+//  --------------------------------------------------------------------------
+//  Encode $(message.NAME) message
+
+zmsg_t * 
+$(class.name)_encode_$(name) (
+.for field where !defined (value)
+.   if !first ()
+,
+.   endif
+.   if type = "number"
+    $(ctype) $(name)\
+.   elsif type = "octets"
+    byte *$(name)\
+.   elsif type = "string" | type = "longstr"
+    const char *$(name)\
+.   elsif type = "strings"
+    zlist_t *$(name)\
+.   elsif type = "dictionary"
+    zhash_t *$(name)\
+.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)\
+.   endif
+.endfor
+)
+{
+    $(class.name)_t *self = $(class.name)_new ($(class.NAME)_$(NAME));
+.for field where !defined (value)
+.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    $(class.name)_set_$(name) (self, $(name));
+.   elsif type = "strings"
+    zlist_t *$(name)_copy = zlist_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.   elsif type = "dictionary"
+    zhash_t *$(name)_copy = zhash_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.   endif
+.endfor
+    return $(class.name)_encode (&self);
+}
+
+
+.endfor
+.for message
+//  --------------------------------------------------------------------------
+//  Send the $(message.NAME) to the socket in one step
+
+int
+$(class.name)_send_$(name) (
+    void *output\
+.for field where !defined (value)
+,
+.   if type = "number"
+    $(ctype) $(name)\
+.   elsif type = "octets"
+    byte *$(name)\
+.   elsif type = "string" | type = "longstr"
+    const char *$(name)\
+.   elsif type = "strings"
+    zlist_t *$(name)\
+.   elsif type = "dictionary"
+    zhash_t *$(name)\
+.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)\
+.   endif
+.endfor
+)
+{
+    $(class.name)_t *self = $(class.name)_new ($(class.NAME)_$(NAME));
+.for field where !defined (value)
+.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    $(class.name)_set_$(name) (self, $(name));
+.   elsif type = "strings"
+    zlist_t *$(name)_copy = zlist_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.   elsif type = "dictionary"
+    zhash_t *$(name)_copy = zhash_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+    z$(type)_t *$(name)_copy = z$(type)_dup ($(name));
+    $(class.name)_set_$(name) (self, &$(name)_copy);
+.   endif
+.endfor
+    return $(class.name)_send (&self, output);
+}
+
+
+.endfor
+//  --------------------------------------------------------------------------
+//  Duplicate the $(class.name) message
+
+$(class.name)_t *
+$(class.name)_dup ($(class.name)_t *self)
+{
+    if (!self)
+        return NULL;
+        
+    $(class.name)_t *copy = $(class.name)_new (self->id);
+    if (self->routing_id)
+        copy->routing_id = zframe_dup (self->routing_id);
+    switch (self->id) {
+.for class.message
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field
+.       if type = "number"
+            copy->$(name) = self->$(name);
+.       elsif type = "octets"
+            memcpy (copy->$(name), self->$(name), $(size));
+.       elsif type = "string" | type = "longstr"
+            copy->$(name) = self->$(name)? strdup (self->$(name)): NULL;
+.       elsif type = "strings"
+            copy->$(name) = self->$(name)? zlist_dup (self->$(name)): NULL;
+.       elsif type = "dictionary"
+            copy->$(name) = self->$(name)? zhash_dup (self->$(name)): NULL;
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+            copy->$(name) = self->$(name)? z$(type)_dup (self->$(name)): NULL;
+.       endif
+.   endfor
+            break;
+
+.endfor
+    }
+    return copy;
 }
 
 
@@ -821,7 +1140,7 @@ $(class.name)_print ($(class.name)_t *self)
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
-.       elsif type = "hash"
+.       elsif type = "dictionary"
             zsys_debug ("    $(name)=");
             if (self->$(name)) {
                 char *item = (char *) zhash_first (self->$(name));
@@ -950,7 +1269,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, byte *$(name))
     memcpy (self->$(name), $(name), $(size));
 }
 
-.   elsif type = "string"
+.   elsif type = "string" | type = "longstr"
 //  --------------------------------------------------------------------------
 //  Get/set the $(name) field
 
@@ -962,30 +1281,15 @@ $(class.name)_$(name) ($(class.name)_t *self)
 }
 
 void
-$(class.name)_set_$(name) ($(class.name)_t *self, const char *value)
+$(class.name)_set_$(name) ($(class.name)_t *self, const char *format, ...)
 {
+    //  Format $(name) from provided arguments
     assert (self);
-    strncpy (self->$(name), value, 255);
-    self->$(name) [255] = 0;
-}
-
-.   elsif type = "longstr"
-//  --------------------------------------------------------------------------
-//  Get/set the $(name) field
-
-const char *
-$(class.name)_$(name) ($(class.name)_t *self)
-{
-    assert (self);
-    return self->$(name);
-}
-
-void
-$(class.name)_set_$(name) ($(class.name)_t *self, const char *value)
-{
-    assert (self);
-    zstr_free (&self->$(name));
-    self->$(name) = strdup (value);
+    va_list argptr;
+    va_start (argptr, format);
+    free (self->$(name));
+    self->$(name) = zsys_vprintf (format, argptr);
+    va_end (argptr);
 }
 
 .   elsif type = "strings"
@@ -1022,8 +1326,55 @@ $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p)
     *$(name)_p = NULL;
 }
 
+//  --------------------------------------------------------------------------
+//  Iterate through the $(name) field, and append a $(name) value
 
-.   elsif type = "hash"
+const char *
+$(class.name)_$(name)_first ($(class.name)_t *self)
+{
+    assert (self);
+    if (self->$(name))
+        return (char *) (zlist_first (self->$(name)));
+    else
+        return NULL;
+}
+
+const char *
+$(class.name)_$(name)_next ($(class.name)_t *self)
+{
+    assert (self);
+    if (self->$(name))
+        return (char *) (zlist_next (self->$(name)));
+    else
+        return NULL;
+}
+
+void
+$(class.name)_$(name)_append ($(class.name)_t *self, const char *format, ...)
+{
+    //  Format into newly allocated string
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    char *string = zsys_vprintf (format, argptr);
+    va_end (argptr);
+
+    //  Attach string to list
+    if (!self->$(name)) {
+        self->$(name) = zlist_new ();
+        zlist_autofree (self->$(name));
+    }
+    zlist_append (self->$(name), string);
+    free (string);
+}
+
+size_t
+$(class.name)_$(name)_size ($(class.name)_t *self)
+{
+    return zlist_size (self->$(name));
+}
+
+.   elsif type = "dictionary"
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
@@ -1056,6 +1407,60 @@ $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p)
     *$(name)_p = NULL;
 }
 
+//  --------------------------------------------------------------------------
+//  Get/set a value in the $(name) dictionary
+
+const char *
+$(class.name)_$(name)_string ($(class.name)_t *self, const char *key, const char *default_value)
+{
+    assert (self);
+    const char *value = NULL;
+    if (self->$(name))
+        value = (const char *) (zhash_lookup (self->$(name), key));
+    if (!value)
+        value = default_value;
+
+    return value;
+}
+
+uint64_t
+$(class.name)_$(name)_number ($(class.name)_t *self, const char *key, uint64_t default_value)
+{
+    assert (self);
+    uint64_t value = default_value;
+    char *string = NULL;
+    if (self->$(name))
+        string = (char *) (zhash_lookup (self->$(name), key));
+    if (string)
+        value = atol (string);
+
+    return value;
+}
+
+void
+$(class.name)_$(name)_insert ($(class.name)_t *self, const char *key, const char *format, ...)
+{
+    //  Format into newly allocated string
+    assert (self);
+    va_list argptr;
+    va_start (argptr, format);
+    char *string = zsys_vprintf (format, argptr);
+    va_end (argptr);
+
+    //  Store string in hash table
+    if (!self->$(name)) {
+        self->$(name) = zhash_new ();
+        zhash_autofree (self->$(name));
+    }
+    zhash_update (self->$(name), key, string);
+    free (string);
+}
+
+size_t
+$(class.name)_$(name)_size ($(class.name)_t *self)
+{
+    return zhash_size (self->$(name));
+}
 
 .   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
 //  --------------------------------------------------------------------------
@@ -1104,7 +1509,7 @@ $(class.name)_test (bool verbose)
 
     //  @selftest
     //  Simple create/destroy test
-    $(class.name)_t *self = $(class.name)_new ();
+    $(class.name)_t *self = $(class.name)_new (0);
     assert (self);
     $(class.name)_destroy (&self);
 
@@ -1119,9 +1524,14 @@ $(class.name)_test (bool verbose)
 
     //  Encode/send/decode and verify each message type
     int instance;
-    self = $(class.name)_new ();
+    $(class.name)_t *copy;
 .for class.message
-    $(class.name)_set_id (self, $(CLASS.NAME)_$(MESSAGE.NAME));
+    self = $(class.name)_new ($(CLASS.NAME)_$(MESSAGE.NAME));
+    
+    //  Check that _dup works on empty message
+    copy = $(class.name)_dup (self);
+    assert (copy);
+    $(class.name)_destroy (&copy);
 
 .   for field where !defined (value)
 .       if type = "number"
@@ -1132,6 +1542,12 @@ $(class.name)_test (bool verbose)
     $(class.name)_set_$(name) (self, $(name)_data);
 .       elsif type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, "Life is short but Now lasts for ever");
+.       elsif type = "strings"
+    $(class.name)_$(name)_append (self, "Name: %s", "Brutus");
+    $(class.name)_$(name)_append (self, "Age: %d", 43);
+.       elsif type = "dictionary"
+    $(class.name)_$(name)_insert (self, "Name", "Brutus");
+    $(class.name)_$(name)_insert (self, "Age", "%d", 43);
 .       elsif type = "chunk" | type = "frame"
     z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
@@ -1145,16 +1561,16 @@ $(class.name)_test (bool verbose)
     zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
 .       endif
 .   endfor
-    //  Send twice
-    $(class.name)_send (self, output);
-    $(class.name)_send (self, output);
+    //  Send twice from same object
+    $(class.name)_send_again (self, output);
+    $(class.name)_send (&self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        $(class.name)_destroy (&self);
-        self = $(class.name)_new ();
-        $(class.name)_recv (self, input);
+        self = $(class.name)_recv (input);
+        assert (self);
         assert ($(class.name)_routing_id (self));
-.   for field where !defined (value)
+        
+.   for field where !defined (value) 
 .       if type = "number"
         assert ($(class.name)_$(name) (self) == 123);
 .       elsif type = "octets"
@@ -1166,14 +1582,25 @@ $(class.name)_test (bool verbose)
         assert ($(class.name)_$(name)_size (self) == 2);
         assert (streq ($(class.name)_$(name)_first (self), "Name: Brutus"));
         assert (streq ($(class.name)_$(name)_next (self), "Age: 43"));
+.       elsif type = "dictionary"
+        assert ($(class.name)_$(name)_size (self) == 2);
+        assert (streq ($(class.name)_$(name)_string (self, "Name", "?"), "Brutus"));
+        assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);
 .       elsif type = "chunk"
         assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "Captcha Diem", 12) == 0);
+.       elsif type = "uuid"
+        zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
+        assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
+        if (instance == 1) {
+            zuuid_destroy (&$(message.name)_$(name)_dup);
+        }
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .       elsif type = "msg"
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       endif
 .   endfor
+        $(class.name)_destroy (&self);
     }
 .endfor
 
