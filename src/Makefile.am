@@ -9,6 +9,7 @@ TESTS =
 zprotodir = @bindir@
 zproto_DATA = \
 	zproto_codec_c.gsl \
+	zproto_codec_c_v1.gsl \
 	zproto_codec_go.gsl \
 	zproto_codec_java.gsl \
 	zproto_codec_clj.gsl \

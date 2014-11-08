@@ -69,7 +69,7 @@ function set_defaults ()
                 endif
             elsif type = "strings"
                 field.gotype = "[]string"
-            elsif type = "dictionary"
+            elsif type = "hash"
                 field.gotype = "map[string]string"
             elsif type = "string" | type = "longstr"
                 field.gotype = "string"

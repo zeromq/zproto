@@ -133,12 +133,8 @@ $(CLASS.EXPORT_MACRO)zmsg_t *
         const char *$(name)\
 .   elsif type = "strings"
         zlist_t *$(name)\
-.   elsif type = "dictionary"
-        zhash_t *$(name)\
-.   elsif type = "chunk" | type = "frame" | type = "uuid"
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
         z$(type)_t *$(name)\
-.   elsif type = "msg"
-        zmsg_t *$(name)\
 .   endif
 .endfor
 );
@@ -160,9 +156,7 @@ $(CLASS.EXPORT_MACRO)int
         const char *$(name)\
 .   elsif type = "strings"
         zlist_t *$(name)\
-.   elsif type = "dictionary"
-        zhash_t *$(name)\
-.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
         z$(type)_t *$(name)\
 .   endif
 .endfor
@@ -234,7 +228,7 @@ $(CLASS.EXPORT_MACRO)void
 $(CLASS.EXPORT_MACRO)size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
 .#
-.   elsif type = "dictionary"
+.   elsif type = "hash"
 //  Get/set the $(name) field
 $(CLASS.EXPORT_MACRO)zhash_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -336,7 +330,7 @@ struct _$(class.name)_t {
     char *$(name);                      //  $(field.?'':)
 .   elsif type = "strings"
     zlist_t *$(name);                   //  $(field.?'':)
-.   elsif type = "dictionary"
+.   elsif type = "hash"
     zhash_t *$(name);                   //  $(field.?'':)
     size_t $(name)_bytes;               //  Size of dictionary content
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
@@ -511,9 +505,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .   elsif type = "strings"
         if (self->$(name))
             zlist_destroy (&self->$(name));
-.   elsif type = "dictionary"
-        zhash_destroy (&self->$(name));
-.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
         z$(type)_destroy (&self->$(name));
 .   endif
 .endfor
@@ -588,7 +580,7 @@ $(class.name)_decode (zmsg_t **msg_p)
                     free (string);
                 }
             }
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             {
                 size_t hash_size;
                 GET_NUMBER4 (hash_size);
@@ -707,7 +699,7 @@ $(class.name)_encode ($(class.name)_t **self_p)
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             //  $(name) is an array of key=value strings
             frame_size += 4;    //  Size is 4 octets
             if (self->$(name)) {
@@ -784,7 +776,7 @@ $(class.name)_encode ($(class.name)_t **self_p)
             }
             else
                 PUT_NUMBER4 (0);    //  Empty string array
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             if (self->$(name)) {
                 PUT_NUMBER4 (zhash_size (self->$(name)));
                 char *item = (char *) zhash_first (self->$(name));
@@ -991,9 +983,7 @@ $(class.name)_encode_$(name) (
     const char *$(name)\
 .   elsif type = "strings"
     zlist_t *$(name)\
-.   elsif type = "dictionary"
-    zhash_t *$(name)\
-.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
     z$(type)_t *$(name)\
 .   endif
 .endfor
@@ -1006,7 +996,7 @@ $(class.name)_encode_$(name) (
 .   elsif type = "strings"
     zlist_t *$(name)_copy = zlist_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
-.   elsif type = "dictionary"
+.   elsif type = "hash"
     zhash_t *$(name)_copy = zhash_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
 .   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
@@ -1036,9 +1026,7 @@ $(class.name)_send_$(name) (
     const char *$(name)\
 .   elsif type = "strings"
     zlist_t *$(name)\
-.   elsif type = "dictionary"
-    zhash_t *$(name)\
-.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
     z$(type)_t *$(name)\
 .   endif
 .endfor
@@ -1051,7 +1039,7 @@ $(class.name)_send_$(name) (
 .   elsif type = "strings"
     zlist_t *$(name)_copy = zlist_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
-.   elsif type = "dictionary"
+.   elsif type = "hash"
     zhash_t *$(name)_copy = zhash_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
 .   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
@@ -1088,9 +1076,7 @@ $(class.name)_dup ($(class.name)_t *self)
             copy->$(name) = self->$(name)? strdup (self->$(name)): NULL;
 .       elsif type = "strings"
             copy->$(name) = self->$(name)? zlist_dup (self->$(name)): NULL;
-.       elsif type = "dictionary"
-            copy->$(name) = self->$(name)? zhash_dup (self->$(name)): NULL;
-.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+.       elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
             copy->$(name) = self->$(name)? z$(type)_dup (self->$(name)): NULL;
 .       endif
 .   endfor
@@ -1140,7 +1126,7 @@ $(class.name)_print ($(class.name)_t *self)
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             zsys_debug ("    $(name)=");
             if (self->$(name)) {
                 char *item = (char *) zhash_first (self->$(name));
@@ -1374,7 +1360,7 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
     return zlist_size (self->$(name));
 }
 
-.   elsif type = "dictionary"
+.   elsif type = "hash"
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
@@ -1545,7 +1531,7 @@ $(class.name)_test (bool verbose)
 .       elsif type = "strings"
     $(class.name)_$(name)_append (self, "Name: %s", "Brutus");
     $(class.name)_$(name)_append (self, "Age: %d", 43);
-.       elsif type = "dictionary"
+.       elsif type = "hash"
     $(class.name)_$(name)_insert (self, "Name", "Brutus");
     $(class.name)_$(name)_insert (self, "Age", "%d", 43);
 .       elsif type = "chunk" | type = "frame"
@@ -1582,7 +1568,7 @@ $(class.name)_test (bool verbose)
         assert ($(class.name)_$(name)_size (self) == 2);
         assert (streq ($(class.name)_$(name)_first (self), "Name: Brutus"));
         assert (streq ($(class.name)_$(name)_next (self), "Age: 43"));
-.       elsif type = "dictionary"
+.       elsif type = "hash"
         assert ($(class.name)_$(name)_size (self) == 2);
         assert (streq ($(class.name)_$(name)_string (self, "Name", "?"), "Brutus"));
         assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);

@@ -52,13 +52,12 @@ struct _zproto_example_t {
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
     uint16_t sequence;                  //  
-    uint16_t version;                   //  Version
     byte level;                         //  Log severity level
     byte event;                         //  Type of event
     uint16_t node;                      //  Sending node
     uint16_t peer;                      //  Refers to this peer
     uint64_t time;                      //  Log date/time
-    char *host;                         //  Originating hostname
+    char host [256];                    //  Originating hostname
     char *data;                         //  Actual log message
     zlist_t *aliases;                   //  List of strings
     zhash_t *headers;                   //  Other random properties
@@ -68,14 +67,14 @@ struct _zproto_example_t {
     zuuid_t *identifier;                //  Unique identity
     zframe_t *address;                  //  Return address as frame
     zmsg_t *content;                    //  Message to be delivered
-    char *client_forename;              //  Given name
-    char *client_surname;               //  Family name
-    char *client_mobile;                //  Mobile phone number
-    char *client_email;                 //  Email address
-    char *supplier_forename;            //  Given name
-    char *supplier_surname;             //  Family name
-    char *supplier_mobile;              //  Mobile phone number
-    char *supplier_email;               //  Email address
+    char client_forename [256];         //  Given name
+    char client_surname [256];          //  Family name
+    char client_mobile [256];           //  Mobile phone number
+    char client_email [256];            //  Email address
+    char supplier_forename [256];       //  Given name
+    char supplier_surname [256];        //  Family name
+    char supplier_mobile [256];         //  Mobile phone number
+    char supplier_email [256];          //  Email address
 };
 
 //  --------------------------------------------------------------------------
@@ -89,8 +88,10 @@ struct _zproto_example_t {
 
 //  Get a block of octets from the frame
 #define GET_OCTETS(host,size) { \
-    if (self->needle + size > self->ceiling) \
+    if (self->needle + size > self->ceiling) { \
+        zsys_warning ("zproto_example: GET_OCTETS failed"); \
         goto malformed; \
+    } \
     memcpy ((host), self->needle, size); \
     self->needle += size; \
 }
@@ -132,16 +133,20 @@ struct _zproto_example_t {
 
 //  Get a 1-byte number from the frame
 #define GET_NUMBER1(host) { \
-    if (self->needle + 1 > self->ceiling) \
+    if (self->needle + 1 > self->ceiling) { \
+        zsys_warning ("zproto_example: GET_NUMBER1 failed"); \
         goto malformed; \
+    } \
     (host) = *(byte *) self->needle; \
     self->needle++; \
 }
 
 //  Get a 2-byte number from the frame
 #define GET_NUMBER2(host) { \
-    if (self->needle + 2 > self->ceiling) \
+    if (self->needle + 2 > self->ceiling) { \
+        zsys_warning ("zproto_example: GET_NUMBER2 failed"); \
         goto malformed; \
+    } \
     (host) = ((uint16_t) (self->needle [0]) << 8) \
            +  (uint16_t) (self->needle [1]); \
     self->needle += 2; \
@@ -149,8 +154,10 @@ struct _zproto_example_t {
 
 //  Get a 4-byte number from the frame
 #define GET_NUMBER4(host) { \
-    if (self->needle + 4 > self->ceiling) \
+    if (self->needle + 4 > self->ceiling) { \
+        zsys_warning ("zproto_example: GET_NUMBER4 failed"); \
         goto malformed; \
+    } \
     (host) = ((uint32_t) (self->needle [0]) << 24) \
            + ((uint32_t) (self->needle [1]) << 16) \
            + ((uint32_t) (self->needle [2]) << 8) \
@@ -160,8 +167,10 @@ struct _zproto_example_t {
 
 //  Get a 8-byte number from the frame
 #define GET_NUMBER8(host) { \
-    if (self->needle + 8 > self->ceiling) \
+    if (self->needle + 8 > self->ceiling) { \
+        zsys_warning ("zproto_example: GET_NUMBER8 failed"); \
         goto malformed; \
+    } \
     (host) = ((uint64_t) (self->needle [0]) << 56) \
            + ((uint64_t) (self->needle [1]) << 48) \
            + ((uint64_t) (self->needle [2]) << 40) \
@@ -185,9 +194,10 @@ struct _zproto_example_t {
 #define GET_STRING(host) { \
     size_t string_size; \
     GET_NUMBER1 (string_size); \
-    if (self->needle + string_size > (self->ceiling)) \
+    if (self->needle + string_size > (self->ceiling)) { \
+        zsys_warning ("zproto_example: GET_STRING failed"); \
         goto malformed; \
-    (host) = (char *) malloc (string_size + 1); \
+    } \
     memcpy ((host), self->needle, string_size); \
     (host) [string_size] = 0; \
     self->needle += string_size; \
@@ -205,8 +215,10 @@ struct _zproto_example_t {
 #define GET_LONGSTR(host) { \
     size_t string_size; \
     GET_NUMBER4 (string_size); \
-    if (self->needle + string_size > (self->ceiling)) \
+    if (self->needle + string_size > (self->ceiling)) { \
+        zsys_warning ("zproto_example: GET_LONGSTR failed"); \
         goto malformed; \
+    } \
     (host) = (char *) malloc (string_size + 1); \
     memcpy ((host), self->needle, string_size); \
     (host) [string_size] = 0; \
@@ -218,10 +230,9 @@ struct _zproto_example_t {
 //  Create a new zproto_example
 
 zproto_example_t *
-zproto_example_new (int id)
+zproto_example_new (void)
 {
     zproto_example_t *self = (zproto_example_t *) zmalloc (sizeof (zproto_example_t));
-    self->id = id;
     return self;
 }
 
@@ -238,7 +249,6 @@ zproto_example_destroy (zproto_example_t **self_p)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
-        free (self->host);
         free (self->data);
         if (self->aliases)
             zlist_destroy (&self->aliases);
@@ -247,14 +257,6 @@ zproto_example_destroy (zproto_example_t **self_p)
         zuuid_destroy (&self->identifier);
         zframe_destroy (&self->address);
         zmsg_destroy (&self->content);
-        free (self->client_forename);
-        free (self->client_surname);
-        free (self->client_mobile);
-        free (self->client_email);
-        free (self->supplier_forename);
-        free (self->supplier_surname);
-        free (self->supplier_mobile);
-        free (self->supplier_email);
 
         //  Free object itself
         free (self);
@@ -264,41 +266,55 @@ zproto_example_destroy (zproto_example_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. Destroys msg and 
-//  nullifies the msg reference.
+//  Receive a zproto_example from the socket. Returns 0 if OK, -1 if
+//  there was an error. Blocks if there is no message waiting.
 
-zproto_example_t *
-zproto_example_decode (zmsg_t **msg_p)
+int
+zproto_example_recv (zproto_example_t *self, zsock_t *input)
 {
-    assert (msg_p);
-    zmsg_t *msg = *msg_p;
-    if (msg == NULL)
-        return NULL;
-        
-    zproto_example_t *self = zproto_example_new (0);
-    //  Read and parse command in frame
-    zframe_t *frame = zmsg_pop (msg);
-    if (!frame) 
-        goto empty;             //  Malformed or empty
-
+    assert (input);
+    
+    if (zsock_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zframe_recv (input);
+        if (!self->routing_id || !zsock_rcvmore (input)) {
+            zsys_warning ("zproto_example: no routing ID");
+            return -1;          //  Interrupted or malformed
+        }
+    }
+    zmq_msg_t frame;
+    zmq_msg_init (&frame);
+    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
+    if (size == -1) {
+        zsys_warning ("zproto_example: interrupted");
+        goto malformed;         //  Interrupted
+    }
     //  Get and check protocol signature
-    self->needle = zframe_data (frame);
-    self->ceiling = self->needle + zframe_size (frame);
+    self->needle = (byte *) zmq_msg_data (&frame);
+    self->ceiling = self->needle + zmq_msg_size (&frame);
+    
     uint16_t signature;
     GET_NUMBER2 (signature);
-    if (signature != (0xAAA0 | 0))
-        goto empty;             //  Invalid signature
-
+    if (signature != (0xAAA0 | 0)) {
+        zsys_warning ("zproto_example: invalid signature");
+        //  TODO: discard invalid messages and loop, and return
+        //  -1 only on interrupt
+        goto malformed;         //  Interrupted
+    }
     //  Get message id and parse per message type
     GET_NUMBER1 (self->id);
 
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             GET_NUMBER2 (self->sequence);
-            GET_NUMBER2 (self->version);
-            if (self->version != 3)
-                goto malformed;
+            {
+                uint16_t version;
+                GET_NUMBER2 (version);
+                if (version != 3) {
+                    zsys_warning ("zproto_example: version is invalid");
+                    goto malformed;
+                }
+            }
             GET_NUMBER1 (self->level);
             GET_NUMBER1 (self->event);
             GET_NUMBER2 (self->node);
@@ -328,11 +344,10 @@ zproto_example_decode (zmsg_t **msg_p)
                 self->headers = zhash_new ();
                 zhash_autofree (self->headers);
                 while (hash_size--) {
-                    char *key, *value;
+                    char key [256], *value;
                     GET_STRING (key);
                     GET_LONGSTR (value);
                     zhash_insert (self->headers, key, value);
-                    free (key);
                     free (value);
                 }
             }
@@ -344,30 +359,34 @@ zproto_example_decode (zmsg_t **msg_p)
             {
                 size_t chunk_size;
                 GET_NUMBER4 (chunk_size);
-                if (self->needle + chunk_size > (self->ceiling))
+                if (self->needle + chunk_size > (self->ceiling)) {
+                    zsys_warning ("zproto_example: public_key is missing data");
                     goto malformed;
+                }
                 self->public_key = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
-            {
-                if (self->needle + ZUUID_LEN > (self->ceiling))
-                    goto malformed;
-                self->identifier = zuuid_new ();
-                zuuid_set (self->identifier, self->needle);
-                self->needle += ZUUID_LEN;
+            if (self->needle + ZUUID_LEN > (self->ceiling)) {
+                zsys_warning ("zproto_example: identifier is invalid");
+                goto malformed;
             }
-            {
-                //  Get next frame, leave current untouched
-                zframe_t *address = zmsg_pop (msg);
-                if (!address)
-                    goto malformed;
-                self->address = address;
+            self->identifier = zuuid_new ();
+            zuuid_set (self->identifier, self->needle);
+            self->needle += ZUUID_LEN;
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("zproto_example: address is missing");
+                goto malformed;
             }
-            //  Get zero or more remaining frames, leaving current
-            //  frame untouched
-            self->content = zmsg_new ();
-            while (zmsg_size (msg))
-                zmsg_add (self->content, zmsg_pop (msg));
+            zframe_destroy (&self->address);
+            self->address = zframe_recv (input);
+            //  Get zero or more remaining frames
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("zproto_example: content is missing");
+                goto malformed;
+            }
+            zmsg_destroy (&self->content);
+            self->content = zmsg_recv (input);
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -383,153 +402,100 @@ zproto_example_decode (zmsg_t **msg_p)
             break;
 
         default:
+            zsys_warning ("zproto_example: bad message ID");
             goto malformed;
     }
     //  Successful return
-    zframe_destroy (&frame);
-    zmsg_destroy (msg_p);
-    return self;
+    zmq_msg_close (&frame);
+    return 0;
 
     //  Error returns
     malformed:
-        zsys_error ("malformed message '%d'\n", self->id);
-    empty:
-        zframe_destroy (&frame);
-        zmsg_destroy (msg_p);
-        zproto_example_destroy (&self);
-        return (NULL);
+        zsys_warning ("zproto_example: zproto_example malformed message, fail");
+        zmq_msg_close (&frame);
+        return -1;              //  Invalid message
 }
 
 
 //  --------------------------------------------------------------------------
-//  Encode zproto_example into zmsg and destroy it. Returns a newly created
-//  object or NULL if error. Use when not in control of sending the message.
+//  Send the zproto_example to the socket. Does not destroy it. Returns 0 if
+//  OK, else -1.
 
-zmsg_t *
-zproto_example_encode (zproto_example_t **self_p)
+int
+zproto_example_send (zproto_example_t *self, zsock_t *output)
 {
-    assert (self_p);
-    assert (*self_p);
-    
-    zproto_example_t *self = *self_p;
-    zmsg_t *msg = zmsg_new ();
+    assert (self);
+    assert (output);
+
+    if (zsock_type (output) == ZMQ_ROUTER)
+        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
 
     size_t frame_size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
-            //  sequence is a 2-byte integer
-            frame_size += 2;
-            //  version is a 2-byte integer
-            frame_size += 2;
-            //  level is a 1-byte integer
-            frame_size += 1;
-            //  event is a 1-byte integer
-            frame_size += 1;
-            //  node is a 2-byte integer
-            frame_size += 2;
-            //  peer is a 2-byte integer
-            frame_size += 2;
-            //  time is a 8-byte integer
-            frame_size += 8;
-            //  host is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->host)
-                frame_size += strlen (self->host);
-            //  data is a string with 4-byte length
+            frame_size += 2;            //  sequence
+            frame_size += 2;            //  version
+            frame_size += 1;            //  level
+            frame_size += 1;            //  event
+            frame_size += 2;            //  node
+            frame_size += 2;            //  peer
+            frame_size += 8;            //  time
+            frame_size += 1 + strlen (self->host);
             frame_size += 4;
             if (self->data)
                 frame_size += strlen (self->data);
             break;
-            
         case ZPROTO_EXAMPLE_STRUCTURES:
-            //  sequence is a 2-byte integer
-            frame_size += 2;
-            //  aliases is an array of strings
-            frame_size += 4;    //  Size is 4 octets
+            frame_size += 2;            //  sequence
+            frame_size += 4;            //  Size is 4 octets
             if (self->aliases) {
-                //  Add up size of list contents
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
                     frame_size += 4 + strlen (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
-            //  headers is an array of key=value strings
-            frame_size += 4;    //  Size is 4 octets
+            frame_size += 4;            //  Size is 4 octets
             if (self->headers) {
                 self->headers_bytes = 0;
-                //  Add up size of dictionary contents
                 char *item = (char *) zhash_first (self->headers);
                 while (item) {
-                    self->headers_bytes += 1 + strlen ((const char *) zhash_cursor (self->headers));
+                    self->headers_bytes += 1 + strlen (zhash_cursor (self->headers));
                     self->headers_bytes += 4 + strlen (item);
                     item = (char *) zhash_next (self->headers);
                 }
             }
             frame_size += self->headers_bytes;
             break;
-            
         case ZPROTO_EXAMPLE_BINARY:
-            //  sequence is a 2-byte integer
-            frame_size += 2;
-            //  flags is a block of 4 bytes
-            frame_size += 4;
-            //  public_key is a chunk with 4-byte length
-            frame_size += 4;
+            frame_size += 2;            //  sequence
+            frame_size += 4;            //  flags
+            frame_size += 4;            //  Size is 4 octets
             if (self->public_key)
                 frame_size += zchunk_size (self->public_key);
-            //  identifier is uuid with 16-byte length
-            frame_size += ZUUID_LEN;
+            frame_size += ZUUID_LEN;    //  identifier
             break;
-            
         case ZPROTO_EXAMPLE_TYPES:
-            //  sequence is a 2-byte integer
-            frame_size += 2;
-            //  client_forename is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->client_forename)
-                frame_size += strlen (self->client_forename);
-            //  client_surname is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->client_surname)
-                frame_size += strlen (self->client_surname);
-            //  client_mobile is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->client_mobile)
-                frame_size += strlen (self->client_mobile);
-            //  client_email is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->client_email)
-                frame_size += strlen (self->client_email);
-            //  supplier_forename is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->supplier_forename)
-                frame_size += strlen (self->supplier_forename);
-            //  supplier_surname is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->supplier_surname)
-                frame_size += strlen (self->supplier_surname);
-            //  supplier_mobile is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->supplier_mobile)
-                frame_size += strlen (self->supplier_mobile);
-            //  supplier_email is a string with 1-byte length
-            frame_size++;       //  Size is one octet
-            if (self->supplier_email)
-                frame_size += strlen (self->supplier_email);
+            frame_size += 2;            //  sequence
+            frame_size += 1 + strlen (self->client_forename);
+            frame_size += 1 + strlen (self->client_surname);
+            frame_size += 1 + strlen (self->client_mobile);
+            frame_size += 1 + strlen (self->client_email);
+            frame_size += 1 + strlen (self->supplier_forename);
+            frame_size += 1 + strlen (self->supplier_surname);
+            frame_size += 1 + strlen (self->supplier_mobile);
+            frame_size += 1 + strlen (self->supplier_email);
             break;
-            
-        default:
-            zsys_error ("bad message type '%d', not sent\n", self->id);
-            //  No recovery, this is a fatal application error
-            assert (false);
     }
     //  Now serialize message into the frame
-    zframe_t *frame = zframe_new (NULL, frame_size);
-    self->needle = zframe_data (frame);
+    zmq_msg_t frame;
+    zmq_msg_init_size (&frame, frame_size);
+    self->needle = (byte *) zmq_msg_data (&frame);
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
-
+    bool send_content = false;
+    size_t nbr_frames = 1;              //  Total number of frames to send
+    
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             PUT_NUMBER2 (self->sequence);
@@ -539,11 +505,7 @@ zproto_example_encode (zproto_example_t **self_p)
             PUT_NUMBER2 (self->node);
             PUT_NUMBER2 (self->peer);
             PUT_NUMBER8 (self->time);
-            if (self->host) {
-                PUT_STRING (self->host);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
+            PUT_STRING (self->host);
             if (self->data) {
                 PUT_LONGSTR (self->data);
             }
@@ -567,7 +529,7 @@ zproto_example_encode (zproto_example_t **self_p)
                 PUT_NUMBER4 (zhash_size (self->headers));
                 char *item = (char *) zhash_first (self->headers);
                 while (item) {
-                    PUT_STRING ((const char *) zhash_cursor ((zhash_t *) self->headers));
+                    PUT_STRING (zhash_cursor (self->headers));
                     PUT_LONGSTR (item);
                     item = (char *) zhash_next (self->headers);
                 }
@@ -593,453 +555,48 @@ zproto_example_encode (zproto_example_t **self_p)
             else
                 memset (self->needle, 0, ZUUID_LEN);
             self->needle += ZUUID_LEN;
+            nbr_frames++;
+            nbr_frames += self->content? zmsg_size (self->content): 1;
+            send_content = true;
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
             PUT_NUMBER2 (self->sequence);
-            if (self->client_forename) {
-                PUT_STRING (self->client_forename);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->client_surname) {
-                PUT_STRING (self->client_surname);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->client_mobile) {
-                PUT_STRING (self->client_mobile);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->client_email) {
-                PUT_STRING (self->client_email);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->supplier_forename) {
-                PUT_STRING (self->supplier_forename);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->supplier_surname) {
-                PUT_STRING (self->supplier_surname);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->supplier_mobile) {
-                PUT_STRING (self->supplier_mobile);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
-            if (self->supplier_email) {
-                PUT_STRING (self->supplier_email);
-            }
-            else
-                PUT_NUMBER1 (0);    //  Empty string
+            PUT_STRING (self->client_forename);
+            PUT_STRING (self->client_surname);
+            PUT_STRING (self->client_mobile);
+            PUT_STRING (self->client_email);
+            PUT_STRING (self->supplier_forename);
+            PUT_STRING (self->supplier_surname);
+            PUT_STRING (self->supplier_mobile);
+            PUT_STRING (self->supplier_email);
             break;
 
     }
     //  Now send the data frame
-    if (zmsg_append (msg, &frame)) {
-        zmsg_destroy (&msg);
-        zproto_example_destroy (self_p);
-        return NULL;
-    }
+    zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
+    
     //  Now send any frame fields, in order
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
         //  If address isn't set, send an empty frame
-        if (!self->address)
-            self->address = zframe_new (NULL, 0);
-        if (zmsg_append (msg, &self->address)) {
-            zmsg_destroy (&msg);
-            zproto_example_destroy (self_p);
-            return NULL;
-        }
+        if (self->address)
+            zframe_send (&self->address, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0))
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
-    //  Now send the message field if there is any
-    if (self->id == ZPROTO_EXAMPLE_BINARY) {
+    //  Now send the content if necessary
+    if (send_content) {
         if (self->content) {
-            zframe_t *frame = zmsg_pop (self->content);
+            zframe_t *frame = zmsg_first (self->content);
             while (frame) {
-                zmsg_append (msg, &frame);
-                frame = zmsg_pop (self->content);
+                zframe_send (&frame, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
+                frame = zmsg_next (self->content);
             }
         }
-        else {
-            zframe_t *frame = zframe_new (NULL, 0);
-            zmsg_append (msg, &frame);
-        }
+        else
+            zmq_send (zsock_resolve (output), NULL, 0, 0);
     }
-    //  Destroy zproto_example object
-    zproto_example_destroy (self_p);
-    return msg;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Receive and parse a zproto_example from the socket. Returns new object or
-//  NULL if error. Will block if there's no message waiting.
-
-zproto_example_t *
-zproto_example_recv (void *input)
-{
-    assert (input);
-    zmsg_t *msg = zmsg_recv (input);
-    if (!msg)
-        return NULL;            //  Interrupted
-    //  If message came from a router socket, first frame is routing_id
-    zframe_t *routing_id = NULL;
-    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
-        routing_id = zmsg_pop (msg);
-        //  If message was not valid, forget about it
-        if (!routing_id || !zmsg_next (msg))
-            return NULL;        //  Malformed or empty
-    }
-    zproto_example_t *zproto_example = zproto_example_decode (&msg);
-    if (zproto_example && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
-        zproto_example->routing_id = routing_id;
-
-    return zproto_example;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Receive and parse a zproto_example from the socket. Returns new object,
-//  or NULL either if there was no input waiting, or the recv was interrupted.
-
-zproto_example_t *
-zproto_example_recv_nowait (void *input)
-{
-    assert (input);
-    zmsg_t *msg = zmsg_recv_nowait (input);
-    if (!msg)
-        return NULL;            //  Interrupted
-    //  If message came from a router socket, first frame is routing_id
-    zframe_t *routing_id = NULL;
-    if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
-        routing_id = zmsg_pop (msg);
-        //  If message was not valid, forget about it
-        if (!routing_id || !zmsg_next (msg))
-            return NULL;        //  Malformed or empty
-    }
-    zproto_example_t *zproto_example = zproto_example_decode (&msg);
-    if (zproto_example && zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER)
-        zproto_example->routing_id = routing_id;
-
-    return zproto_example;
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send the zproto_example to the socket, and destroy it
-//  Returns 0 if OK, else -1
-
-int
-zproto_example_send (zproto_example_t **self_p, void *output)
-{
-    assert (self_p);
-    assert (*self_p);
-    assert (output);
-
-    //  Save routing_id if any, as encode will destroy it
-    zproto_example_t *self = *self_p;
-    zframe_t *routing_id = self->routing_id;
-    self->routing_id = NULL;
-
-    //  Encode zproto_example message to a single zmsg
-    zmsg_t *msg = zproto_example_encode (self_p);
-    
-    //  If we're sending to a ROUTER, send the routing_id first
-    if (zsocket_type (zsock_resolve (output)) == ZMQ_ROUTER) {
-        assert (routing_id);
-        zmsg_prepend (msg, &routing_id);
-    }
-    else
-        zframe_destroy (&routing_id);
-        
-    if (msg && zmsg_send (&msg, output) == 0)
-        return 0;
-    else
-        return -1;              //  Failed to encode, or send
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send the zproto_example to the output, and do not destroy it
-
-int
-zproto_example_send_again (zproto_example_t *self, void *output)
-{
-    assert (self);
-    assert (output);
-    self = zproto_example_dup (self);
-    return zproto_example_send (&self, output);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Encode LOG message
-
-zmsg_t * 
-zproto_example_encode_log (
-    uint16_t sequence,
-    byte level,
-    byte event,
-    uint16_t node,
-    uint16_t peer,
-    uint64_t time,
-    const char *host,
-    const char *data)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
-    zproto_example_set_sequence (self, sequence);
-    zproto_example_set_level (self, level);
-    zproto_example_set_event (self, event);
-    zproto_example_set_node (self, node);
-    zproto_example_set_peer (self, peer);
-    zproto_example_set_time (self, time);
-    zproto_example_set_host (self, host);
-    zproto_example_set_data (self, data);
-    return zproto_example_encode (&self);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Encode STRUCTURES message
-
-zmsg_t * 
-zproto_example_encode_structures (
-    uint16_t sequence,
-    zlist_t *aliases,
-    zhash_t *headers)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
-    zproto_example_set_sequence (self, sequence);
-    zlist_t *aliases_copy = zlist_dup (aliases);
-    zproto_example_set_aliases (self, &aliases_copy);
-    zhash_t *headers_copy = zhash_dup (headers);
-    zproto_example_set_headers (self, &headers_copy);
-    return zproto_example_encode (&self);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Encode BINARY message
-
-zmsg_t * 
-zproto_example_encode_binary (
-    uint16_t sequence,
-    byte *flags,
-    zchunk_t *public_key,
-    zuuid_t *identifier,
-    zframe_t *address,
-    zmsg_t *content)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
-    zproto_example_set_sequence (self, sequence);
-    zproto_example_set_flags (self, flags);
-    zchunk_t *public_key_copy = zchunk_dup (public_key);
-    zproto_example_set_public_key (self, &public_key_copy);
-    zuuid_t *identifier_copy = zuuid_dup (identifier);
-    zproto_example_set_identifier (self, &identifier_copy);
-    zframe_t *address_copy = zframe_dup (address);
-    zproto_example_set_address (self, &address_copy);
-    zmsg_t *content_copy = zmsg_dup (content);
-    zproto_example_set_content (self, &content_copy);
-    return zproto_example_encode (&self);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Encode TYPES message
-
-zmsg_t * 
-zproto_example_encode_types (
-    uint16_t sequence,
-    const char *client_forename,
-    const char *client_surname,
-    const char *client_mobile,
-    const char *client_email,
-    const char *supplier_forename,
-    const char *supplier_surname,
-    const char *supplier_mobile,
-    const char *supplier_email)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_TYPES);
-    zproto_example_set_sequence (self, sequence);
-    zproto_example_set_client_forename (self, client_forename);
-    zproto_example_set_client_surname (self, client_surname);
-    zproto_example_set_client_mobile (self, client_mobile);
-    zproto_example_set_client_email (self, client_email);
-    zproto_example_set_supplier_forename (self, supplier_forename);
-    zproto_example_set_supplier_surname (self, supplier_surname);
-    zproto_example_set_supplier_mobile (self, supplier_mobile);
-    zproto_example_set_supplier_email (self, supplier_email);
-    return zproto_example_encode (&self);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send the LOG to the socket in one step
-
-int
-zproto_example_send_log (
-    void *output,
-    uint16_t sequence,
-    byte level,
-    byte event,
-    uint16_t node,
-    uint16_t peer,
-    uint64_t time,
-    const char *host,
-    const char *data)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
-    zproto_example_set_sequence (self, sequence);
-    zproto_example_set_level (self, level);
-    zproto_example_set_event (self, event);
-    zproto_example_set_node (self, node);
-    zproto_example_set_peer (self, peer);
-    zproto_example_set_time (self, time);
-    zproto_example_set_host (self, host);
-    zproto_example_set_data (self, data);
-    return zproto_example_send (&self, output);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send the STRUCTURES to the socket in one step
-
-int
-zproto_example_send_structures (
-    void *output,
-    uint16_t sequence,
-    zlist_t *aliases,
-    zhash_t *headers)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
-    zproto_example_set_sequence (self, sequence);
-    zlist_t *aliases_copy = zlist_dup (aliases);
-    zproto_example_set_aliases (self, &aliases_copy);
-    zhash_t *headers_copy = zhash_dup (headers);
-    zproto_example_set_headers (self, &headers_copy);
-    return zproto_example_send (&self, output);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send the BINARY to the socket in one step
-
-int
-zproto_example_send_binary (
-    void *output,
-    uint16_t sequence,
-    byte *flags,
-    zchunk_t *public_key,
-    zuuid_t *identifier,
-    zframe_t *address,
-    zmsg_t *content)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
-    zproto_example_set_sequence (self, sequence);
-    zproto_example_set_flags (self, flags);
-    zchunk_t *public_key_copy = zchunk_dup (public_key);
-    zproto_example_set_public_key (self, &public_key_copy);
-    zuuid_t *identifier_copy = zuuid_dup (identifier);
-    zproto_example_set_identifier (self, &identifier_copy);
-    zframe_t *address_copy = zframe_dup (address);
-    zproto_example_set_address (self, &address_copy);
-    zmsg_t *content_copy = zmsg_dup (content);
-    zproto_example_set_content (self, &content_copy);
-    return zproto_example_send (&self, output);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Send the TYPES to the socket in one step
-
-int
-zproto_example_send_types (
-    void *output,
-    uint16_t sequence,
-    const char *client_forename,
-    const char *client_surname,
-    const char *client_mobile,
-    const char *client_email,
-    const char *supplier_forename,
-    const char *supplier_surname,
-    const char *supplier_mobile,
-    const char *supplier_email)
-{
-    zproto_example_t *self = zproto_example_new (ZPROTO_EXAMPLE_TYPES);
-    zproto_example_set_sequence (self, sequence);
-    zproto_example_set_client_forename (self, client_forename);
-    zproto_example_set_client_surname (self, client_surname);
-    zproto_example_set_client_mobile (self, client_mobile);
-    zproto_example_set_client_email (self, client_email);
-    zproto_example_set_supplier_forename (self, supplier_forename);
-    zproto_example_set_supplier_surname (self, supplier_surname);
-    zproto_example_set_supplier_mobile (self, supplier_mobile);
-    zproto_example_set_supplier_email (self, supplier_email);
-    return zproto_example_send (&self, output);
-}
-
-
-//  --------------------------------------------------------------------------
-//  Duplicate the zproto_example message
-
-zproto_example_t *
-zproto_example_dup (zproto_example_t *self)
-{
-    if (!self)
-        return NULL;
-        
-    zproto_example_t *copy = zproto_example_new (self->id);
-    if (self->routing_id)
-        copy->routing_id = zframe_dup (self->routing_id);
-    switch (self->id) {
-        case ZPROTO_EXAMPLE_LOG:
-            copy->sequence = self->sequence;
-            copy->version = self->version;
-            copy->level = self->level;
-            copy->event = self->event;
-            copy->node = self->node;
-            copy->peer = self->peer;
-            copy->time = self->time;
-            copy->host = self->host? strdup (self->host): NULL;
-            copy->data = self->data? strdup (self->data): NULL;
-            break;
-
-        case ZPROTO_EXAMPLE_STRUCTURES:
-            copy->sequence = self->sequence;
-            copy->aliases = self->aliases? zlist_dup (self->aliases): NULL;
-            copy->headers = self->headers? zhash_dup (self->headers): NULL;
-            break;
-
-        case ZPROTO_EXAMPLE_BINARY:
-            copy->sequence = self->sequence;
-            memcpy (copy->flags, self->flags, 4);
-            copy->public_key = self->public_key? zchunk_dup (self->public_key): NULL;
-            copy->identifier = self->identifier? zuuid_dup (self->identifier): NULL;
-            copy->address = self->address? zframe_dup (self->address): NULL;
-            copy->content = self->content? zmsg_dup (self->content): NULL;
-            break;
-
-        case ZPROTO_EXAMPLE_TYPES:
-            copy->sequence = self->sequence;
-            copy->client_forename = self->client_forename? strdup (self->client_forename): NULL;
-            copy->client_surname = self->client_surname? strdup (self->client_surname): NULL;
-            copy->client_mobile = self->client_mobile? strdup (self->client_mobile): NULL;
-            copy->client_email = self->client_email? strdup (self->client_email): NULL;
-            copy->supplier_forename = self->supplier_forename? strdup (self->supplier_forename): NULL;
-            copy->supplier_surname = self->supplier_surname? strdup (self->supplier_surname): NULL;
-            copy->supplier_mobile = self->supplier_mobile? strdup (self->supplier_mobile): NULL;
-            copy->supplier_email = self->supplier_email? strdup (self->supplier_email): NULL;
-            break;
-
-    }
-    return copy;
+    return 0;
 }
 
 
@@ -1334,15 +891,11 @@ zproto_example_host (zproto_example_t *self)
 }
 
 void
-zproto_example_set_host (zproto_example_t *self, const char *format, ...)
+zproto_example_set_host (zproto_example_t *self, const char *value)
 {
-    //  Format host from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->host);
-    self->host = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->host, value, 255);
+    self->host [255] = 0;
 }
 
 
@@ -1357,15 +910,11 @@ zproto_example_data (zproto_example_t *self)
 }
 
 void
-zproto_example_set_data (zproto_example_t *self, const char *format, ...)
+zproto_example_set_data (zproto_example_t *self, const char *value)
 {
-    //  Format data from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->data);
-    self->data = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    zstr_free (&self->data);
+    self->data = strdup (value);
 }
 
 
@@ -1402,53 +951,6 @@ zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p)
     *aliases_p = NULL;
 }
 
-//  --------------------------------------------------------------------------
-//  Iterate through the aliases field, and append a aliases value
-
-const char *
-zproto_example_aliases_first (zproto_example_t *self)
-{
-    assert (self);
-    if (self->aliases)
-        return (char *) (zlist_first (self->aliases));
-    else
-        return NULL;
-}
-
-const char *
-zproto_example_aliases_next (zproto_example_t *self)
-{
-    assert (self);
-    if (self->aliases)
-        return (char *) (zlist_next (self->aliases));
-    else
-        return NULL;
-}
-
-void
-zproto_example_aliases_append (zproto_example_t *self, const char *format, ...)
-{
-    //  Format into newly allocated string
-    assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    char *string = zsys_vprintf (format, argptr);
-    va_end (argptr);
-
-    //  Attach string to list
-    if (!self->aliases) {
-        self->aliases = zlist_new ();
-        zlist_autofree (self->aliases);
-    }
-    zlist_append (self->aliases, string);
-    free (string);
-}
-
-size_t
-zproto_example_aliases_size (zproto_example_t *self)
-{
-    return zlist_size (self->aliases);
-}
 
 
 //  --------------------------------------------------------------------------
@@ -1483,60 +985,6 @@ zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p)
     *headers_p = NULL;
 }
 
-//  --------------------------------------------------------------------------
-//  Get/set a value in the headers dictionary
-
-const char *
-zproto_example_headers_string (zproto_example_t *self, const char *key, const char *default_value)
-{
-    assert (self);
-    const char *value = NULL;
-    if (self->headers)
-        value = (const char *) (zhash_lookup (self->headers, key));
-    if (!value)
-        value = default_value;
-
-    return value;
-}
-
-uint64_t
-zproto_example_headers_number (zproto_example_t *self, const char *key, uint64_t default_value)
-{
-    assert (self);
-    uint64_t value = default_value;
-    char *string = NULL;
-    if (self->headers)
-        string = (char *) (zhash_lookup (self->headers, key));
-    if (string)
-        value = atol (string);
-
-    return value;
-}
-
-void
-zproto_example_headers_insert (zproto_example_t *self, const char *key, const char *format, ...)
-{
-    //  Format into newly allocated string
-    assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    char *string = zsys_vprintf (format, argptr);
-    va_end (argptr);
-
-    //  Store string in hash table
-    if (!self->headers) {
-        self->headers = zhash_new ();
-        zhash_autofree (self->headers);
-    }
-    zhash_update (self->headers, key, string);
-    free (string);
-}
-
-size_t
-zproto_example_headers_size (zproto_example_t *self)
-{
-    return zhash_size (self->headers);
-}
 
 
 //  --------------------------------------------------------------------------
@@ -1700,15 +1148,11 @@ zproto_example_client_forename (zproto_example_t *self)
 }
 
 void
-zproto_example_set_client_forename (zproto_example_t *self, const char *format, ...)
+zproto_example_set_client_forename (zproto_example_t *self, const char *value)
 {
-    //  Format client_forename from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->client_forename);
-    self->client_forename = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->client_forename, value, 255);
+    self->client_forename [255] = 0;
 }
 
 
@@ -1723,15 +1167,11 @@ zproto_example_client_surname (zproto_example_t *self)
 }
 
 void
-zproto_example_set_client_surname (zproto_example_t *self, const char *format, ...)
+zproto_example_set_client_surname (zproto_example_t *self, const char *value)
 {
-    //  Format client_surname from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->client_surname);
-    self->client_surname = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->client_surname, value, 255);
+    self->client_surname [255] = 0;
 }
 
 
@@ -1746,15 +1186,11 @@ zproto_example_client_mobile (zproto_example_t *self)
 }
 
 void
-zproto_example_set_client_mobile (zproto_example_t *self, const char *format, ...)
+zproto_example_set_client_mobile (zproto_example_t *self, const char *value)
 {
-    //  Format client_mobile from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->client_mobile);
-    self->client_mobile = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->client_mobile, value, 255);
+    self->client_mobile [255] = 0;
 }
 
 
@@ -1769,15 +1205,11 @@ zproto_example_client_email (zproto_example_t *self)
 }
 
 void
-zproto_example_set_client_email (zproto_example_t *self, const char *format, ...)
+zproto_example_set_client_email (zproto_example_t *self, const char *value)
 {
-    //  Format client_email from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->client_email);
-    self->client_email = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->client_email, value, 255);
+    self->client_email [255] = 0;
 }
 
 
@@ -1792,15 +1224,11 @@ zproto_example_supplier_forename (zproto_example_t *self)
 }
 
 void
-zproto_example_set_supplier_forename (zproto_example_t *self, const char *format, ...)
+zproto_example_set_supplier_forename (zproto_example_t *self, const char *value)
 {
-    //  Format supplier_forename from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->supplier_forename);
-    self->supplier_forename = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->supplier_forename, value, 255);
+    self->supplier_forename [255] = 0;
 }
 
 
@@ -1815,15 +1243,11 @@ zproto_example_supplier_surname (zproto_example_t *self)
 }
 
 void
-zproto_example_set_supplier_surname (zproto_example_t *self, const char *format, ...)
+zproto_example_set_supplier_surname (zproto_example_t *self, const char *value)
 {
-    //  Format supplier_surname from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->supplier_surname);
-    self->supplier_surname = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->supplier_surname, value, 255);
+    self->supplier_surname [255] = 0;
 }
 
 
@@ -1838,15 +1262,11 @@ zproto_example_supplier_mobile (zproto_example_t *self)
 }
 
 void
-zproto_example_set_supplier_mobile (zproto_example_t *self, const char *format, ...)
+zproto_example_set_supplier_mobile (zproto_example_t *self, const char *value)
 {
-    //  Format supplier_mobile from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->supplier_mobile);
-    self->supplier_mobile = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->supplier_mobile, value, 255);
+    self->supplier_mobile [255] = 0;
 }
 
 
@@ -1861,15 +1281,11 @@ zproto_example_supplier_email (zproto_example_t *self)
 }
 
 void
-zproto_example_set_supplier_email (zproto_example_t *self, const char *format, ...)
+zproto_example_set_supplier_email (zproto_example_t *self, const char *value)
 {
-    //  Format supplier_email from provided arguments
     assert (self);
-    va_list argptr;
-    va_start (argptr, format);
-    free (self->supplier_email);
-    self->supplier_email = zsys_vprintf (format, argptr);
-    va_end (argptr);
+    strncpy (self->supplier_email, value, 255);
+    self->supplier_email [255] = 0;
 }
 
 
@@ -1884,7 +1300,7 @@ zproto_example_test (bool verbose)
 
     //  @selftest
     //  Simple create/destroy test
-    zproto_example_t *self = zproto_example_new (0);
+    zproto_example_t *self = zproto_example_new ();
     assert (self);
     zproto_example_destroy (&self);
 
@@ -1899,13 +1315,8 @@ zproto_example_test (bool verbose)
 
     //  Encode/send/decode and verify each message type
     int instance;
-    zproto_example_t *copy;
-    self = zproto_example_new (ZPROTO_EXAMPLE_LOG);
-    
-    //  Check that _dup works on empty message
-    copy = zproto_example_dup (self);
-    assert (copy);
-    zproto_example_destroy (&copy);
+    self = zproto_example_new ();
+    zproto_example_set_id (self, ZPROTO_EXAMPLE_LOG);
 
     zproto_example_set_sequence (self, 123);
     zproto_example_set_level (self, 123);
@@ -1915,15 +1326,15 @@ zproto_example_test (bool verbose)
     zproto_example_set_time (self, 123);
     zproto_example_set_host (self, "Life is short but Now lasts for ever");
     zproto_example_set_data (self, "Life is short but Now lasts for ever");
-    //  Send twice from same object
-    zproto_example_send_again (self, output);
-    zproto_example_send (&self, output);
+    //  Send twice
+    zproto_example_send (self, output);
+    zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
-        assert (self);
+        zproto_example_destroy (&self);
+        self = zproto_example_new ();
+        zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
-        
         assert (zproto_example_sequence (self) == 123);
         assert (zproto_example_level (self) == 123);
         assert (zproto_example_event (self) == 123);
@@ -1932,44 +1343,25 @@ zproto_example_test (bool verbose)
         assert (zproto_example_time (self) == 123);
         assert (streq (zproto_example_host (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
-        zproto_example_destroy (&self);
     }
-    self = zproto_example_new (ZPROTO_EXAMPLE_STRUCTURES);
-    
-    //  Check that _dup works on empty message
-    copy = zproto_example_dup (self);
-    assert (copy);
-    zproto_example_destroy (&copy);
+    zproto_example_set_id (self, ZPROTO_EXAMPLE_STRUCTURES);
 
     zproto_example_set_sequence (self, 123);
-    zproto_example_aliases_append (self, "Name: %s", "Brutus");
-    zproto_example_aliases_append (self, "Age: %d", 43);
-    zproto_example_headers_insert (self, "Name", "Brutus");
-    zproto_example_headers_insert (self, "Age", "%d", 43);
-    //  Send twice from same object
-    zproto_example_send_again (self, output);
-    zproto_example_send (&self, output);
+    //  Send twice
+    zproto_example_send (self, output);
+    zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
-        assert (self);
+        zproto_example_destroy (&self);
+        self = zproto_example_new ();
+        zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
-        
         assert (zproto_example_sequence (self) == 123);
         assert (zproto_example_aliases_size (self) == 2);
         assert (streq (zproto_example_aliases_first (self), "Name: Brutus"));
         assert (streq (zproto_example_aliases_next (self), "Age: 43"));
-        assert (zproto_example_headers_size (self) == 2);
-        assert (streq (zproto_example_headers_string (self, "Name", "?"), "Brutus"));
-        assert (zproto_example_headers_number (self, "Age", 0) == 43);
-        zproto_example_destroy (&self);
     }
-    self = zproto_example_new (ZPROTO_EXAMPLE_BINARY);
-    
-    //  Check that _dup works on empty message
-    copy = zproto_example_dup (self);
-    assert (copy);
-    zproto_example_destroy (&copy);
+    zproto_example_set_id (self, ZPROTO_EXAMPLE_BINARY);
 
     zproto_example_set_sequence (self, 123);
     byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
@@ -1985,34 +1377,23 @@ zproto_example_test (bool verbose)
     zmsg_t *binary_content = zmsg_new ();
     zproto_example_set_content (self, &binary_content);
     zmsg_addstr (zproto_example_content (self), "Hello, World");
-    //  Send twice from same object
-    zproto_example_send_again (self, output);
-    zproto_example_send (&self, output);
+    //  Send twice
+    zproto_example_send (self, output);
+    zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
-        assert (self);
+        zproto_example_destroy (&self);
+        self = zproto_example_new ();
+        zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
-        
         assert (zproto_example_sequence (self) == 123);
         assert (zproto_example_flags (self) [0] == 123);
         assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
-        zuuid_t *acutal_identifier = zproto_example_identifier (self);
-        assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
-        if (instance == 1) {
-            zuuid_destroy (&binary_identifier_dup);
-        }
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
-        zproto_example_destroy (&self);
     }
-    self = zproto_example_new (ZPROTO_EXAMPLE_TYPES);
-    
-    //  Check that _dup works on empty message
-    copy = zproto_example_dup (self);
-    assert (copy);
-    zproto_example_destroy (&copy);
+    zproto_example_set_id (self, ZPROTO_EXAMPLE_TYPES);
 
     zproto_example_set_sequence (self, 123);
     zproto_example_set_client_forename (self, "Life is short but Now lasts for ever");
@@ -2023,15 +1404,15 @@ zproto_example_test (bool verbose)
     zproto_example_set_supplier_surname (self, "Life is short but Now lasts for ever");
     zproto_example_set_supplier_mobile (self, "Life is short but Now lasts for ever");
     zproto_example_set_supplier_email (self, "Life is short but Now lasts for ever");
-    //  Send twice from same object
-    zproto_example_send_again (self, output);
-    zproto_example_send (&self, output);
+    //  Send twice
+    zproto_example_send (self, output);
+    zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        self = zproto_example_recv (input);
-        assert (self);
+        zproto_example_destroy (&self);
+        self = zproto_example_new ();
+        zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
-        
         assert (zproto_example_sequence (self) == 123);
         assert (streq (zproto_example_client_forename (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_client_surname (self), "Life is short but Now lasts for ever"));
@@ -2041,7 +1422,6 @@ zproto_example_test (bool verbose)
         assert (streq (zproto_example_supplier_surname (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_supplier_mobile (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_supplier_email (self), "Life is short but Now lasts for ever"));
-        zproto_example_destroy (&self);
     }
 
     zsock_destroy (&input);

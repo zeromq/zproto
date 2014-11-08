@@ -54,7 +54,7 @@
     STRUCTURES - This message contains a list and a hash.
         sequence            number 2    
         aliases             strings     List of strings
-        headers             dictionary  Other random properties
+        headers             hash        Other random properties
 
     BINARY - Deliver a multi-part message.
         sequence            number 2    
@@ -91,139 +91,29 @@ extern "C" {
 #endif
 
 //  Opaque class structure
+#ifndef ZPROTO_EXAMPLE_T_DEFINED
 typedef struct _zproto_example_t zproto_example_t;
+#define ZPROTO_EXAMPLE_T_DEFINED
+#endif
 
 //  @interface
-//  Create a new zproto_example
+//  Create a new empty zproto_example
 zproto_example_t *
-    zproto_example_new (int id);
+    zproto_example_new (void);
 
-//  Destroy the zproto_example
+//  Destroy a zproto_example instance
 void
     zproto_example_destroy (zproto_example_t **self_p);
 
-//  Parse a zproto_example from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. Destroys msg and 
-//  nullifies the msg reference.
-zproto_example_t *
-    zproto_example_decode (zmsg_t **msg_p);
-
-//  Encode zproto_example into zmsg and destroy it. Returns a newly created
-//  object or NULL if error. Use when not in control of sending the message.
-zmsg_t *
-    zproto_example_encode (zproto_example_t **self_p);
-
-//  Receive and parse a zproto_example from the socket. Returns new object, 
-//  or NULL if error. Will block if there's no message waiting.
-zproto_example_t *
-    zproto_example_recv (void *input);
-
-//  Receive and parse a zproto_example from the socket. Returns new object, 
-//  or NULL either if there was no input waiting, or the recv was interrupted.
-zproto_example_t *
-    zproto_example_recv_nowait (void *input);
-
-//  Send the zproto_example to the output, and destroy it
+//  Receive a zproto_example from the socket. Returns 0 if OK, -1 if
+//  there was an error. Blocks if there is no message waiting.
 int
-    zproto_example_send (zproto_example_t **self_p, void *output);
+    zproto_example_recv (zproto_example_t *self, zsock_t *input);
 
-//  Send the zproto_example to the output, and do not destroy it
+//  Send the zproto_example to the output socket, does not destroy it
 int
-    zproto_example_send_again (zproto_example_t *self, void *output);
-
-//  Encode the LOG 
-zmsg_t *
-    zproto_example_encode_log (
-        uint16_t sequence,
-        byte level,
-        byte event,
-        uint16_t node,
-        uint16_t peer,
-        uint64_t time,
-        const char *host,
-        const char *data);
-
-//  Encode the STRUCTURES 
-zmsg_t *
-    zproto_example_encode_structures (
-        uint16_t sequence,
-        zlist_t *aliases,
-        zhash_t *headers);
-
-//  Encode the BINARY 
-zmsg_t *
-    zproto_example_encode_binary (
-        uint16_t sequence,
-        byte *flags,
-        zchunk_t *public_key,
-        zuuid_t *identifier,
-        zframe_t *address,
-        zmsg_t *content);
-
-//  Encode the TYPES 
-zmsg_t *
-    zproto_example_encode_types (
-        uint16_t sequence,
-        const char *client_forename,
-        const char *client_surname,
-        const char *client_mobile,
-        const char *client_email,
-        const char *supplier_forename,
-        const char *supplier_surname,
-        const char *supplier_mobile,
-        const char *supplier_email);
-
-
-//  Send the LOG to the output in one step
-//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
-int
-    zproto_example_send_log (void *output,
-        uint16_t sequence,
-        byte level,
-        byte event,
-        uint16_t node,
-        uint16_t peer,
-        uint64_t time,
-        const char *host,
-        const char *data);
+    zproto_example_send (zproto_example_t *self, zsock_t *output);
     
-//  Send the STRUCTURES to the output in one step
-//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
-int
-    zproto_example_send_structures (void *output,
-        uint16_t sequence,
-        zlist_t *aliases,
-        zhash_t *headers);
-    
-//  Send the BINARY to the output in one step
-//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
-int
-    zproto_example_send_binary (void *output,
-        uint16_t sequence,
-        byte *flags,
-        zchunk_t *public_key,
-        zuuid_t *identifier,
-        zframe_t *address,
-        zmsg_t *content);
-    
-//  Send the TYPES to the output in one step
-//  WARNING, this call will fail if output is of type ZMQ_ROUTER.
-int
-    zproto_example_send_types (void *output,
-        uint16_t sequence,
-        const char *client_forename,
-        const char *client_surname,
-        const char *client_mobile,
-        const char *client_email,
-        const char *supplier_forename,
-        const char *supplier_surname,
-        const char *supplier_mobile,
-        const char *supplier_email);
-    
-//  Duplicate the zproto_example message
-zproto_example_t *
-    zproto_example_dup (zproto_example_t *self);
-
 //  Print contents of message to stdout
 void
     zproto_example_print (zproto_example_t *self);
@@ -282,13 +172,13 @@ void
 const char *
     zproto_example_host (zproto_example_t *self);
 void
-    zproto_example_set_host (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_host (zproto_example_t *self, const char *value);
 
 //  Get/set the data field
 const char *
     zproto_example_data (zproto_example_t *self);
 void
-    zproto_example_set_data (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_data (zproto_example_t *self, const char *value);
 
 //  Get/set the aliases field
 zlist_t *
@@ -300,17 +190,7 @@ zlist_t *
 void
     zproto_example_set_aliases (zproto_example_t *self, zlist_t **aliases_p);
 
-//  Iterate through the aliases field, and append a aliases value
-const char *
-    zproto_example_aliases_first (zproto_example_t *self);
-const char *
-    zproto_example_aliases_next (zproto_example_t *self);
-void
-    zproto_example_aliases_append (zproto_example_t *self, const char *format, ...);
-size_t
-    zproto_example_aliases_size (zproto_example_t *self);
-
-//  Get/set the headers field
+//  Get a copy of the headers field
 zhash_t *
     zproto_example_headers (zproto_example_t *self);
 //  Get the headers field and transfer ownership to caller
@@ -318,20 +198,7 @@ zhash_t *
     zproto_example_get_headers (zproto_example_t *self);
 //  Set the headers field, transferring ownership from caller
 void
-    zproto_example_set_headers (zproto_example_t *self, zhash_t **headers_p);
-    
-//  Get/set a value in the headers dictionary
-const char *
-    zproto_example_headers_string (zproto_example_t *self,
-        const char *key, const char *default_value);
-uint64_t
-    zproto_example_headers_number (zproto_example_t *self,
-        const char *key, uint64_t default_value);
-void
-    zproto_example_headers_insert (zproto_example_t *self,
-        const char *key, const char *format, ...);
-size_t
-    zproto_example_headers_size (zproto_example_t *self);
+    zproto_example_set_headers (zproto_example_t *self, zhash_t **hash_p);
 
 //  Get/set the flags field
 byte *
@@ -383,49 +250,49 @@ void
 const char *
     zproto_example_client_forename (zproto_example_t *self);
 void
-    zproto_example_set_client_forename (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_client_forename (zproto_example_t *self, const char *value);
 
 //  Get/set the client_surname field
 const char *
     zproto_example_client_surname (zproto_example_t *self);
 void
-    zproto_example_set_client_surname (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_client_surname (zproto_example_t *self, const char *value);
 
 //  Get/set the client_mobile field
 const char *
     zproto_example_client_mobile (zproto_example_t *self);
 void
-    zproto_example_set_client_mobile (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_client_mobile (zproto_example_t *self, const char *value);
 
 //  Get/set the client_email field
 const char *
     zproto_example_client_email (zproto_example_t *self);
 void
-    zproto_example_set_client_email (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_client_email (zproto_example_t *self, const char *value);
 
 //  Get/set the supplier_forename field
 const char *
     zproto_example_supplier_forename (zproto_example_t *self);
 void
-    zproto_example_set_supplier_forename (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_supplier_forename (zproto_example_t *self, const char *value);
 
 //  Get/set the supplier_surname field
 const char *
     zproto_example_supplier_surname (zproto_example_t *self);
 void
-    zproto_example_set_supplier_surname (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_supplier_surname (zproto_example_t *self, const char *value);
 
 //  Get/set the supplier_mobile field
 const char *
     zproto_example_supplier_mobile (zproto_example_t *self);
 void
-    zproto_example_set_supplier_mobile (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_supplier_mobile (zproto_example_t *self, const char *value);
 
 //  Get/set the supplier_email field
 const char *
     zproto_example_supplier_email (zproto_example_t *self);
 void
-    zproto_example_set_supplier_email (zproto_example_t *self, const char *format, ...);
+    zproto_example_set_supplier_email (zproto_example_t *self, const char *value);
 
 //  Self test of this class
 int

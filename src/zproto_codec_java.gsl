@@ -103,7 +103,7 @@ public class $(ClassName) implements java.io.Closeable
     private String $(name);
 .   elsif type = "strings"
     private List <String> $(name);
-.   elsif type = "dictionary"
+.   elsif type = "hash"
     private Map <String, String> $(name);
     private int $(name)Bytes;
 .   elsif type = "frame" | type = "msg"
@@ -329,7 +329,7 @@ public class $(ClassName) implements java.io.Closeable
                     String string = self.getLongString ();
                     self.$(name).add (string);
                 }
-.       elsif type = "dictionary"
+.       elsif type = "hash"
                 hashSize = (int) self.getNumber4 ();
                 self.$(name) = new HashMap <String, String> ();
                 while (hashSize-- > 0) {
@@ -419,7 +419,7 @@ public class $(ClassName) implements java.io.Closeable
                     frameSize += value.length ();
                 }
             }
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             //  $(name) is an array of key=value strings
             frameSize += 4;
             if ($(name) != null) {
@@ -492,7 +492,7 @@ public class $(ClassName) implements java.io.Closeable
             }
             else
                 putNumber4 (0);      //  Empty string array
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             if ($(name) != null) {
                 putNumber4 ($(name).size ());
                 for (Map.Entry <String, String> entry: $(name).entrySet ()) {
@@ -586,7 +586,7 @@ public class $(ClassName) implements java.io.Closeable
         String $(name)\
 .   elsif type = "strings"
         List <String> $(name)\
-.   elsif type = "dictionary"
+.   elsif type = "hash"
         Map <String, String> $(name)\
 .   elsif type = "frame" | type = "msg"
         Z$(Type) $(name)\
@@ -636,7 +636,7 @@ public class $(ClassName) implements java.io.Closeable
         String $(name)\
 .   elsif type = "strings"
         List <String> $(name)\
-.   elsif type = "dictionary"
+.   elsif type = "hash"
         Map <String, String> $(name)\
 .   elsif type = "frame" | type = "msg"
         Z$(Type) $(name)\
@@ -660,7 +660,7 @@ public class $(ClassName) implements java.io.Closeable
         self.set$(Name) ($(name));
 .   elsif type = "strings"
         self.set$(Name) (new ArrayList <String> ($(name)));
-.   elsif type = "dictionary"
+.   elsif type = "hash"
         self.set$(Name) (new HashMap <String, String> ($(name)));
 .   elsif type = "frame" | type = "msg"
         self.set$(Name) ($(name).duplicate ());
@@ -691,7 +691,7 @@ public class $(ClassName) implements java.io.Closeable
             copy.$(name) = this.$(name);
 .       elsif type = "strings"
             copy.$(name) = new ArrayList <String> (this.$(name));
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             copy.$(name) = new HashMap <String, String> (this.$(name));
 .       elsif type = "frame"
             copy.$(name) = this.$(name).duplicate ();
@@ -703,7 +703,7 @@ public class $(ClassName) implements java.io.Closeable
         return copy;
     }
 
-.for class.field where type = "dictionary"
+.for class.field where type = "hash"
     //  Dump $(name) key=value pair to stdout
     public static void $(name)Dump (Map.Entry <String, String> entry, $(ClassName) self)
     {
@@ -754,7 +754,7 @@ public class $(ClassName) implements java.io.Closeable
                 }
             }
             System.out.printf (" }\\n");
-.       elsif type = "dictionary"
+.       elsif type = "hash"
             System.out.printf ("    $(name)={\\n");
             if ($(name) != null) {
                 for (Map.Entry <String, String> entry : $(name).entrySet ())
@@ -884,7 +884,7 @@ public class $(ClassName) implements java.io.Closeable
         $(name) = new ArrayList (value);
     }
 
-.   elsif type = "dictionary"
+.   elsif type = "hash"
     //  --------------------------------------------------------------------------
     //  Get/set a value in the $(name) dictionary
 
@@ -1033,7 +1033,7 @@ public class Test$(ClassName)
 .       elsif type = "strings"
         self.append$(Name) ("Name: %s", "Brutus");
         self.append$(Name) ("Age: %d", 43);
-.       elsif type = "dictionary"
+.       elsif type = "hash"
         self.insert$(Name) ("Name", "Brutus");
         self.insert$(Name) ("Age", "%d", 43);
 .       elsif type = "chunk"
@@ -1058,7 +1058,7 @@ public class Test$(ClassName)
         assertEquals (self.$(name) ().size (), 2);
         assertEquals (self.$(name) ().get (0), "Name: Brutus");
         assertEquals (self.$(name) ().get (1), "Age: 43");
-.       elsif type = "dictionary"
+.       elsif type = "hash"
         assertEquals (self.$(name) ().size (), 2);
         assertEquals (self.$(name)String ("Name", "?"), "Brutus");
         assertEquals (self.$(name)Number ("Age", 0), 43);
