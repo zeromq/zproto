@@ -1150,8 +1150,6 @@ $(class.name)_test (bool verbose)
     $(class.name)_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        $(class.name)_destroy (&self);
-        self = $(class.name)_new ();
         $(class.name)_recv (self, input);
         assert ($(class.name)_routing_id (self));
 .   for field where !defined (value)
@@ -1177,6 +1175,7 @@ $(class.name)_test (bool verbose)
     }
 .endfor
 
+    $(class.name)_destroy (&self);
     zsock_destroy (&input);
     zsock_destroy (&output);
     //  @end
