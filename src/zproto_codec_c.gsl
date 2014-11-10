@@ -391,6 +391,7 @@ struct _$(class.name)_t {
         zsys_warning ("$(class.name): GET_LONGSTR failed"); \\
         goto malformed; \\
     } \\
+    free ((host)); \\
     (host) = (char *) malloc (string_size + 1); \\
     memcpy ((host), self->needle, string_size); \\
     (host) [string_size] = 0; \\
@@ -987,7 +988,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, const char *value)
 {
     assert (self);
     assert (value);
-    zstr_free (&self->$(name));
+    free (self->$(name));
     self->$(name) = strdup (value);
 }
 
