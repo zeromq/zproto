@@ -391,6 +391,7 @@ struct _$(class.name)_t {
         zsys_warning ("$(class.name): GET_LONGSTR failed"); \\
         goto malformed; \\
     } \\
+    free ((host)); \\
     (host) = (char *) malloc (string_size + 1); \\
     memcpy ((host), self->needle, string_size); \\
     (host) [string_size] = 0; \\
@@ -568,12 +569,11 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             self->$(name) = zframe_recv (input);
 .       elsif type = "msg"
             //  Get zero or more remaining frames
-            if (!zsock_rcvmore (input)) {
-                zsys_warning ("$(class.name): $(name) is missing");
-                goto malformed;
-            }
             zmsg_destroy (&self->$(name));
-            self->$(name) = zmsg_recv (input);
+            if (zsock_rcvmore (input))
+                self->$(name) = zmsg_recv (input);
+            else
+                self->$(name) = zmsg_new ();
 .       endif
 .   endfor
             break;
@@ -988,7 +988,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, const char *value)
 {
     assert (self);
     assert (value);
-    zstr_free (&self->$(name));
+    free (self->$(name));
     self->$(name) = strdup (value);
 }
 
@@ -1178,6 +1178,7 @@ $(class.name)_test (bool verbose)
 .   endfor
     }
 .endfor
+    $(class.name)_destroy (&self);
 
     $(class.name)_destroy (&self);
     zsock_destroy (&input);

@@ -7,10 +7,12 @@
 .global.ClassName = java_class_name($(class.name))
 .global.namespace = "org.zproto"
 .global.name_path = "org/zproto"
-.global.root_path ?= switches.root_path? "main"
-.global.java_source_path = "$(root_path)/java"
-.global.source_path = "$(root_path)/clojure/src"
-.global.test_path = "$(root_path)/clojure/test"
+.global.topdir ?= "$(switches.topdir)/main" ? "main"
+.global.java_source_path = "$(topdir)/java"
+.global.source_path = "$(topdir)/clojure/src"
+.global.test_path = "$(topdir)/clojure/test"
+.directory.create ("$(source_path)/$(name_path)")
+.directory.create ("$(test_path)/$(name_path)")
 .if !file.exists ("../project.clj")
 .output "../project.clj"
 ;;  =========================================================================
@@ -40,7 +42,6 @@
                  [junit/junit "4.11"]
                  [org.zeromq/cljzmq "0.1.4" :exclusions [jzmq]]
                  [org.zeromq/jeromq "0.3.4"]])
-.directory.create ("$(source_path)/$(name_path)")
 .endif
 .output "$(source_path)/$(name_path)/$(class.name).clj"
 ;;  =========================================================================
@@ -131,7 +132,6 @@
 
 (defn recv [{:keys [socket]}]
   ($(ClassName)/recv socket))
-.directory.create ("$(test_path)/$(name_path)")
 .output "$(test_path)/$(name_path)/$(class.name)_test.clj"
 (ns $(namespace).$(clj_name(class.name))-test
   (:require [clojure.test :refer :all])
