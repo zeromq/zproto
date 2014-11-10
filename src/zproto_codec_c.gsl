@@ -965,6 +965,9 @@ void
 $(class.name)_set_$(name) ($(class.name)_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->$(name))
+        return;
     strncpy (self->$(name), value, 255);
     self->$(name) [255] = 0;
 }
@@ -984,6 +987,7 @@ void
 $(class.name)_set_$(name) ($(class.name)_t *self, const char *value)
 {
     assert (self);
+    assert (value);
     zstr_free (&self->$(name));
     self->$(name) = strdup (value);
 }
