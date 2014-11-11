@@ -1178,7 +1178,6 @@ $(class.name)_test (bool verbose)
 .   endfor
     }
 .endfor
-    $(class.name)_destroy (&self);
 
     $(class.name)_destroy (&self);
     zsock_destroy (&input);
