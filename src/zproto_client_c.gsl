@@ -207,9 +207,13 @@ $(CLASS.EXPORT_MACRO)void
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_verbose ($(class.name)_t *self);
 
-//  Return actor for low-level command control and polling
-$(CLASS.EXPORT_MACRO)zactor_t *
-    $(class.name)_actor ($(class.name)_t *self);
+//  Return message pipe for asynchronous message I/O. In the high-volume case,
+//  we send methods and get replies to the actor, in a synchronous manner, and
+//  we send/recv high volume message data to a second pipe, the msgpipe. In
+//  the low-volume case we can do everything over the actor pipe, if traffic
+//  is never ambiguous.
+$(CLASS.EXPORT_MACRO)zsock_t *
+    $(class.name)_msgpipe ($(class.name)_t *self);
 
 .for class.method where name <> "constructor" & name <> "destructor"
 //  $(method.?'No explanation':justify,block%-80s)
@@ -316,7 +320,8 @@ struct _client_args_t {
 
 typedef struct {
     client_t client;            //  Application-level client context
-    zsock_t *pipe;              //  Socket to back to caller API
+    zsock_t *cmdpipe;           //  Get/send commands from caller API
+    zsock_t *msgpipe;           //  Get/send messages from caller API
     zsock_t *dealer;            //  Socket to talk to server
     zloop_t *loop;              //  Listen to pipe and dealer
     $(proto)_t *message;        //  Message received or sent
@@ -357,12 +362,13 @@ static $(ctype)
 //  Create a new client connection
 
 static s_client_t *
-s_client_new (zsock_t *pipe)
+s_client_new (zsock_t *cmdpipe, zsock_t *msgpipe)
 {
     s_client_t *self = (s_client_t *) zmalloc (sizeof (s_client_t));
     if (self) {
         assert ((s_client_t *) &self->client == self);
-        self->pipe = pipe;
+        self->cmdpipe = cmdpipe;
+        self->msgpipe = msgpipe;
         self->dealer = zsock_new (ZMQ_DEALER);
         if (self->dealer)
             self->message = $(proto)_new ();
@@ -374,7 +380,8 @@ s_client_new (zsock_t *pipe)
             self->state = $(name:c)_state;
 .endfor
             self->event = NULL_event;
-            self->client.pipe = self->pipe;
+            self->client.cmdpipe = self->cmdpipe;
+            self->client.msgpipe = self->msgpipe;
             self->client.dealer = self->dealer;
             self->client.message = self->message;
             self->client.args = &self->args;
@@ -401,6 +408,7 @@ s_client_destroy (s_client_t **self_p)
 .endfor
         client_terminate (&self->client);
         $(proto)_destroy (&self->message);
+        zsock_destroy (&self->msgpipe);
         zsock_destroy (&self->dealer);
         zloop_destroy (&self->loop);
         free (self);
@@ -476,17 +484,17 @@ engine_set_timeout (client_t *client, size_t timeout)
 //  Handler must be a CZMQ zloop_fn function; receives client as arg.
 
 static void
-engine_handle_socket (client_t *client, zsock_t *socket, zloop_reader_fn handler)
+engine_handle_socket (client_t *client, zsock_t *sock, zloop_reader_fn handler)
 {
-    if (client) {
+    if (client && sock) {
         s_client_t *self = (s_client_t *) client;
         if (handler != NULL) {
-            int rc = zloop_reader (self->loop, socket, handler, self);
+            int rc = zloop_reader (self->loop, sock, handler, self);
             assert (rc == 0);
-            zloop_reader_set_tolerant (self->loop, socket);
+            zloop_reader_set_tolerant (self->loop, sock);
         }
         else
-            zloop_reader_end (self->loop, socket);
+            zloop_reader_end (self->loop, sock);
     }
 }
 
@@ -646,13 +654,13 @@ s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument)
 }
 
 
-//  Process message from pipe
+//  Handle command pipe to/from calling API
 
 static int
-s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
+s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
-    char *method = zstr_recv (self->pipe);
+    char *method = zstr_recv (self->cmdpipe);
     if (!method)
         return -1;                  //  Interrupted; exit zloop
     if (self->verbose)
@@ -670,7 +678,7 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
 .       for field where type = "string"
         zstr_free (&self->args.$(name));
 .       endfor
-        zsock_recv (self->pipe, "$(pattern)"\
+        zsock_recv (self->cmdpipe, "$(pattern)"\
 .       for field
 , &self->args.$(name)\
 .       endfor
@@ -682,15 +690,16 @@ s_client_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
 .endfor
     //  Cleanup pipe if any argument frames are still waiting to be eaten
-    if (zsock_rcvmore (self->pipe)) {
+    if (zsock_rcvmore (self->cmdpipe)) {
         zsys_error ("$(class.name): trailing API command frames (%s)", method);
-        zmsg_t *more = zmsg_recv (self->pipe);
+        zmsg_t *more = zmsg_recv (self->cmdpipe);
         zmsg_print (more);
         zmsg_destroy (&more);
     }
     zstr_free (&method);
     return 0;
 }
+
 
 //  Handle a message (a protocol reply) from the server
 
@@ -733,15 +742,15 @@ s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
 //  incoming messages
 
 void
-$(class.name) (zsock_t *pipe, void *args)
+$(class.name) (zsock_t *cmdpipe, void *msgpipe)
 {
     //  Initialize
-    s_client_t *self = s_client_new (pipe);
+    s_client_t *self = s_client_new (cmdpipe, (zsock_t *) msgpipe);
     if (self) {
-        zsock_signal (pipe, 0);
+        zsock_signal (cmdpipe, 0);
         
-        //  Set up handler for the two main sockets the client uses
-        engine_handle_socket ((client_t *) self, self->pipe, s_client_handle_pipe);
+        //  Set up handler for the sockets the client uses
+        engine_handle_socket ((client_t *) self, self->cmdpipe, s_client_handle_cmdpipe);
         engine_handle_socket ((client_t *) self, self->dealer, s_client_handle_protocol);
 
         //  Run reactor until there's a termination signal
@@ -750,6 +759,8 @@ $(class.name) (zsock_t *pipe, void *args)
         //  Reactor has ended
         s_client_destroy (&self);
     }
+    else
+        zsock_signal (cmdpipe, -1);
 }
 
 
@@ -758,6 +769,7 @@ $(class.name) (zsock_t *pipe, void *args)
 
 struct _$(class.name)_t {
     zactor_t *actor;            //  Client actor
+    zsock_t *msgpipe;           //  Pipe for async message flow
 .for class.property
 .   if type = "string"
     char *$(name);              //  Returned by actor reply
@@ -786,7 +798,9 @@ $(class.name)_new (void)
 {
     $(class.name)_t *self = ($(class.name)_t *) zmalloc (sizeof ($(class.name)_t));
     if (self) {
-        self->actor = zactor_new ($(class.name), NULL);
+        zsock_t *backend;
+        self->msgpipe = zsys_create_pipe (&backend);
+        self->actor = zactor_new ($(class.name), backend);
 .for class.method where name = "constructor"
         if (self->actor)
             $(return) = $(class.name)_constructor (self\
@@ -824,6 +838,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
             $(class.name)_destructor (self);
 .endfor
         zactor_destroy (&self->actor);
+        zsock_destroy (&self->msgpipe);
 .for class.property where type = "string"
         zstr_free (&self->$(name));
 .endfor
@@ -845,13 +860,17 @@ $(class.name)_verbose ($(class.name)_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Return actor for low-level command control and polling
+//  Return message pipe for asynchronous message I/O. In the high-volume case,
+//  we send methods and get replies to the actor, in a synchronous manner, and
+//  we send/recv high volume message data to a second pipe, the msgpipe. In
+//  the low-volume case we can do everything over the actor pipe, if traffic
+//  is never ambiguous.
 
-zactor_t *
-$(class.name)_actor ($(class.name)_t *self)
+zsock_t *
+$(class.name)_msgpipe ($(class.name)_t *self)
 {
     assert (self);
-    return self->actor;
+    return self->msgpipe;
 }
 .if count (class.reply)
 
@@ -998,8 +1017,11 @@ typedef struct _client_args_t client_args_t;
 //  This structure defines the context for a client connection
 typedef struct {
     //  These properties must always be present in the client_t
-    //  and are set by the generated engine.
-    zsock_t *pipe;              //  Actor pipe back to caller
+    //  and are set by the generated engine. The cmdpipe gets
+    //  messages sent to the actor; the msgpipe may be used for
+    //  faster asynchronous message flows.
+    zsock_t *cmdpipe;           //  Command pipe to/from caller API
+    zsock_t *msgpipe;           //  Message pipe to/from caller API
     zsock_t *dealer;            //  Socket to talk to server
     $(proto)_t *message;        //  Message to/from server
     client_args_t *args;        //  Arguments from methods
@@ -1039,7 +1061,7 @@ $(class.name)_test (bool verbose)
         printf ("\\n");
     
     //  @selftest
-    zactor_t *client = zactor_new ($(class.name), "client");
+    zactor_t *client = zactor_new ($(class.name), NULL);
     if (verbose)
         zstr_send (client, "VERBOSE");
     zactor_destroy (&client);
