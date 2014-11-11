@@ -88,6 +88,12 @@ $(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
+//  Parse a zmsg_t and decides whether it is $(class.name). Returns
+//  true if it is, false otherwise. Doesn't destroy or modify the
+//  original message.
+$(CLASS.EXPORT_MACRO)bool
+    is_$(class.name) (zmsg_t *msg_p);
+
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. Destroys msg and 
 //  nullifies the msg reference.
@@ -516,6 +522,43 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     }
 }
 
+//  Parse a zmsg_t and decides whether it is $(class.name). Returns
+//  true if it is, false otherwise. Doesn't destroy or modify the
+//  original message.
+bool
+is_$(class.name) (zmsg_t *msg)
+{
+    if (msg == NULL)
+        return false;
+
+    zframe_t *frame = zmsg_first (msg);
+
+    //  Get and check protocol signature
+    $(class.name)_t *self = $(class.name)_new (0);
+    self->needle = zframe_data (frame);
+    self->ceiling = self->needle + zframe_size (frame);
+    uint16_t signature;
+    GET_NUMBER2 (signature);
+    if (signature != (0xAAA0 | $(class.signature)))
+        goto fail;             //  Invalid signature
+
+    //  Get message id and parse per message type
+    GET_NUMBER1 (self->id);
+
+    switch (self->id) {
+.for class.message
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.endfor
+            $(class.name)_destroy (&self);
+            return true;
+        default:
+            goto fail;
+    }
+    fail:
+    malformed:
+        $(class.name)_destroy (&self);
+        return false;
+}
 
 //  --------------------------------------------------------------------------
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
