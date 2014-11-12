@@ -14,6 +14,7 @@ zproto_DATA = \
 	zproto_codec_java.gsl \
 	zproto_codec_clj.gsl \
 	zproto_server_c.gsl \
+        zproto_server_clj.gsl \
 	zproto_client_c.gsl \
 	zproto_bnf.gsl \
 	zproto_lib.gsl \
@@ -27,4 +28,3 @@ code:
 	gsl -q -script:zproto_codec_go zproto_example.xml
 	gsl -q -script:zproto_codec_java zproto_example.xml
 	gsl -q -script:zproto_codec_clj zproto_example.xml
-
