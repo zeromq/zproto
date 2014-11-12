@@ -2,7 +2,15 @@
 #  Library functions
 
 function clj_name (name)
-    return "$(string.replace (name, '_|-'))"
+    return "$(string.replace (string.replace (name, '_|-'), ' |-'))"
+endfunction
+
+function clj_message (message)
+    return "$(string.replace (string.replace ("$(message)", '_|-'), ' |-'))"
+endfunction
+
+function clj_protocol_class ()
+    return "$(string.replace (protocol_class, '_|-'))"
 endfunction
 
 .endtemplate
