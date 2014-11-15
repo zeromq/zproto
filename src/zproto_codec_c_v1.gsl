@@ -915,6 +915,7 @@ $(class.name)_recv (void *input)
 .if switches.trace ?= 1
     zmsg_print (msg);
 .endif
+
     //  If message came from a router socket, first frame is routing_id
     zframe_t *routing_id = NULL;
     if (zsocket_type (zsock_resolve (input)) == ZMQ_ROUTER) {
