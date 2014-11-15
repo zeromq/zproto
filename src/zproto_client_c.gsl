@@ -719,7 +719,7 @@ s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         $(proto)_print (self->message);
 .endif
 .if count (class.event, name = "expired")
-        //  Any input from client counts as activity
+        //  Any input from server counts as activity
         if (self->expiry_timer) {
             zloop_timer_end (self->loop, self->expiry_timer);
             self->expiry_timer = 0;
