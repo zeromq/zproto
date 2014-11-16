@@ -646,7 +646,7 @@ Each method is implemented as a classic CLASS method, with the public API in the
 
 When the calling application uses the method, this can do any or several of these things:
 
-* Send a message to the client actor, if the method does not have the 'immediate = "1"' attribute. This generates an event in the client state machine, corresponding the the method name.
+* Send a message to the client actor, if the method does not have the 'immediate = "1"' attribute. This generates an event in the client state machine, corresponding to the method name.
 
 * Wait for one of a set of replies from the actor, and store reply properties in the client object. These are defined by one or more <accept> tags.
 
