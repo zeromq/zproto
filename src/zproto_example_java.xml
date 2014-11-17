@@ -49,7 +49,7 @@ FILEMQ does.
 
 The best way to avoid lots of breaking changes in a protocol is to split
 the fields into those that rarely change, and those that often change, and
-to put the second lot into hash tables (the 'dictionary' type).
+to put the second lot into hash tables (the 'hash' type).
 
 OK, let's see some meat.
 
@@ -87,7 +87,7 @@ zproto supports lists and hashes of strings:
 
 <message name = "structures" id = "2">
     <field name = "aliases" type = "strings">List of strings</field>
-    <field name = "headers" type = "dictionary">Other random properties</field>
+    <field name = "headers" type = "hash">Other random properties</field>
 This message contains a list and a hash.
 </message>
 
