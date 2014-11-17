@@ -116,6 +116,24 @@
 .endfor
 )
 
+
+;;
+;; message setters
+;;
+
+(defn id! [^$(ClassName) msg id]
+  (.setId msg id))
+.for class.field where !defined (value)
+
+. if type = "string" | type = "longstr"
+(defn $(clj_name (name))! [^$(ClassName) msg format & opts]
+ (.set$(Name) msg format (object-array opts)))
+. else
+(defn $(clj_name (name))! [^$(ClassName) msg $(clj_name (name))]
+ (.set$(Name) msg $(clj_name (name))))
+. endif
+.endfor
+
 (def context (zmq/context))
 
 (defn client-socket [endpoint]
