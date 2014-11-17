@@ -89,13 +89,13 @@ function generate_bnf
         class.use_number_4 = 1
         class.use_longstr = 1
     endif
-    if defined (class.use_dictionary)
+    if defined (class.use_hash)
     >
     >    ; A list of name/value pairs
-    >    dictionary      = dict-count *( dict-name dict-value )
-    >    dict-count      = number-4
-    >    dict-value      = longstr
-    >    dict-name       = string
+    >    hash            = hash-count *( hash-name hash-value )
+    >    hash-count      = number-4
+    >    hash-value      = longstr
+    >    hash-name       = string
         class.use_number_4 = 1
         class.use_string = 1
         class.use_longstr = 1
