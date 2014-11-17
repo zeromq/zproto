@@ -210,8 +210,8 @@ terminate \
         routing-id (.getData (.routingId msg))
         initialized-state (-> (swap! state maybe-setup-session routing-id)
                               (get routing-id))]
-    (reduce (fn [client-state handler]
-               (handler server routing-id client-state))
+    (reduce (fn [msg handler]
+               (handler server routing-id msg))
             msg
             (determine-actions initialized-state id))))
 
