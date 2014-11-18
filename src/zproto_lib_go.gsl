@@ -29,6 +29,7 @@ function set_defaults ()
     
     class.signature ?= 0
     class.package_dir ?= "go"
+    class.package ?= "github.com/pebbe/zmq4"
     class.source_dir ?= "."
 
     for message

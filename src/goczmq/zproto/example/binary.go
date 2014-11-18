@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	zmq "github.com/pebbe/zmq4"
+	"github.com/zeromq/goczmq"
 )
 
 // Deliver a multi-part message.
@@ -77,7 +77,7 @@ func (b *Binary) Marshal() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// Unmarshals the message.
+// Unmarshal unmarshals the message.
 func (b *Binary) Unmarshal(frames ...[]byte) error {
 	if frames == nil {
 		return errors.New("Can't unmarshal empty message")
@@ -121,34 +121,34 @@ func (b *Binary) Unmarshal(frames ...[]byte) error {
 	return nil
 }
 
-// Sends marshaled data through 0mq socket.
-func (b *Binary) Send(socket *zmq.Socket) (err error) {
+// Send sends marshaled data through 0mq socket.
+func (b *Binary) Send(sock *goczmq.Sock) (err error) {
 	frame, err := b.Marshal()
 	if err != nil {
 		return err
 	}
 
-	socType, err := socket.GetType()
+	socType := sock.GetType()
 	if err != nil {
 		return err
 	}
 
 	// If we're sending to a ROUTER, we send the routingId first
-	if socType == zmq.ROUTER {
-		_, err = socket.SendBytes(b.routingId, zmq.SNDMORE)
+	if socType == goczmq.ROUTER {
+		err = sock.SendBytes(b.routingId, goczmq.MORE)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Now send the data frame
-	_, err = socket.SendBytes(frame, zmq.SNDMORE)
+	err = sock.SendBytes(frame, goczmq.MORE)
 	if err != nil {
 		return err
 	}
 	// Now send any frame fields, in order
-	_, err = socket.SendBytes(b.Address, zmq.SNDMORE)
-	_, err = socket.SendBytes(b.Content, 0)
+	err = sock.SendBytes(b.Address, goczmq.MORE)
+	err = sock.SendBytes(b.Content, 0)
 
 	return err
 }

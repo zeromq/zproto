@@ -117,7 +117,7 @@ func (l *Log) Marshal() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// Unmarshals the message.
+// Unmarshal unmarshals the message.
 func (l *Log) Unmarshal(frames ...[]byte) error {
 	if frames == nil {
 		return errors.New("Can't unmarshal empty message")
@@ -166,7 +166,7 @@ func (l *Log) Unmarshal(frames ...[]byte) error {
 	return nil
 }
 
-// Sends marshaled data through 0mq socket.
+// Send sends marshaled data through 0mq socket.
 func (l *Log) Send(socket *zmq.Socket) (err error) {
 	frame, err := l.Marshal()
 	if err != nil {

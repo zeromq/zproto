@@ -81,7 +81,7 @@ func (s *Structures) Marshal() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// Unmarshals the message.
+// Unmarshal unmarshals the message.
 func (s *Structures) Unmarshal(frames ...[]byte) error {
 	if frames == nil {
 		return errors.New("Can't unmarshal empty message")
@@ -125,7 +125,7 @@ func (s *Structures) Unmarshal(frames ...[]byte) error {
 	return nil
 }
 
-// Sends marshaled data through 0mq socket.
+// Send sends marshaled data through 0mq socket.
 func (s *Structures) Send(socket *zmq.Socket) (err error) {
 	frame, err := s.Marshal()
 	if err != nil {
