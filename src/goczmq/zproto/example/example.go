@@ -3,8 +3,8 @@
 // DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
 //
 // The correct places for commits are:
-//  - The XML model used for this code generation: zproto_example.xml
-//  - The code generation script that built this file: zproto_codec_c
+//  - The XML model used for this code generation: zproto_example_goczmq.xml
+//  - The code generation script that built this file: zproto_codec_go
 package example
 
 import (
@@ -12,7 +12,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	zmq "github.com/pebbe/zmq4"
+	"github.com/zeromq/goczmq"
 )
 
 const (
@@ -27,18 +27,19 @@ const (
 	TypesId      uint8 = 4
 )
 
+// Transit is a codec interface
 type Transit interface {
 	Marshal() ([]byte, error)
 	Unmarshal(...[]byte) error
 	String() string
-	Send(*zmq.Socket) error
+	Send(*goczmq.Sock) error
 	SetRoutingId([]byte)
 	RoutingId() []byte
 	SetSequence(uint16)
 	Sequence() uint16
 }
 
-// Unmarshals data from raw frames.
+// Unmarshal unmarshals data from raw frames.
 func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	if frames == nil {
 		return nil, errors.New("can't unmarshal an empty message")
@@ -73,32 +74,38 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	return t, err
 }
 
-// Receives marshaled data from 0mq socket.
-func Recv(socket *zmq.Socket) (t Transit, err error) {
-	return recv(socket, 0)
+// Recv receives marshaled data from a 0mq socket.
+func Recv(sock *goczmq.Sock) (t Transit, err error) {
+	return recv(sock, 0)
 }
 
-// Receives marshaled data from 0mq socket. It won't wait for input.
-func RecvNoWait(socket *zmq.Socket) (t Transit, err error) {
-	return recv(socket, zmq.DONTWAIT)
+// RecvNoWait receives marshaled data from 0mq socket. It won't wait for input.
+func RecvNoWait(sock *goczmq.Sock) (t Transit, err error) {
+	return recv(sock, goczmq.DONTWAIT)
 }
 
-// Receives marshaled data from 0mq socket.
-func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
-	// Read all frames
-	frames, err := socket.RecvMessageBytes(flag)
+// recv receives marshaled data from 0mq socket.
+func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
+	var frames [][]byte
+
+	if flag == goczmq.DONTWAIT {
+		frames, err = sock.RecvMessageNoWait()
+	} else {
+		frames, err = sock.RecvMessage()
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	sType, err := socket.GetType()
+	sType := sock.GetType()
 	if err != nil {
 		return nil, err
 	}
 
 	var routingId []byte
 	// If message came from a router socket, first frame is routingId
-	if sType == zmq.ROUTER {
+	if sType == goczmq.ROUTER {
 		if len(frames) <= 1 {
 			return nil, errors.New("no routingId")
 		}
@@ -111,13 +118,13 @@ func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 		return nil, err
 	}
 
-	if sType == zmq.ROUTER {
+	if sType == goczmq.ROUTER {
 		t.SetRoutingId(routingId)
 	}
 	return t, err
 }
 
-// Clones a message.
+// Clone clones a message.
 func Clone(t Transit) Transit {
 
 	switch msg := t.(type) {

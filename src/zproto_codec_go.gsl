@@ -27,7 +27,11 @@ import (
 	"encoding/binary"
 	"errors"
 
+.if class.package = "github.com/pebbe/zmq4"
 	zmq "github.com/pebbe/zmq4"
+.elsif class.package = "github.com/zeromq/goczmq"
+	"github.com/zeromq/goczmq"
+.endif
 )
 
 .const_maxlen = 16 # 16 is number of characters of Signature and its type
@@ -57,11 +61,16 @@ const (
 .endfor
 )
 
+// Transit is a codec interface
 type Transit interface {
 	Marshal() ([]byte, error)
 	Unmarshal(...[]byte) error
 	String() string
+.if class.package = "github.com/pebbe/zmq4"
 	Send(*zmq.Socket) error
+.elsif class.package = "github.com/zeromq/goczmq"
+	Send(*goczmq.Sock) error
+.endif
 	SetRoutingId([]byte)
 	RoutingId() []byte
 .for field where defined(in_header)
@@ -70,7 +79,7 @@ type Transit interface {
 .endfor
 }
 
-// Unmarshals data from raw frames.
+// Unmarshal unmarshals data from raw frames.
 func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	if frames == nil {
 		return nil, errors.New("can't unmarshal an empty message")
@@ -101,32 +110,65 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	return t, err
 }
 
-// Receives marshaled data from 0mq socket.
+.if class.package = "github.com/pebbe/zmq4"
+// Recv receives marshaled data from a 0mq socket.
 func Recv(socket *zmq.Socket) (t Transit, err error) {
 	return recv(socket, 0)
 }
 
-// Receives marshaled data from 0mq socket. It won't wait for input.
+// RecvNoWait receives marshaled data from 0mq socket. It won't wait for input.
 func RecvNoWait(socket *zmq.Socket) (t Transit, err error) {
 	return recv(socket, zmq.DONTWAIT)
 }
 
-// Receives marshaled data from 0mq socket.
+.elsif class.package = "github.com/zeromq/goczmq"
+// Recv receives marshaled data from a 0mq socket.
+func Recv(sock *goczmq.Sock) (t Transit, err error) {
+	return recv(sock, 0)
+}
+
+// RecvNoWait receives marshaled data from 0mq socket. It won't wait for input.
+func RecvNoWait(sock *goczmq.Sock) (t Transit, err error) {
+	return recv(sock, goczmq.DONTWAIT)
+}
+
+.endif
+// recv receives marshaled data from 0mq socket.
+.if class.package = "github.com/pebbe/zmq4"
 func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 	// Read all frames
 	frames, err := socket.RecvMessageBytes(flag)
+.elsif class.package = "github.com/zeromq/goczmq"
+func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
+	var frames [][]byte
+
+	if flag == goczmq.DONTWAIT {
+		frames, err = sock.RecvMessageNoWait()
+	} else {
+		frames, err = sock.RecvMessage()
+	}
+
+.endif
 	if err != nil {
 		return nil, err
 	}
 
+.if class.package = "github.com/pebbe/zmq4"
 	sType, err := socket.GetType()
+.elsif class.package = "github.com/zeromq/goczmq"
+	sType := sock.GetType()
+.endif
 	if err != nil {
 		return nil, err
 	}
 
 	var routingId []byte
 	// If message came from a router socket, first frame is routingId
+.if class.package = "github.com/pebbe/zmq4"
 	if sType == zmq.ROUTER {
+.elsif class.package = "github.com/zeromq/goczmq"
+	if sType == goczmq.ROUTER {
+.endif
 		if len(frames) <= 1 {
 			return nil, errors.New("no routingId")
 		}
@@ -139,13 +181,17 @@ func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 		return nil, err
 	}
 
+.if class.package = "github.com/pebbe/zmq4"
 	if sType == zmq.ROUTER {
+.elsif class.package = "github.com/zeromq/goczmq"
+	if sType == goczmq.ROUTER {
+.endif
 		t.SetRoutingId(routingId)
 	}
 	return t, err
 }
 
-// Clones a message.
+// Clone clones a message.
 func Clone(t Transit) Transit {
 
 	switch msg := t.(type) {
@@ -250,7 +296,11 @@ import (
 	"strconv"
 .endif
 
+.if class.package = "github.com/pebbe/zmq4"
 	zmq "github.com/pebbe/zmq4"
+.elsif class.package = "github.com/zeromq/goczmq"
+	"github.com/zeromq/goczmq"
+.endif
 )
 
 // $(string.trim (.?''):left)
@@ -401,7 +451,7 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// Unmarshals the message.
+// Unmarshal unmarshals the message.
 func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 	if frames == nil {
 		return errors.New("Can't unmarshal empty message")
@@ -482,31 +532,56 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 	return nil
 }
 
-// Sends marshaled data through 0mq socket.
+// Send sends marshaled data through 0mq socket.
+.if class.package = "github.com/pebbe/zmq4"
 func ($(self) *$(name:no)) Send(socket *zmq.Socket) (err error) {
+.elsif class.package = "github.com/zeromq/goczmq"
+func ($(self) *$(name:no)) Send(sock *goczmq.Sock) (err error) {
+.endif
 	frame, err := $(self).Marshal()
 	if err != nil {
 		return err
 	}
 
+.if class.package = "github.com/pebbe/zmq4"
 	socType, err := socket.GetType()
+.elsif class.package = "github.com/zeromq/goczmq"
+	socType := sock.GetType()
+.endif
 	if err != nil {
 		return err
 	}
 
 	// If we're sending to a ROUTER, we send the routingId first
+.if class.package = "github.com/pebbe/zmq4"
 	if socType == zmq.ROUTER {
 		_, err = socket.SendBytes($(self).routingId, zmq.SNDMORE)
 		if err != nil {
 			return err
 		}
 	}
+.elsif class.package = "github.com/zeromq/goczmq"
+	if socType == goczmq.ROUTER {
+		err = sock.SendBytes($(self).routingId, goczmq.MORE)
+		if err != nil {
+			return err
+		}
+	}
+.endif
 
 	// Now send the data frame
 .if !count (field, type = "frame") & !count (field, type = "msg")
+.if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes(frame, 0)
+.elsif class.package = "github.com/zeromq/goczmq"
+	err = sock.SendBytes(frame, 0)
+.endif
 .else
+.if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes(frame, zmq.SNDMORE)
+.elsif class.package = "github.com/zeromq/goczmq"
+	err = sock.SendBytes(frame, goczmq.MORE)
+.endif
 .endif
 	if err != nil {
 		return err
@@ -516,9 +591,17 @@ func ($(self) *$(name:no)) Send(socket *zmq.Socket) (err error) {
 .endif
 .for field where type = "frame" | type = "msg"
 .    if last ()
+.if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes($(self).$(name:no), 0)
+.elsif class.package = "github.com/zeromq/goczmq"
+	err = sock.SendBytes($(self).$(name:no), 0)
+.endif
 .    else
+.if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes($(self).$(name:no), zmq.SNDMORE)
+.elsif class.package = "github.com/zeromq/goczmq"
+	err = sock.SendBytes($(self).$(name:no), goczmq.MORE)
+.endif
 .    endif
 .endfor
 
@@ -555,7 +638,11 @@ package $(go_package_name())
 import (
 	"testing"
 
+.if class.package = "github.com/pebbe/zmq4"
 	zmq "github.com/pebbe/zmq4"
+.elsif class.package = "github.com/zeromq/goczmq"
+	"github.com/zeromq/goczmq"
+.endif
 )
 
 // Yay! Test function.
@@ -564,26 +651,40 @@ func Test$(name:no)(t *testing.T) {
 	// Create pair of sockets we can send through
 
 	// Output socket
+.if class.package = "github.com/pebbe/zmq4"
 	output, err := zmq.NewSocket(zmq.DEALER)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer output.Close()
+.elsif class.package = "github.com/zeromq/goczmq"
+	output := goczmq.NewSock(goczmq.DEALER)
+	defer output.Destroy()
+.endif
 
 	routingId := "Shout"
 	output.SetIdentity(routingId)
+.if class.package = "github.com/pebbe/zmq4"
 	err = output.Bind("inproc://selftest-$(name)")
+.elsif class.package = "github.com/zeromq/goczmq"
+	_, err := output.Bind("inproc://selftest-$(name)")
+.endif
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer output.Unbind("inproc://selftest-$(name)")
 
 	// Input socket
+.if class.package = "github.com/pebbe/zmq4"
 	input, err := zmq.NewSocket(zmq.ROUTER)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer input.Close()
+.elsif class.package = "github.com/zeromq/goczmq"
+	input := goczmq.NewSock(goczmq.ROUTER)
+	defer input.Destroy()
+.endif
 
 	err = input.Connect("inproc://selftest-$(name)")
 	if err != nil {

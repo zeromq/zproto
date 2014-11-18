@@ -3,7 +3,7 @@ package example
 import (
 	"testing"
 
-	zmq "github.com/pebbe/zmq4"
+	"github.com/zeromq/goczmq"
 )
 
 // Yay! Test function.
@@ -12,26 +12,20 @@ func TestBinary(t *testing.T) {
 	// Create pair of sockets we can send through
 
 	// Output socket
-	output, err := zmq.NewSocket(zmq.DEALER)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer output.Close()
+	output := goczmq.NewSock(goczmq.DEALER)
+	defer output.Destroy()
 
 	routingId := "Shout"
 	output.SetIdentity(routingId)
-	err = output.Bind("inproc://selftest-binary")
+	_, err := output.Bind("inproc://selftest-binary")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer output.Unbind("inproc://selftest-binary")
 
 	// Input socket
-	input, err := zmq.NewSocket(zmq.ROUTER)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer input.Close()
+	input := goczmq.NewSock(goczmq.ROUTER)
+	defer input.Destroy()
 
 	err = input.Connect("inproc://selftest-binary")
 	if err != nil {

@@ -3,7 +3,7 @@ package example
 import (
 	"testing"
 
-	zmq "github.com/pebbe/zmq4"
+	"github.com/zeromq/goczmq"
 )
 
 // Yay! Test function.
@@ -12,26 +12,20 @@ func TestStructures(t *testing.T) {
 	// Create pair of sockets we can send through
 
 	// Output socket
-	output, err := zmq.NewSocket(zmq.DEALER)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer output.Close()
+	output := goczmq.NewSock(goczmq.DEALER)
+	defer output.Destroy()
 
 	routingId := "Shout"
 	output.SetIdentity(routingId)
-	err = output.Bind("inproc://selftest-structures")
+	_, err := output.Bind("inproc://selftest-structures")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer output.Unbind("inproc://selftest-structures")
 
 	// Input socket
-	input, err := zmq.NewSocket(zmq.ROUTER)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer input.Close()
+	input := goczmq.NewSock(goczmq.ROUTER)
+	defer input.Destroy()
 
 	err = input.Connect("inproc://selftest-structures")
 	if err != nil {
