@@ -92,7 +92,7 @@ func (b *Binary) Unmarshal(frames ...[]byte) error {
 	var signature uint16
 	binary.Read(buffer, binary.BigEndian, &signature)
 	if signature != Signature {
-		return errors.New("invalid signature")
+		return fmt.Errorf("invalid signature %X != %X", Signature, signature)
 	}
 
 	// Get message id and parse per message type

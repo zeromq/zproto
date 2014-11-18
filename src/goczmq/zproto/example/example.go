@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/zeromq/goczmq"
 )
@@ -52,7 +53,7 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	binary.Read(buffer, binary.BigEndian, &signature)
 	if signature != Signature {
 		// Invalid signature
-		return nil, errors.New("invalid signature")
+		return nil, fmt.Errorf("invalid signature %X != %X", Signature, signature)
 	}
 
 	// Get message id and parse per message type
