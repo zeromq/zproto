@@ -669,8 +669,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "VERBOSE"))
         self->verbose = true;       //  Start verbose logging
     else
-    if (streq (method, "$TERM"))
+    if (streq (method, "$TERM")) {
         self->terminated = true;    //  Shutdown the engine
+        goto terminated;
+    }
 .for class.method where immediate = 0
     else
     if (streq (method, "$(NAME)")) {
@@ -686,7 +688,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 .   endif
         s_client_execute (self, $(name:c)_event);
         if (self->terminated)
-            return -1;
+            goto terminated;
     }
 .endfor
     //  Cleanup pipe if any argument frames are still waiting to be eaten
@@ -698,6 +700,10 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     zstr_free (&method);
     return 0;
+    
+    terminated:
+    zstr_free (&method);
+    return -1;
 }
 
 
