@@ -257,11 +257,11 @@ terminate \
 . endif
 .endfor
 ))
-.endif
 
 (defn -main [& [endpoint]]
   (println (format "starting up $(class.name) at %s" endpoint))
   (server/server-loop (m/server-socket endpoint) backend))
+.endif
 .if !file.exists ("../project.clj")
 .output "../project.clj"
 ;;  =========================================================================
