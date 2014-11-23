@@ -65,6 +65,83 @@
   (types [this routing-id sequence client-forename client-surname client-mobile client-email supplier-forename supplier-surname supplier-mobile supplier-email]
     (ZprotoExample/sendTypes socket routing-id sequence client-forename client-surname client-mobile client-email supplier-forename supplier-surname supplier-mobile supplier-email)))
 
+
+;;
+;; message setters
+;;
+
+(defn id! [^ZprotoExample msg id]
+  (.setId msg id))
+
+(defn sequence! [^ZprotoExample msg sequence]
+ (.setSequence msg sequence))
+
+(defn level! [^ZprotoExample msg level]
+ (.setLevel msg level))
+
+(defn event! [^ZprotoExample msg event]
+ (.setEvent msg event))
+
+(defn node! [^ZprotoExample msg node]
+ (.setNode msg node))
+
+(defn peer! [^ZprotoExample msg peer]
+ (.setPeer msg peer))
+
+(defn time! [^ZprotoExample msg time]
+ (.setTime msg time))
+
+(defn host! [^ZprotoExample msg format & opts]
+ (.setHost msg format (object-array opts)))
+
+(defn data! [^ZprotoExample msg format & opts]
+ (.setData msg format (object-array opts)))
+
+(defn aliases! [^ZprotoExample msg aliases]
+ (.setAliases msg aliases))
+
+(defn headers! [^ZprotoExample msg headers]
+ (.setHeaders msg headers))
+
+(defn flags! [^ZprotoExample msg flags]
+ (.setFlags msg flags))
+
+(defn public-key! [^ZprotoExample msg public-key]
+ (.setPublic_Key msg public-key))
+
+(defn identifier! [^ZprotoExample msg identifier]
+ (.setIdentifier msg identifier))
+
+(defn address! [^ZprotoExample msg address]
+ (.setAddress msg address))
+
+(defn content! [^ZprotoExample msg content]
+ (.setContent msg content))
+
+(defn client-forename! [^ZprotoExample msg format & opts]
+ (.setClient_Forename msg format (object-array opts)))
+
+(defn client-surname! [^ZprotoExample msg format & opts]
+ (.setClient_Surname msg format (object-array opts)))
+
+(defn client-mobile! [^ZprotoExample msg format & opts]
+ (.setClient_Mobile msg format (object-array opts)))
+
+(defn client-email! [^ZprotoExample msg format & opts]
+ (.setClient_Email msg format (object-array opts)))
+
+(defn supplier-forename! [^ZprotoExample msg format & opts]
+ (.setSupplier_Forename msg format (object-array opts)))
+
+(defn supplier-surname! [^ZprotoExample msg format & opts]
+ (.setSupplier_Surname msg format (object-array opts)))
+
+(defn supplier-mobile! [^ZprotoExample msg format & opts]
+ (.setSupplier_Mobile msg format (object-array opts)))
+
+(defn supplier-email! [^ZprotoExample msg format & opts]
+ (.setSupplier_Email msg format (object-array opts)))
+
 (def context (zmq/context))
 
 (defn client-socket [endpoint]

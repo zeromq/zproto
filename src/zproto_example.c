@@ -219,6 +219,7 @@ struct _zproto_example_t {
         zsys_warning ("zproto_example: GET_LONGSTR failed"); \
         goto malformed; \
     } \
+    free ((host)); \
     (host) = (char *) malloc (string_size + 1); \
     memcpy ((host), self->needle, string_size); \
     (host) [string_size] = 0; \
@@ -381,12 +382,11 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             zframe_destroy (&self->address);
             self->address = zframe_recv (input);
             //  Get zero or more remaining frames
-            if (!zsock_rcvmore (input)) {
-                zsys_warning ("zproto_example: content is missing");
-                goto malformed;
-            }
             zmsg_destroy (&self->content);
-            self->content = zmsg_recv (input);
+            if (zsock_rcvmore (input))
+                self->content = zmsg_recv (input);
+            else
+                self->content = zmsg_new ();
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -894,6 +894,9 @@ void
 zproto_example_set_host (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->host)
+        return;
     strncpy (self->host, value, 255);
     self->host [255] = 0;
 }
@@ -913,7 +916,8 @@ void
 zproto_example_set_data (zproto_example_t *self, const char *value)
 {
     assert (self);
-    zstr_free (&self->data);
+    assert (value);
+    free (self->data);
     self->data = strdup (value);
 }
 
@@ -1151,6 +1155,9 @@ void
 zproto_example_set_client_forename (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->client_forename)
+        return;
     strncpy (self->client_forename, value, 255);
     self->client_forename [255] = 0;
 }
@@ -1170,6 +1177,9 @@ void
 zproto_example_set_client_surname (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->client_surname)
+        return;
     strncpy (self->client_surname, value, 255);
     self->client_surname [255] = 0;
 }
@@ -1189,6 +1199,9 @@ void
 zproto_example_set_client_mobile (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->client_mobile)
+        return;
     strncpy (self->client_mobile, value, 255);
     self->client_mobile [255] = 0;
 }
@@ -1208,6 +1221,9 @@ void
 zproto_example_set_client_email (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->client_email)
+        return;
     strncpy (self->client_email, value, 255);
     self->client_email [255] = 0;
 }
@@ -1227,6 +1243,9 @@ void
 zproto_example_set_supplier_forename (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->supplier_forename)
+        return;
     strncpy (self->supplier_forename, value, 255);
     self->supplier_forename [255] = 0;
 }
@@ -1246,6 +1265,9 @@ void
 zproto_example_set_supplier_surname (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->supplier_surname)
+        return;
     strncpy (self->supplier_surname, value, 255);
     self->supplier_surname [255] = 0;
 }
@@ -1265,6 +1287,9 @@ void
 zproto_example_set_supplier_mobile (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->supplier_mobile)
+        return;
     strncpy (self->supplier_mobile, value, 255);
     self->supplier_mobile [255] = 0;
 }
@@ -1284,6 +1309,9 @@ void
 zproto_example_set_supplier_email (zproto_example_t *self, const char *value)
 {
     assert (self);
+    assert (value);
+    if (value == self->supplier_email)
+        return;
     strncpy (self->supplier_email, value, 255);
     self->supplier_email [255] = 0;
 }
@@ -1331,8 +1359,6 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        zproto_example_destroy (&self);
-        self = zproto_example_new ();
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
@@ -1352,8 +1378,6 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        zproto_example_destroy (&self);
-        self = zproto_example_new ();
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
@@ -1382,8 +1406,6 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        zproto_example_destroy (&self);
-        self = zproto_example_new ();
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
@@ -1409,8 +1431,6 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
 
     for (instance = 0; instance < 2; instance++) {
-        zproto_example_destroy (&self);
-        self = zproto_example_new ();
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
@@ -1424,6 +1444,7 @@ zproto_example_test (bool verbose)
         assert (streq (zproto_example_supplier_email (self), "Life is short but Now lasts for ever"));
     }
 
+    zproto_example_destroy (&self);
     zsock_destroy (&input);
     zsock_destroy (&output);
     //  @end
