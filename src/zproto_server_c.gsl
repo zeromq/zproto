@@ -281,6 +281,10 @@ static void
     s_client_execute (s_client_t *client, event_t event);
 static int
     s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument);
+.if count (class.event, name = "expired")
+static int
+    s_client_handle_ticket (zloop_t *loop, int timer_id, void *argument);
+.endif
 .for class.prototype
 static $(ctype)
     $(name) ($(args));
@@ -496,8 +500,8 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
 
 .if count (class.event, name = "expired")
     //  If expiry timers are being used, create client ticket
-    if (self->timeout)
-        self->ticket = zloop_ticket (self->loop, s_client_handle_ticket, client);
+    if (server->timeout)
+        self->ticket = zloop_ticket (server->loop, s_client_handle_ticket, self);
 .endif    
     //  Give application chance to initialize and set next event
 .for class.state where item () = 1
