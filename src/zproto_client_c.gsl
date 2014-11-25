@@ -713,7 +713,7 @@ s_client_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
             return -1;              //  Interrupted; exit zloop
 
 .if switches.trace ?= 1
-        zsys_debug ("%d: Server message", self->unique_id);
+        zsys_debug ("Server message");
         $(proto)_print (self->message);
 .endif
 .if count (class.event, name = "expired")
