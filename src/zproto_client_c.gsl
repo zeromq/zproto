@@ -86,7 +86,7 @@ for class.reply
                 property.name = "$(field.name:c)"
                 property.type = field.type
                 if field.type = "string"
-                    property.ctype = "char *"
+                    property.ctype = "const char *"
                 else
                     property.ctype = "int "
                 endif
@@ -137,7 +137,7 @@ for class.method
         for class.property where name = method.return
             method.return = "self->" + method.return
             if property.type = "string"
-                method.ctype = "char *"
+                method.ctype = "const char *"
             elsif property.type = "number"
                 method.ctype = "int"
             endif
