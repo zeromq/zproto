@@ -642,7 +642,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
                 self->$(name)_bytes = 0;
                 char *item = (char *) zhash_first (self->$(name));
                 while (item) {
-                    self->$(name)_bytes += 1 + strlen ( (const char *) zhash_cursor (self->$(name)));
+                    self->$(name)_bytes += 1 + strlen (zhash_cursor (self->$(name)));
                     self->$(name)_bytes += 4 + strlen (item);
                     item = (char *) zhash_next (self->$(name));
                 }
@@ -716,7 +716,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
                 PUT_NUMBER4 (zhash_size (self->$(name)));
                 char *item = (char *) zhash_first (self->$(name));
                 while (item) {
-                    PUT_STRING ( (const char *) zhash_cursor (self->$(name)));
+                    PUT_STRING (zhash_cursor (self->$(name)));
                     PUT_LONGSTR (item);
                     item = (char *) zhash_next (self->$(name));
                 }
@@ -826,7 +826,7 @@ $(class.name)_print ($(class.name)_t *self)
             if (self->$(name)) {
                 char *item = (char *) zhash_first (self->$(name));
                 while (item) {
-                    zsys_debug ("        %s=%s", (const char *) zhash_cursor (self->$(name)), item);
+                    zsys_debug ("        %s=%s", zhash_cursor (self->$(name)), item);
                     item = (char *) zhash_next (self->$(name));
                 }
             }
