@@ -76,22 +76,29 @@ for class.action
     endif
 endfor
 
+function assume_property (name, type, alloc)
+    if count (class.property, name = my.name) = 0
+        new class.property
+            property.name = "$(my.name:c)"
+            property.type = my.type
+            property.alloc = my.alloc
+            if type = "string"
+                property.ctype = "const char *"
+            elsif type = "number"
+                property.ctype = "int "
+            elsif type = "msg"
+                property.ctype = "zmsg_t *"
+            endif
+        endnew
+    endif
+endfunction
+
 #   Process replies from actor, and methods to actor
 for class.reply
     reply.pattern = ""
     for field
         field.name = "$(field.name:c)"
-        if count (class.property, name = field.name) = 0
-            new class.property
-                property.name = "$(field.name:c)"
-                property.type = field.type
-                if field.type = "string"
-                    property.ctype = "const char *"
-                else
-                    property.ctype = "int "
-                endif
-            endnew
-        endif
+        assume_property (field.name, field.type, 1)
         if field.type = "string"
             reply.pattern += "s"
         elsif field.type = "number"
@@ -151,6 +158,74 @@ for class.method
             method.args = "void"
         endif
     endif
+endfor
+
+for class.send
+    for message as method
+        method.args = ""
+        method.cname = "$(name:c)"
+        method.pattern = ""
+        for proto.message where name = -1.cname
+            for field
+                copy field to method
+            endfor
+        endfor
+        for method.field
+            if type = "number"
+                method.args += ", int $(name)"
+                field.ctype = "int "
+                pattern += size
+            elsif type = "string"
+                method.args += ", char *$(name)"
+                field.ctype = "char *"
+                pattern += "s"
+            elsif type = "longstr"
+                method.args += ", char *$(name)"
+                field.ctype = "char *"
+                pattern += "S"
+            elsif type = "chunk" | type = "frame" | type = "msg"
+                method.args += ", z$(type)_t **$(name)_p"
+                field.ctype = "z$(type)_t *"
+                pattern += "p"
+            endif
+        endfor
+    endfor
+endfor
+
+for class.recv
+    for message as method
+        assume_property ("command", "string", 1)
+        method.cname = "$(name:c)"
+        method.pattern = ""
+        method.return = ""
+        for proto.message where name = -1.cname
+            for field
+                copy field to method
+            endfor
+        endfor
+        for method.field
+            assume_property (field.name, field.type, 0)
+            if type = "number"
+                field.ctype = "int "
+                pattern += size
+            elsif type = "string"
+                field.ctype = "char *"
+                pattern += "s"
+            elsif type = "longstr"
+                field.ctype = "char *"
+                pattern += "S"
+            elsif type = "chunk" | type = "frame" | type = "msg"
+                field.ctype = "z$(type)_t *"
+                pattern += "p"
+            endif
+            if type = "msg"
+                method.return = name
+            endif
+        endfor
+        if method.return = ""
+            echo "E: no msg field defined in '$(name)'"
+        endif
+    endfor
 endfor
 
 .endtemplate
@@ -226,6 +301,20 @@ $(CLASS.EXPORT_MACRO)zsock_t *
 .   endif
 $(CLASS.EXPORT_MACRO)$(ctype)
     $(class.name)_$(name:c) ($(class.name)_t *self$(args));
+
+.endfor
+.for class.send
+.   for message as method
+//  Send $(name:) message to server
+$(CLASS.EXPORT_MACRO)int
+    $(class.name)_$(name:c) ($(class.name)_t *self$(args));
+
+.   endfor
+.endfor
+.for class.recv
+//  Receive message from server; caller destroys message when done
+$(CLASS.EXPORT_MACRO)zmsg_t *
+    $(class.name)_recv ($(class.name)_t *self);
 
 .endfor
 .for class.property
@@ -699,6 +788,61 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 }
 
 
+//  Handle message pipe to/from calling API
+
+static int
+s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
+{
+    s_client_t *self = (s_client_t *) argument;
+
+    //  We will process as many messages as we can, to reduce the overhead
+    //  of polling and the reactor:
+    while (zsock_events (self->msgpipe) & ZMQ_POLLIN) {
+        char *method = zstr_recv (self->msgpipe);
+        if (!method)
+            return -1;              //  Interrupted; exit zloop
+        if (self->verbose)
+            zsys_debug ("$(class.name):     API message=%s", method);
+
+.for class.send
+.   for message as method
+.       if index () > 1
+        else
+.       endif
+        if (streq (method, "$(NAME)")) {
+.       for field
+            $(ctype)$(name);
+.       endfor
+            zsock_brecv (self->msgpipe, "$(pattern:)"\
+.       for field
+, &$(name)\
+.       endfor
+);
+            $(proto)_set_id (self->message, $(PROTO)_$(CNAME));
+.       for field
+.           if type = "string" | type = "number"
+            $(proto)_set_$(name) (self->message, $(name));
+.           else
+            $(proto)_set_$(name) (self->message, &$(name));
+.           endif
+.       endfor
+            $(proto)_send (self->message, self->dealer);
+        }
+.   endfor
+.endfor
+        //  Cleanup pipe if any argument frames are still waiting to be eaten
+        if (zsock_rcvmore (self->msgpipe)) {
+            zsys_error ("$(class.name): trailing API message frames (%s)", method);
+            zmsg_t *more = zmsg_recv (self->msgpipe);
+            zmsg_print (more);
+            zmsg_destroy (&more);
+        }
+        zstr_free (&method);
+    }
+    return 0;
+}
+
+
 //  Handle a message (a protocol reply) from the server
 
 static int
@@ -749,6 +893,7 @@ $(class.name) (zsock_t *cmdpipe, void *msgpipe)
         
         //  Set up handler for the sockets the client uses
         engine_handle_socket ((client_t *) self, self->cmdpipe, s_client_handle_cmdpipe);
+        engine_handle_socket ((client_t *) self, self->msgpipe, s_client_handle_msgpipe);
         engine_handle_socket ((client_t *) self, self->dealer, s_client_handle_protocol);
 
         //  Run reactor until there's a termination signal
@@ -773,6 +918,8 @@ struct _$(class.name)_t {
     char *$(name);              //  Returned by actor reply
 .   elsif type = "number"
     int $(name);                //  Returned by actor reply
+.   elsif type = "msg"
+    zmsg_t *$(name);            //  Returned by actor reply
 .   endif
 .endfor
 };
@@ -837,7 +984,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .endfor
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
-.for class.property where type = "string"
+.for class.property where type = "string" & alloc
         zstr_free (&self->$(name));
 .endfor
         free (self);
@@ -966,6 +1113,66 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .   if defined (method.return)
     return $(return);
 .   endif
+}
+.endfor
+.for class.send
+.   for message as method
+
+
+//  ---------------------------------------------------------------------------
+//  Send $(name:) message to server
+
+int
+$(class.name)_$(name:c) ($(class.name)_t *self$(args))
+{
+    assert (self);
+    //  Send message name as first, separate frame
+    zstr_sendm (self->msgpipe, "$(NAME)");
+    int rc = zsock_bsend (self->msgpipe, "$(pattern:)"\
+.       for field
+.           if type = "chunk" | type = "frame" | type = "msg"
+, *$(name)_p\
+.           else
+, $(name)\
+.           endif
+.       endfor
+);
+.       for field where type = "chunk" | type = "frame" | type = "msg"
+    *$(name)_p = NULL;          //  Take ownership of $(name)
+.       endfor
+    return rc;
+}
+.   endfor
+.endfor
+.for class.recv
+
+
+//  ---------------------------------------------------------------------------
+//  Receive message from server; caller destroys message when done
+
+zmsg_t *
+$(class.name)_recv ($(class.name)_t *self)
+{
+    zstr_free (&self->command);
+    self->command = zstr_recv (self->msgpipe);
+    if (!self->command)
+        return NULL;            //  Interrupted
+
+.   for message as method
+.   if index () > 1
+    else
+.   endif
+    if (streq (self->command, "$(NAME)")) {
+        zmsg_destroy (&self->$(return));
+        zsock_brecv (self->msgpipe, "$(pattern:)"\
+.       for field
+, &self->$(name)\
+.       endfor
+);
+        return self->$(return);
+    }
+.   endfor
+    return NULL;
 }
 .endfor
 .for class.property
