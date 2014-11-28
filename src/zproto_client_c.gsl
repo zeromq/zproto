@@ -984,8 +984,12 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .endfor
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
-.for class.property where type = "string" & alloc
+.for class.property
+.   if type = "string" & alloc
         zstr_free (&self->$(name));
+.   elsif type = "chunk" | type = "frame" | type = "msg"
+        z$(type)_destroy (&self->$(name));
+.   endif
 .endfor
         free (self);
         *self_p = NULL;
