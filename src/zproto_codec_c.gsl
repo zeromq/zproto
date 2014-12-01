@@ -533,7 +533,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                 self->$(name) = zhash_new ();
                 zhash_autofree (self->$(name));
                 while (hash_size--) {
-                    char key [256], *value;
+                    char key [256], *value = NULL;
                     GET_STRING (key);
                     GET_LONGSTR (value);
                     zhash_insert (self->$(name), key, value);
