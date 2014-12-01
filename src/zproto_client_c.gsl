@@ -218,6 +218,7 @@ for class.recv
                 field.ctype = "z$(type)_t *"
                 pattern += "p"
             endif
+            #   We must return a single msg type
             if type = "msg"
                 method.return = name
             endif
@@ -987,7 +988,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .for class.property
 .   if type = "string" & alloc
         zstr_free (&self->$(name));
-.   elsif type = "chunk" | type = "frame" | type = "msg"
+.   elsif type = "chunk" | type = "frame"
         z$(type)_destroy (&self->$(name));
 .   endif
 .endfor
@@ -1167,7 +1168,6 @@ $(class.name)_recv ($(class.name)_t *self)
     else
 .   endif
     if (streq (self->command, "$(NAME)")) {
-        zmsg_destroy (&self->$(return));
         zsock_brecv (self->msgpipe, "$(pattern:)"\
 .       for field
 , &self->$(name)\
