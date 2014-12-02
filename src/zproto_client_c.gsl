@@ -54,7 +54,7 @@ endfor
 
 #   Process super states
 for class.state where defined (inherit)
-    for class.state as superstate where name = inherit
+    for class.state as superstate where name = state.inherit
         for event where count (state.event, name = -1.name) = 0
             copy event to state
         endfor

@@ -52,15 +52,23 @@ for class.state
     endfor
 endfor
 
-#   Process super states
-for class.state where defined (inherit)
-    for class.state as superstate where name = state.inherit
-        for event where count (state.event, name = -1.name) = 0
-            copy event to state
+#   Process super states recursively
+function resolve_inheritance (state)
+    if my.state.inherit?"" <> ""
+        for class.state as superstate where name = my.state.inherit
+            resolve_inheritance (superstate)
+            for event where count (my.state.event, name = -1.name) = 0
+                copy event to my.state
+            endfor
+        else
+            echo "E: superstate $(inherit) isn't defined"
         endfor
-    else
-        echo "E: superstate $(inherit) isn't defined"
-    endfor
+        my.state.inherit = ""
+    endif
+endfunction
+
+for class.state
+    resolve_inheritance (state)
 endfor
 
 #   Collect prototypes that we need
