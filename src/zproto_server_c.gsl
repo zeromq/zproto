@@ -52,15 +52,23 @@ for class.state
     endfor
 endfor
 
-#   Process super states
-for class.state where defined (inherit)
-    for class.state as superstate where name = inherit
-        for event where count (state.event, name = -1.name) = 0
-            copy event to state
+#   Process super states recursively
+function resolve_inheritance (state)
+    if my.state.inherit?"" <> ""
+        for class.state as superstate where name = my.state.inherit
+            resolve_inheritance (superstate)
+            for event where count (my.state.event, name = -1.name) = 0
+                copy event to my.state
+            endfor
+        else
+            echo "E: superstate $(inherit) isn't defined"
         endfor
-    else
-        echo "E: superstate $(inherit) isn't defined"
-    endfor
+        my.state.inherit = ""
+    endif
+endfunction
+
+for class.state
+    resolve_inheritance (state)
 endfor
 
 #   Collect prototypes that we need
@@ -261,8 +269,8 @@ typedef struct {
     event_t event;              //  Current event
     event_t next_event;         //  The next event
     event_t exception;          //  Exception event, if any
-    int wakeup;           //  zloop timer for client alarms
-    void *ticket;        //  zloop ticket for client timeouts
+    int wakeup;                 //  zloop timer for client alarms
+    void *ticket;               //  zloop ticket for client timeouts
     event_t wakeup_event;       //  Wake up with this event
     char log_prefix [41];       //  Log prefix string
 } s_client_t;
@@ -523,6 +531,8 @@ s_client_destroy (s_client_t **self_p)
         if (self->ticket)
             zloop_ticket_delete (self->server->loop, self->ticket);
         zframe_destroy (&self->routing_id);
+        //  Provide visual clue if application misuses client reference
+        engine_set_log_prefix (&self->client, "*** TERMINATED ***");
         client_terminate (&self->client);
         free (self->hashkey);
         free (self);
