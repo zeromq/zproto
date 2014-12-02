@@ -617,7 +617,7 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
             break;
 .   endfor
         default:
-            zsys_error ("$(class.name): invalid protocol event, halting");
+            zsys_error ("$(class.name): unknown command %s, halting", $(proto)_command (message));
             self->terminated = true;
             return NULL_event;
     }
