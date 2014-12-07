@@ -271,7 +271,7 @@ $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new ($(args));
 .else
 
-$(CLASS.EXPORT_MACRO)$(class.name)_t *
+b$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (void);
 .endfor
 
@@ -282,6 +282,11 @@ $(CLASS.EXPORT_MACRO)void
 //  Enable verbose logging of client activity
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_verbose ($(class.name)_t *self);
+
+//  Return actor, when caller wants to work with multiple actors and/or
+//  input sockets asynchronously.
+$(CLASS.EXPORT_MACRO)zactor_t *
+    $(class.name)_actor ($(class.name)_t *self);
 
 //  Return message pipe for asynchronous message I/O. In the high-volume case,
 //  we send methods and get replies to the actor, in a synchronous manner, and
@@ -1006,6 +1011,18 @@ $(class.name)_verbose ($(class.name)_t *self)
 {
     assert (self);
     zsock_send (self->actor, "s", "VERBOSE");
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return actor, when caller wants to work with multiple actors and/or
+//  input sockets asynchronously.
+
+zactor_t *
+$(class.name)_actor ($(class.name)_t *self)
+{
+    assert (self);
+    return self->actor;
 }
 
 
