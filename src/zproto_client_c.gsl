@@ -331,6 +331,14 @@ $(CLASS.EXPORT_MACRO)zmsg_t *
 .endfor
 .for class.property
 //  Return last received $(name)
+.   if name = "command"
+//  Can be one of these values:
+.       for class.recv
+.           for message
+//      "$(NAME)"
+.           endfor
+.       endfor
+.   endif
 $(CLASS.EXPORT_MACRO)$(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
 
