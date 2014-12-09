@@ -164,6 +164,7 @@ for class.send
     for message as method
         method.args = ""
         method.cname = "$(name:c)"
+        method.method ?= name
         method.pattern = ""
         for proto.message where name = -1.cname
             for field
@@ -176,12 +177,12 @@ for class.send
                 field.ctype = "int "
                 pattern += size
             elsif type = "string"
-                method.args += ", char *$(name)"
-                field.ctype = "char *"
+                method.args += ", const char *$(name)"
+                field.ctype = "const char *"
                 pattern += "s"
             elsif type = "longstr"
-                method.args += ", char *$(name)"
-                field.ctype = "char *"
+                method.args += ", const char *$(name)"
+                field.ctype = "const char *"
                 pattern += "S"
             elsif type = "chunk" | type = "frame" | type = "msg"
                 method.args += ", z$(type)_t **$(name)_p"
@@ -227,6 +228,10 @@ for class.recv
             echo "E: no msg field defined in '$(name)'"
         endif
     endfor
+endfor
+
+for class.custom where language = "C"
+    custom.load_file (custom.filename)
 endfor
 
 .endtemplate
@@ -311,9 +316,10 @@ $(CLASS.EXPORT_MACRO)$(ctype)
 .endfor
 .for class.send
 .   for message as method
-//  Send $(name:) message to server
+//  Send $(name:) message to server, takes ownership of message
+//  and destroys message when done sending it.
 $(CLASS.EXPORT_MACRO)int
-    $(class.name)_$(name:c) ($(class.name)_t *self$(args));
+    $(class.name)_$(.method:c) ($(class.name)_t *self$(args));
 
 .   endfor
 .endfor
@@ -328,6 +334,11 @@ $(CLASS.EXPORT_MACRO)zmsg_t *
 $(CLASS.EXPORT_MACRO)$(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
 
+.endfor
+.for class.custom
+.   for header
+$(header.:)
+.   endfor
 .endfor
 //  Self test of this class
 $(CLASS.EXPORT_MACRO)void
@@ -1142,10 +1153,11 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 
 
 //  ---------------------------------------------------------------------------
-//  Send $(name:) message to server
+//  Send $(name:) message to server, takes ownership of message
+//  and destroys when done sending it.
 
 int
-$(class.name)_$(name:c) ($(class.name)_t *self$(args))
+$(class.name)_$(.method:c) ($(class.name)_t *self$(args))
 {
     assert (self);
     //  Send message name as first, separate frame
@@ -1208,6 +1220,12 @@ $(class.name)_$(name) ($(class.name)_t *self)
     assert (self);
     return self->$(name);
 }
+.endfor
+.for class.custom
+.   for source
+
+$(source.:)
+.   endfor
 .endfor
 .#  Generate source file first time only
 .source_file = "$(class.name).c"
