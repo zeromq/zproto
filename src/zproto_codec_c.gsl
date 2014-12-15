@@ -242,7 +242,7 @@ struct _$(class.name)_t {
     zlist_t *$(name);                   //  $(field.?'':)
 .   elsif type = "hash"
     zhash_t *$(name);                   //  $(field.?'':)
-    size_t $(name)_bytes;               //  Size of dictionary content
+    size_t $(name)_bytes;               //  Size of hash content
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
     z$(type)_t *$(name);                //  $(field.?'':)
 .   endif
@@ -722,7 +722,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
                 }
             }
             else
-                PUT_NUMBER4 (0);    //  Empty dictionary
+                PUT_NUMBER4 (0);    //  Empty hash
 .       elsif type = "chunk"
             if (self->$(name)) {
                 PUT_NUMBER4 (zchunk_size (self->$(name)));
