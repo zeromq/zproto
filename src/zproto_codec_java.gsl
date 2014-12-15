@@ -501,7 +501,7 @@ public class $(ClassName) implements java.io.Closeable
                 }
             }
             else
-                putNumber4 (0);      //  Empty dictionary
+                putNumber4 (0);      //  Empty hash
 .       elsif type = "chunk"
               if($(name) != null) {
                   putNumber4($(name).length);
@@ -886,7 +886,7 @@ public class $(ClassName) implements java.io.Closeable
 
 .   elsif type = "hash"
     //  --------------------------------------------------------------------------
-    //  Get/set a value in the $(name) dictionary
+    //  Get/set a value in the $(name) hash
 
     public Map <String, String> $(name) ()
     {
