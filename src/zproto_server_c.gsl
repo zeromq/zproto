@@ -562,6 +562,9 @@ s_client_free (void *argument)
                         $(proto)_print (self->server->message);
 .               endif
                         $(proto)_set_routing_id (self->server->message, self->routing_id);
+.               if defined (class.send_tracer)
+                        $(class.send_tracer) ((server_t *) self->server);
+.               endif
                         $(proto)_send (self->server->message, self->server->router);
 .           elsif name = "terminate"
                         //  terminate
@@ -892,6 +895,9 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
     while (zsock_events (self->router) & ZMQ_POLLIN) {
         if ($(proto)_recv (self->message, self->router))
             return -1;              //  Interrupted; exit zloop
+.if defined (class.receive_tracer)
+        $(class.receive_tracer) ((server_t *) self);
+.endif
 
         //  TODO: use binary hashing on routing_id
         char *hashkey = zframe_strhex ($(proto)_routing_id (self->message));
