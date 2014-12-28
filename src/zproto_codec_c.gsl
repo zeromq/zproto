@@ -1137,6 +1137,11 @@ $(class.name)_test (bool verbose)
     $(class.name)_set_$(name) (self, $(name)_data);
 .       elsif type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, "Life is short but Now lasts for ever");
+.       elsif type = "strings"
+    zlist_t *$(message.name)_$(name) = zlist_new ();
+    zlist_append ($(message.name)_$(name), "Name: Brutus");
+    zlist_append ($(message.name)_$(name), "Age: 43");
+    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "chunk" | type = "frame"
     z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
