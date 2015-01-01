@@ -69,27 +69,84 @@ for class.action
     &  name <> "terminate"
         new class.prototype
             prototype.name = "$(action.name:c)"
-            prototype.ctype = "void"
             prototype.exists = 0
             prototype.args = "client_t *self"
         endnew
     endif
 endfor
 
-function assume_property (name, type, alloc)
-    if count (class.property, name = my.name) = 0
-        new class.property
-            property.name = "$(my.name:c)"
-            property.type = my.type
-            property.alloc = my.alloc
-            if type = "string"
-                property.ctype = "const char *"
-            elsif type = "number"
-                property.ctype = "int "
-            elsif type = "msg"
-                property.ctype = "zmsg_t *"
+function check_field (field)
+    if !defined (my.field.name)
+        echo "E: $(name (my.field)) needs a 'name' attribute'"
+        abort "E: please fix model and 'make code' again"
+    endif
+    if !defined (my.field.type)
+        echo "E: $(name (my.field)) '$(name)' needs a 'type' attribute'"
+        abort "E: please fix model and 'make code' again"
+    endif
+    my.field.name = "$(name:c)"
+    my.field.byref = 0              #   Pass by greedy reference
+    my.field.const = ""             #   By default, not a constant
+
+    if type = "integer"
+        #   Used in zsock_send
+        my.field.txt_pattern = "i"
+        #   Used in zsock_bsend
+        my.field.bin_pattern = "4"
+        my.field.ctype = "int "
+    elsif type = "number"
+        my.field.size ?= 4
+        #   Used in zsock_send
+        my.field.txt_pattern = "i"
+        #   Used in zsock_bsend
+        my.field.bin_pattern = "$(size)"
+        if size = 1
+            my.field.ctype = "uint8_t "
+        elsif size = 2
+            my.field.ctype = "uint16_t "
+        elsif size = 4
+            my.field.ctype = "uint32_t "
+        elsif size = 8
+            my.field.ctype = "uint64_t "
+        else
+            echo "E: bad size $(size) for $(name)"
+            abort "E: please fix model and 'make code' again"
+        endif
+    elsif type = "string"
+        my.field.txt_pattern = "s"
+        my.field.bin_pattern = "s"
+        my.field.const = "const "
+        my.field.ctype = "char *"
+        my.field.destructor = "zstr_free"
+    elsif type = "longstr"
+        my.field.txt_pattern = "s"
+        my.field.bin_pattern = "S"
+        my.field.const = "const "
+        my.field.ctype = "char *"
+        my.field.destructor = "zstr_free"
+    elsif type = "strings"
+        my.field.txt_pattern = "p"
+        my.field.bin_pattern = "p"
+        my.field.ctype = "zlist_t *"
+        my.field.byref = 1
+        my.field.destructor = "zlist_destroy"
+    elsif type = "chunk" | type = "frame" | type = "hash" | type = "msg"
+        my.field.txt_pattern = "p"
+        my.field.bin_pattern = "p"
+        my.field.ctype = "z$(type)_t *"
+        my.field.byref = 1
+        my.field.destructor = "z$(type)_destroy"
+    endif
+endfunction
+
+function assume_property (field, allocated)
+    if count (class.property, name = my.field.name) = 0
+        copy field to class as property
+        for class.property where name = my.field.name
+            if my.allocated = 0
+                property.destructor =
             endif
-        endnew
+        endfor
     endif
 endfunction
 
@@ -97,57 +154,37 @@ endfunction
 for class.reply
     reply.pattern = ""
     for field
-        field.name = "$(field.name:c)"
-        assume_property (field.name, field.type, 1)
-        if field.type = "string"
-            reply.pattern += "s"
-        elsif field.type = "number"
-            reply.pattern += "i"
-        else
-            echo "E: we didn't add support for $(type)s in method fields"
-        endif
+        check_field (field)
+        assume_property (field, 1)
+        reply.pattern += field.txt_pattern
     endfor
 endfor
 
 for class.method
     method.args = ""
-    method.ctype = "int"
+    method.ctype = "int "
+    method.type = "integer"
     method.pattern = ""
     method.immediate ?= 0
     for field
-        field.name = "$(name:c)"
-        if field.type = "string"
-            method.pattern += "s"
-            method.args += ", const char *$(name)"
-        elsif field.type = "number"
-            method.pattern += "i"
-            method.args += ", int $(name)"
+        check_field (field)
+        method.pattern += field.txt_pattern
+        if field.byref = 0
+            method.args += ", $(const)$(ctype)$(name)"
         else
-            echo "E: we didn't add support for $(type)s in method fields"
+            method.args += ", $(ctype)*$(name)_p"
         endif
-
         #   Collect all fields into class.argument block
         if count (class.argument, argument.name = field.name) = 0
-            new class.argument
-                argument.name = field.name
-                argument.type = field.type
-                if field.type = "string"
-                    argument.ctype = "char *"
-                else
-                    argument.ctype = "int "
-                endif
-            endnew
+            copy field to class as argument
         endif
     endfor
     if defined (method.return)
         method.return = "$(return:c)"
         for class.property where name = method.return
             method.return = "self->" + method.return
-            if property.type = "string"
-                method.ctype = "const char *"
-            elsif property.type = "number"
-                method.ctype = "int"
-            endif
+            method.type = property.type
+            method.ctype = property.ctype
         endfor
     else
         method.return = "0"
@@ -172,22 +209,12 @@ for class.send
             endfor
         endfor
         for method.field
-            if type = "number"
-                method.args += ", int $(name)"
-                field.ctype = "int "
-                pattern += size
-            elsif type = "string"
-                method.args += ", const char *$(name)"
-                field.ctype = "const char *"
-                pattern += "s"
-            elsif type = "longstr"
-                method.args += ", const char *$(name)"
-                field.ctype = "const char *"
-                pattern += "S"
-            elsif type = "chunk" | type = "frame" | type = "msg"
-                method.args += ", z$(type)_t **$(name)_p"
-                field.ctype = "z$(type)_t *"
-                pattern += "p"
+            check_field (field)
+            method.pattern += field.bin_pattern
+            if field.byref = 0
+                method.args += ", $(const)$(ctype)$(name)"
+            else
+                method.args += ", $(ctype)*$(name)_p"
             endif
         endfor
     endfor
@@ -195,7 +222,6 @@ endfor
 
 for class.recv
     for message as method
-        assume_property ("command", "string", 1)
         method.cname = "$(name:c)"
         method.pattern = ""
         method.return = ""
@@ -205,20 +231,9 @@ for class.recv
             endfor
         endfor
         for method.field
-            assume_property (field.name, field.type, 0)
-            if type = "number"
-                field.ctype = "int "
-                pattern += size
-            elsif type = "string"
-                field.ctype = "char *"
-                pattern += "s"
-            elsif type = "longstr"
-                field.ctype = "char *"
-                pattern += "S"
-            elsif type = "chunk" | type = "frame" | type = "msg"
-                field.ctype = "z$(type)_t *"
-                pattern += "p"
-            endif
+            check_field (field)
+            assume_property (field, 0)
+            pattern += field.bin_pattern
             #   We must return a single msg type
             if type = "msg"
                 method.return = name
@@ -304,7 +319,7 @@ $(CLASS.EXPORT_MACRO)zsock_t *
 .for class.method where name <> "constructor" & name <> "destructor"
 //  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
-.       if method.ctype = "int"
+.       if method.type = "number" | method.type = "integer"
 //  Returns >= 0 if successful, -1 if interrupted.
 .       else
 //  Returns NULL on an interrupt.
@@ -328,18 +343,17 @@ $(CLASS.EXPORT_MACRO)int
 $(CLASS.EXPORT_MACRO)zmsg_t *
     $(class.name)_recv ($(class.name)_t *self);
 
+//  Return last received command. Can be one of these values:
+.   for message
+//      "$(NAME)"
+.   endfor
+$(CLASS.EXPORT_MACRO)const char *
+    $(class.name)_command ($(class.name)_t *self);
+
 .endfor
 .for class.property
 //  Return last received $(name)
-.   if name = "command"
-//  Can be one of these values:
-.       for class.recv
-.           for message
-//      "$(NAME)"
-.           endfor
-.       endfor
-.   endif
-$(CLASS.EXPORT_MACRO)$(ctype)
+$(CLASS.EXPORT_MACRO)$(const)$(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
 
 .endfor
@@ -469,7 +483,7 @@ static int
 static void
     s_satisfy_pedantic_compilers (void);
 .for class.prototype
-static $(ctype)
+static void
     $(name) ($(args));
 .endfor
 
@@ -517,8 +531,8 @@ s_client_destroy (s_client_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_client_t *self = *self_p;
-.for class.argument where type = "string"
-        zstr_free (&self->args.$(name));
+.for class.argument where defined (destructor)
+        $(destructor) (&self->args.$(name));
 .endfor
         client_terminate (&self->client);
         $(proto)_destroy (&self->message);
@@ -789,8 +803,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "$(NAME)")) {
 .   if pattern <> ""
-.       for field where type = "string"
-        zstr_free (&self->args.$(name));
+.       for field where defined (destructor)
+        $(destructor) (&self->args.$(name));
 .       endfor
         zsock_recv (self->cmdpipe, "$(pattern)"\
 .       for field
@@ -846,7 +860,7 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
 );
             $(proto)_set_id (self->message, $(PROTO)_$(CNAME));
 .       for field
-.           if type = "string" | type = "number"
+.           if field.byref = 0
             $(proto)_set_$(name) (self->message, $(name));
 .           else
             $(proto)_set_$(name) (self->message, &$(name));
@@ -939,14 +953,11 @@ $(class.name) (zsock_t *cmdpipe, void *msgpipe)
 struct _$(class.name)_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
+.for class.recv
+    char *command;              //  Last received protocol command
+.endfor
 .for class.property
-.   if type = "string"
-    char *$(name);              //  Returned by actor reply
-.   elsif type = "number"
-    int $(name);                //  Returned by actor reply
-.   elsif type = "msg"
-    zmsg_t *$(name);            //  Returned by actor reply
-.   endif
+    $(ctype)$(name);            //  Returned by actor reply
 .endfor
 };
 
@@ -1015,12 +1026,11 @@ $(class.name)_destroy ($(class.name)_t **self_p)
         }
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
-.for class.property
-.   if type = "string" & alloc
-        zstr_free (&self->$(name));
-.   elsif type = "chunk" | type = "frame"
-        z$(type)_destroy (&self->$(name));
-.   endif
+.for class.recv
+        zstr_free (&self->command);
+.endfor
+.for class.property where defined (destructor)
+        $(destructor) (&self->$(name));
 .endfor
         free (self);
         *self_p = NULL;
@@ -1092,8 +1102,8 @@ s_accept_reply ($(class.name)_t *self, ...)
                 else
 .   endif
                 if (streq (reply, "$(reply.name:)")) {
-.   for field where type = "string"
-                    zstr_free (&self->$(name:c));
+.   for field where defined (destructor)
+                    $(destructor) (&self->$(name:c));
 .   endfor
                     zsock_recv (self->actor, "$(reply.pattern:)"\
 .   for field
@@ -1123,7 +1133,7 @@ s_accept_reply ($(class.name)_t *self, ...)
 //  ---------------------------------------------------------------------------
 //  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
-.       if method.ctype = "int"
+.       if method.type = "number" | method.type = "integer"
 //  Returns >= 0 if successful, -1 if interrupted.
 .       else
 //  Returns NULL on an interrupt.
@@ -1142,9 +1152,16 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .   if method.immediate = 0
     zsock_send (self->actor, "s$(pattern)", "$(NAME)"\
 .       for field
+.           if field.byref = 0
 , $(name)\
+.           else
+, *$(name)_p\
+.           endif
 .       endfor
 );
+.       for field where byref = 1
+    *$(name)_p = NULL;          //  Take ownership of $(name)
+.       endfor
 .   endif
 .   if count (method.accept)
     if (s_accept_reply (self\
@@ -1152,7 +1169,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 , "$(accept.reply:)"\
 .       endfor
 , NULL))
-.       if method.ctype = "int"
+.       if method.type = "number" | method.type = "integer"
         return -1;              //  Interrupted or timed-out
 .       else
         return NULL;            //  Interrupted or timed-out
@@ -1168,8 +1185,8 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 
 
 //  ---------------------------------------------------------------------------
-//  Send $(name:) message to server, takes ownership of message
-//  and destroys when done sending it.
+//  Send $(name:) message to server, takes ownership of message and
+//  destroys when done sending it.
 
 int
 $(class.name)_$(.method:c) ($(class.name)_t *self$(args))
@@ -1179,14 +1196,14 @@ $(class.name)_$(.method:c) ($(class.name)_t *self$(args))
     zstr_sendm (self->msgpipe, "$(NAME)");
     int rc = zsock_bsend (self->msgpipe, "$(pattern:)"\
 .       for field
-.           if type = "chunk" | type = "frame" | type = "msg"
-, *$(name)_p\
-.           else
+.           if field.byref = 0
 , $(name)\
+.           else
+, *$(name)_p\
 .           endif
 .       endfor
 );
-.       for field where type = "chunk" | type = "frame" | type = "msg"
+.       for field where byref = 1
     *$(name)_p = NULL;          //  Take ownership of $(name)
 .       endfor
     return rc;
@@ -1222,6 +1239,18 @@ $(class.name)_recv ($(class.name)_t *self)
 .   endfor
     return NULL;
 }
+
+//  ---------------------------------------------------------------------------
+//  Return last received command. Can be one of these values:
+.   for message
+//      "$(NAME)"
+.   endfor
+const char *
+$(class.name)_command ($(class.name)_t *self)
+{
+    assert (self);
+    return self->command;
+}
 .endfor
 .for class.property
 
@@ -1229,7 +1258,7 @@ $(class.name)_recv ($(class.name)_t *self)
 //  ---------------------------------------------------------------------------
 //  Return last received $(name)
 
-$(ctype)
+$(const)$(ctype)
 $(class.name)_$(name) ($(class.name)_t *self)
 {
     assert (self);
@@ -1354,16 +1383,9 @@ for class.prototype where exists = 0
     >//  $(name)
     >//
     >
-    >static $(ctype)
+    >static void
     >$(name) ($(args))
     >{
-    if ctype = "int"
-        >    return 0;
-    elsif ctype = "char *"
-        >    return NULL
-    else
-        >
-    endif
     >}
 endfor
 .endtemplate
