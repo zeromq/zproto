@@ -299,10 +299,6 @@ b$(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
-//  Enable verbose logging of client activity
-$(CLASS.EXPORT_MACRO)void
-    $(class.name)_verbose ($(class.name)_t *self);
-
 //  Return actor, when caller wants to work with multiple actors and/or
 //  input sockets asynchronously.
 $(CLASS.EXPORT_MACRO)zactor_t *
@@ -365,6 +361,11 @@ $(header.:)
 //  Self test of this class
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_test (bool verbose);
+    
+//  To enable verbose tracing (animation) of $(class.name) instances, set
+//  this to true. This lets you trace from and including construction.
+$(CLASS.EXPORT_MACRO)extern volatile int
+    $(class.name)_verbose;
 //  @end
 
 #ifdef __cplusplus
@@ -463,7 +464,6 @@ typedef struct {
     int expiry_timer;           //  zloop timer for timeouts
     int wakeup_timer;           //  zloop timer for alarms
     event_t wakeup_event;       //  Wake up with this event
-    bool verbose;               //  Verbose logging enabled?
 } s_client_t;
 
 static int
@@ -487,6 +487,10 @@ static void
     $(name) ($(args));
 .endfor
 
+//  Global tracing/animation indicator; we can't use a client method as
+//  that only works after construction (which we often want to trace).
+volatile int $(class.name)_verbose = false;
+    
 //  Create a new client connection
 
 static s_client_t *
@@ -666,7 +670,7 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
                     if (!self->exception) {
 .           if name = "send"
                         //  send $(MESSAGE:C)
-                        if (self->verbose)
+                        if ($(class.name)_verbose)
                             zsys_debug ("$(class.name):         $ $(name) $(MESSAGE:C)");
                         $(proto)_set_id (self->message, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
@@ -676,12 +680,12 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
                         $(proto)_send (self->message, self->dealer);
 .           elsif name = "terminate"
                         //  terminate
-                        if (self->verbose)
+                        if ($(class.name)_verbose)
                             zsys_debug ("$(class.name):         $ $(name)");
                         self->terminated = true;
 .           else
                         //  $(name)
-                        if (self->verbose)
+                        if ($(class.name)_verbose)
                             zsys_debug ("$(class.name):         $ $(name)");
                         $(name:c) (&self->client);
 .           endif
@@ -709,7 +713,7 @@ s_client_execute (s_client_t *self, event_t event)
         self->event = self->next_event;
         self->next_event = NULL_event;
         self->exception = NULL_event;
-        if (self->verbose) {
+        if ($(class.name)_verbose) {
             zsys_debug ("$(class.name): %s:", s_state_name [self->state]);
             zsys_debug ("$(class.name):     %s", s_event_name [self->event]);
         }
@@ -749,12 +753,12 @@ s_client_execute (s_client_t *self, event_t event)
         }
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
-            if (self->verbose)
+            if ($(class.name)_verbose)
                 zsys_debug ("$(class.name):         ! %s", s_event_name [self->exception]);
             self->next_event = self->exception;
         }
         else
-        if (self->verbose)
+        if ($(class.name)_verbose)
             zsys_debug ("$(class.name):         > %s", s_state_name [self->state]);
     }
 }
@@ -791,12 +795,9 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     char *method = zstr_recv (self->cmdpipe);
     if (!method)
         return -1;                  //  Interrupted; exit zloop
-    if (self->verbose)
+    if ($(class.name)_verbose)
         zsys_debug ("$(class.name):     API command=%s", method);
 
-    if (streq (method, "VERBOSE"))
-        self->verbose = true;       //  Start verbose logging
-    else
     if (streq (method, "$TERM"))
         self->terminated = true;    //  Shutdown the engine
 .for class.method where immediate = 0
@@ -840,7 +841,7 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
         char *method = zstr_recv (self->msgpipe);
         if (!method)
             return -1;              //  Interrupted; exit zloop
-        if (self->verbose)
+        if ($(class.name)_verbose)
             zsys_debug ("$(class.name):     API message=%s", method);
 
         //  Front-end shuts down msgpipe before cmdpipe
@@ -1035,17 +1036,6 @@ $(class.name)_destroy ($(class.name)_t **self_p)
         free (self);
         *self_p = NULL;
     }
-}
-
-
-//  ---------------------------------------------------------------------------
-//  Enable verbose logging of client activity
-
-void
-$(class.name)_verbose ($(class.name)_t *self)
-{
-    assert (self);
-    zsock_send (self->actor, "s", "VERBOSE");
 }
 
 
@@ -1350,8 +1340,7 @@ $(class.name)_test (bool verbose)
     
     //  @selftest
     zactor_t *client = zactor_new ($(class.name), NULL);
-    if (verbose)
-        zstr_send (client, "VERBOSE");
+    $(class.name)_verbose = verbose;
     zactor_destroy (&client);
     //  @end
     printf ("OK\\n");
