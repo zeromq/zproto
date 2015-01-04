@@ -40,7 +40,7 @@ function generate_bnf
         >
             >    $(name:)        = signature %d$(id)\
         for field
-            > $(field.name)\
+            > $(field.name:c)\
         endfor
         >
         if first()
@@ -61,7 +61,7 @@ function generate_bnf
             if defined (class.use_$(name))
                 >    $(name)         =\
                 for field
-                    > $(field.name)\
+                    > $(field.name:c)\
                 endfor
                 >
                 for field
