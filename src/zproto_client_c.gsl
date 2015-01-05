@@ -969,7 +969,11 @@ struct _$(class.name)_t {
 //  $(method.?'No explanation':justify,block%-80s)
 
 static $(ctype)
-$(class.name)_$(name:c) ($(class.name)_t *self, $(args));
+$(class.name)_$(name:c) ($(class.name)_t *self\
+.if !(args = "void")
+, $(args)\
+.endif
+);
 
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(class.name)_new ($(args))
@@ -1021,7 +1025,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
             //  sending any pending messages and handshaking goodbye to server
             zstr_send (self->msgpipe, "$TERM");
             zsock_wait (self->actor);
-.for class.method where name = "constructor"
+.for class.method where name = "destructor"
             $(class.name)_destructor (self);
 .endfor
         }
@@ -1132,7 +1136,11 @@ s_accept_reply ($(class.name)_t *self, ...)
 
 .   if name = "constructor"
 static $(ctype)
-$(class.name)_$(name:c) ($(class.name)_t *self, $(args))
+$(class.name)_$(name:c) ($(class.name)_t *self\
+.       if !(args = "void")
+, $(args)\
+.       endif
+)
 .   else
 $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self$(args))
