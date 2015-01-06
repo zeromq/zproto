@@ -97,7 +97,7 @@ function check_field (field)
     elsif type = "number"
         my.field.size ?= 4
         #   Used in zsock_send
-        my.field.txt_pattern = "i"
+        my.field.txt_pattern = "$(size)"
         #   Used in zsock_bsend
         my.field.bin_pattern = "$(size)"
         if size = 1
