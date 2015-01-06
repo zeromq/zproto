@@ -160,7 +160,7 @@ endfor
 (def state-events {
 . for state
   :$(clj_name (name)) {
-. for state.event
+. for state.event where defined (external) | name = "*"
 .  if name = "*"
     :*\
 .else
