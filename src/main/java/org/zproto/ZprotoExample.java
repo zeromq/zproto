@@ -526,7 +526,7 @@ public class ZprotoExample implements java.io.Closeable
                 }
             }
             else
-                putNumber4 (0);      //  Empty dictionary
+                putNumber4 (0);      //  Empty hash
             break;
 
         case BINARY:
@@ -1147,7 +1147,7 @@ public class ZprotoExample implements java.io.Closeable
     }
 
     //  --------------------------------------------------------------------------
-    //  Get/set a value in the headers dictionary
+    //  Get/set a value in the headers hash
 
     public Map <String, String> headers ()
     {

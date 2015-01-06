@@ -25,7 +25,7 @@ The following ABNF grammar defines the zproto example protocol:
 
     ;  Deliver a multi-part message.                                         
 
-    BINARY          = signature %d3 sequence flags public key identifier address content
+    BINARY          = signature %d3 sequence flags public_key identifier address content
     sequence        = number-2              ; 
     flags           = 4OCTET                ; A set of flags
     public key      = chunk                 ; Our public key

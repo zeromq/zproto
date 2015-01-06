@@ -61,7 +61,7 @@ struct _zproto_example_t {
     char *data;                         //  Actual log message
     zlist_t *aliases;                   //  List of strings
     zhash_t *headers;                   //  Other random properties
-    size_t headers_bytes;               //  Size of dictionary content
+    size_t headers_bytes;               //  Size of hash content
     byte flags [4];                     //  A set of flags
     zchunk_t *public_key;               //  Our public key
     zuuid_t *identifier;                //  Unique identity
@@ -333,7 +333,7 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
                 self->aliases = zlist_new ();
                 zlist_autofree (self->aliases);
                 while (list_size--) {
-                    char *string;
+                    char *string = NULL;
                     GET_LONGSTR (string);
                     zlist_append (self->aliases, string);
                     free (string);
@@ -345,7 +345,8 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
                 self->headers = zhash_new ();
                 zhash_autofree (self->headers);
                 while (hash_size--) {
-                    char key [256], *value;
+                    char key [256];
+                    char *value = NULL;
                     GET_STRING (key);
                     GET_LONGSTR (value);
                     zhash_insert (self->headers, key, value);
@@ -535,7 +536,7 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
                 }
             }
             else
-                PUT_NUMBER4 (0);    //  Empty dictionary
+                PUT_NUMBER4 (0);    //  Empty hash
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
@@ -1373,6 +1374,10 @@ zproto_example_test (bool verbose)
     zproto_example_set_id (self, ZPROTO_EXAMPLE_STRUCTURES);
 
     zproto_example_set_sequence (self, 123);
+    zlist_t *structures_aliases = zlist_new ();
+    zlist_append (structures_aliases, "Name: Brutus");
+    zlist_append (structures_aliases, "Age: 43");
+    zproto_example_set_aliases (self, &structures_aliases);
     //  Send twice
     zproto_example_send (self, output);
     zproto_example_send (self, output);
@@ -1381,9 +1386,11 @@ zproto_example_test (bool verbose)
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
-        assert (zproto_example_aliases_size (self) == 2);
-        assert (streq (zproto_example_aliases_first (self), "Name: Brutus"));
-        assert (streq (zproto_example_aliases_next (self), "Age: 43"));
+        zlist_t *aliases = zproto_example_get_aliases (self);
+        assert (zlist_size (aliases) == 2);
+        assert (streq ((char *) zlist_first (aliases), "Name: Brutus"));
+        assert (streq ((char *) zlist_next (aliases), "Age: 43"));
+        zlist_destroy (&aliases);
     }
     zproto_example_set_id (self, ZPROTO_EXAMPLE_BINARY);
 
