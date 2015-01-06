@@ -160,7 +160,7 @@ endfor
 (def state-events {
 . for state
   :$(clj_name (name)) {
-. for state.event
+. for state.event where defined (external) | name = "*"
 .  if name = "*"
     :*\
 .else
@@ -206,7 +206,7 @@ terminate \
     (assoc state routing-id :start)))
 
 (defn match-msg
-  [{:keys [state] :as server} ^HydraMsg msg]
+  [{:keys [state] :as server} ^$(java_protocol_class ()) msg]
   (let [id (.id msg)
         routing-id (.getData (.routingId msg))
         initialized-state (-> (swap! state maybe-setup-session routing-id)
