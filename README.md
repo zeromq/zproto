@@ -115,8 +115,9 @@ The server is a "actor" built on the CZMQ/zactor class. CZMQ zactors use a simpl
 Where "myserver" is used in logging. Note that a zactor is effectively a background thread with a socket API, and you can pass zactor_t instances to all CZMQ message passing methods. The generated zactor accepts these messages:
 
     VERBOSE
-    CONFIGURE configfile
+    LOAD configfile
     SET configpath value
+    SAVE configfile
     BIND localendpoint
     $TERM
     
