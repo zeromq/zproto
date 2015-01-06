@@ -143,12 +143,16 @@ extern "C" {
 //  Specify configuration file to load, overwriting any previous loaded
 //  configuration file or options:
 //
-//      zstr_sendx ($(class.name:c), "CONFIGURE", filename, NULL);
+//      zstr_sendx ($(class.name:c), "LOAD", filename, NULL);
 //
 //  Set configuration path value:
 //
 //      zstr_sendx ($(class.name:c), "SET", path, value, NULL);
 //    
+//  Save configuration data to config file on disk:
+//
+//      zstr_sendx ($(class.name:c), "SAVE", filename, NULL);
+//
 //  Send zmsg_t instance to $(class.name):
 //
 //      zactor_send ($(class.name:c), &msg);
@@ -845,20 +849,20 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         zstr_sendm (self->pipe, "PORT");
         zstr_sendf (self->pipe, "%d", self->port);
     }
-    else
-    if (streq (method, "CONFIGURE")) {
-        char *config_file = zmsg_popstr (msg);
+    else                       //  Deprecated method name
+    if (streq (method, "LOAD") || streq (method, "CONFIGURE")) {
+        char *filename = zmsg_popstr (msg);
         zconfig_destroy (&self->config);
-        self->config = zconfig_load (config_file);
+        self->config = zconfig_load (filename);
         if (self->config) {
             s_server_config_service (self);
             self->server.config = self->config;
         }
         else {
-            zsys_warning ("cannot load config file '%s'\\n", config_file);
+            zsys_warning ("cannot load config file '%s'", filename);
             self->config = zconfig_new ("root", NULL);
         }
-        free (config_file);
+        free (filename);
     }
     else
     if (streq (method, "SET")) {
@@ -872,6 +876,13 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_server_config_global (self);
         free (path);
         free (value);
+    }
+    else
+    if (streq (method, "SAVE")) {
+        char *filename = zmsg_popstr (msg);
+        if (zconfig_save (self->config, filename))
+            zsys_warning ("cannot save config file '%s'", filename);
+        free (filename);
     }
     else {
         //  Execute custom method
