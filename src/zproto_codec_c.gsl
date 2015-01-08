@@ -549,6 +549,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                     zsys_warning ("$(class.name): $(name) is missing data");
                     goto malformed;
                 }
+                zchunk_destroy (&self->$(name));
                 self->$(name) = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
@@ -557,6 +558,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                 zsys_warning ("$(class.name): $(name) is invalid");
                 goto malformed;
             }
+            zuuid_destroy (&self->$(name));
             self->$(name) = zuuid_new ();
             zuuid_set (self->$(name), self->needle);
             self->needle += ZUUID_LEN;
