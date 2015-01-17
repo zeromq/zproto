@@ -794,12 +794,15 @@ s_server_config_service (s_server_t *self)
             char *mechanism = zconfig_resolve (section, "mechanism", "null");
             char *domain = zconfig_resolve (section, "domain", NULL);
             if (streq (mechanism, "null")) {
+                zsys_notice ("server is using NULL security");
                 if (domain)
                     zsock_set_zap_domain (self->router, NULL);
             }
             else
-            if (streq (mechanism, "plain"))
+            if (streq (mechanism, "plain")) {
+                zsys_notice ("server is using PLAIN security");
                 zsock_set_plain_server (self->router, 1);
+            }
             else
                 zsys_warning ("mechanism=%s is not supported", mechanism);
         }
