@@ -50,6 +50,16 @@ for class.state
             copy action to class
         endfor
     endfor
+    for [before]
+        for action where count (class.action, name = -1.name) = 0
+            copy action to class
+        endfor
+    endfor
+    for [after]
+        for action where count (class.action, name = -1.name) = 0
+            copy action to class
+        endfor
+    endfor
 endfor
 
 #   Process super states
@@ -692,9 +702,18 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
 .           endif
                     }
 .       endfor
+.endmacro
+.macro output_state_change ()
 .       if defined (event.next)
+.           for state.[after]
+.               output_action_body ()
+.           endfor
                     if (!self->exception)
                         self->state = $(next:c)_state;
+.           my.next_state = class->state ("$(name:c)" = "$(event.next:c)")
+.           for my.next_state.[before]
+.               output_action_body ()
+.           endfor
 .       endif
 .endmacro
 
@@ -732,6 +751,7 @@ s_client_execute (s_client_t *self, event_t event)
 .       endif
                 if (self->event == $(name)_event) {
 .       output_action_body ()
+.       output_state_change ()
                 }
 .   endfor
 .   for event where name = "*"
@@ -742,6 +762,7 @@ s_client_execute (s_client_t *self, event_t event)
 .       endif
                     //  Handle unexpected protocol events
 .       output_action_body ()
+.       output_state_change ()
                 }
 .   else
                 else {
