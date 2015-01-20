@@ -557,6 +557,27 @@ For complex protocols you can collect error handling together using the wildcard
         </event>
     </state>
 
+### Before/After State Actions
+
+As another way to reduce error-prone repetition, it is possible to add actions to be executed for any event that transitions to or from a given state. This is modelled with a before or after element containing one or more action elements inside of a state element. The given actions will be executed only when the state of the machine changes to or from that state (due to an event that has the "next" attribute defined).
+
+    <state name = "active" inherit = "defaults">
+        <before>
+            <action name = "start underlying service" />
+        </before>
+        <event name = "REQUEST">
+            <action name = "store metadata" />
+            <action name = "forward to underlying service" />
+        </event>
+        <event name = "reply from underlying service">
+            <action name = "send" message = "REPLY" />
+            <action name = "clear metadata" />
+        </event>
+        <after>
+            <action name = "stop underlying service" />
+        </after>
+    </state>
+
 ### Client Properties
 
 In your client code, you have a client_t structure. Note that the client_t structure MUST always start with these variables (the msgout and msgin will use whatever protocol name you defined):
