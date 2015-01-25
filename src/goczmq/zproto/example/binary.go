@@ -135,20 +135,20 @@ func (b *Binary) Send(sock *goczmq.Sock) (err error) {
 
 	// If we're sending to a ROUTER, we send the routingId first
 	if socType == goczmq.ROUTER {
-		err = sock.SendBytes(b.routingId, goczmq.MORE)
+		err = sock.SendFrame(b.routingId, goczmq.MORE)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Now send the data frame
-	err = sock.SendBytes(frame, goczmq.MORE)
+	err = sock.SendFrame(frame, goczmq.MORE)
 	if err != nil {
 		return err
 	}
 	// Now send any frame fields, in order
-	err = sock.SendBytes(b.Address, goczmq.MORE)
-	err = sock.SendBytes(b.Content, 0)
+	err = sock.SendFrame(b.Address, goczmq.MORE)
+	err = sock.SendFrame(b.Content, 0)
 
 	return err
 }

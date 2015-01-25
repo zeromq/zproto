@@ -180,14 +180,14 @@ func (l *Log) Send(sock *goczmq.Sock) (err error) {
 
 	// If we're sending to a ROUTER, we send the routingId first
 	if socType == goczmq.ROUTER {
-		err = sock.SendBytes(l.routingId, goczmq.MORE)
+		err = sock.SendFrame(l.routingId, goczmq.MORE)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Now send the data frame
-	err = sock.SendBytes(frame, 0)
+	err = sock.SendFrame(frame, 0)
 	if err != nil {
 		return err
 	}
