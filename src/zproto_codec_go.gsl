@@ -563,7 +563,7 @@ func ($(self) *$(name:no)) Send(sock *goczmq.Sock) (err error) {
 	}
 .elsif class.package = "github.com/zeromq/goczmq"
 	if socType == goczmq.ROUTER {
-		err = sock.SendBytes($(self).routingId, goczmq.MORE)
+		err = sock.SendFrame($(self).routingId, goczmq.MORE)
 		if err != nil {
 			return err
 		}
@@ -575,13 +575,13 @@ func ($(self) *$(name:no)) Send(sock *goczmq.Sock) (err error) {
 .if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes(frame, 0)
 .elsif class.package = "github.com/zeromq/goczmq"
-	err = sock.SendBytes(frame, 0)
+	err = sock.SendFrame(frame, 0)
 .endif
 .else
 .if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes(frame, zmq.SNDMORE)
 .elsif class.package = "github.com/zeromq/goczmq"
-	err = sock.SendBytes(frame, goczmq.MORE)
+	err = sock.SendFrame(frame, goczmq.MORE)
 .endif
 .endif
 	if err != nil {
@@ -595,13 +595,13 @@ func ($(self) *$(name:no)) Send(sock *goczmq.Sock) (err error) {
 .if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes($(self).$(name:no), 0)
 .elsif class.package = "github.com/zeromq/goczmq"
-	err = sock.SendBytes($(self).$(name:no), 0)
+	err = sock.SendFrame($(self).$(name:no), 0)
 .endif
 .    else
 .if class.package = "github.com/pebbe/zmq4"
 	_, err = socket.SendBytes($(self).$(name:no), zmq.SNDMORE)
 .elsif class.package = "github.com/zeromq/goczmq"
-	err = sock.SendBytes($(self).$(name:no), goczmq.MORE)
+	err = sock.SendFrame($(self).$(name:no), goczmq.MORE)
 .endif
 .    endif
 .endfor
