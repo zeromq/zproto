@@ -1,0 +1,731 @@
+.template 0
+#   zproto_codec_cs.gsl
+#
+#   Generates a codec for a protocol specification. 
+include "zproto_lib.gsl"
+include "zproto_lib_cs.gsl"
+include "zproto_bnf.gsl"
+resolve_includes ()
+expand_headers ()
+generate_bnf ()
+set_cs_defaults ()
+ignorecase = 0
+.endtemplate
+.output "$(class.source_dir)/$(class.name:Camel).cs"
+/*  =========================================================================
+    $(class.name) - $(class.title:)
+
+    Codec class for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
+    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+    =========================================================================
+*/
+
+/*
+@header
+    $(class.name) - $(class.title:)
+@discuss
+@end
+*/
+
+using System;
+using System.Collections.Generic;
+using NetMQ;
+using NetMQ.Sockets;
+using System.Text;
+
+//  Class of our class
+public class $(class.name:Pascal) : IDisposable 
+{
+.for message
+	const int $(message.name) = $(id);
+.endfor
+
+    byte[] m_buffer;    //  Read/write buffer for serialization    
+	int m_offset;
+
+	//  Create a new $(class.name)
+	public $(class.name:Pascal)()
+	{    
+	}
+
+	//  Dispose the $(class.name)
+	public void Dispose()
+	{
+		// Free class properties
+		RoutingId = null;
+       
+.for class.field
+.   if type = "uuid"
+        $(name) = Guid.Empty;            
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "strings" | type = "msg"
+        $(name) = null;
+.   endif
+.endfor    
+	}
+
+
+	#region Network data encoding methods
+
+	//  Put a block of octets to the frame
+	private void PutOctets(byte[] host) 
+	{ 
+		Buffer.BlockCopy(host, 0, m_buffer, m_offset, host.Length);   
+		m_offset += host.Length; 
+	}
+
+	//  Get a block of octets from the frame
+	private byte[] GetOctets(int size) 
+	{
+		if (m_offset + size > m_buffer.Length) { 
+			//zsys_warning ("$(class.name): GET_OCTETS failed"); 
+			//goto malformed; 
+		} 
+
+		byte[] bytes = new byte[size];
+
+		Buffer.BlockCopy(m_buffer, m_offset, bytes, 0, size);
+		m_offset += size; 
+
+		return bytes;
+	}
+
+	//  Put a 1-byte number to the frame
+	private void PutNumber1(byte host) 
+	{ 
+		m_buffer[m_offset] = host;
+		m_offset++;
+	}
+
+	//  Put a 2-byte number to the frame
+	private void PutNumber2(UInt16 host) 
+	{ 
+		m_buffer[m_offset] = (byte) (((host) >> 8)  & 255);
+		m_buffer[m_offset+1] = (byte) (((host))       & 255); 
+
+		m_offset+=2;
+	}
+
+	//  Put a 4-byte number to the frame
+	private void PutNumber4(UInt32 host) 
+	{
+		m_buffer[m_offset] = (byte) (((host) >> 24) & 255);
+		m_buffer[m_offset+1] = (byte) (((host) >> 16) & 255); 
+		m_buffer[m_offset+2] = (byte) (((host) >> 8)  & 255); 
+		m_buffer[m_offset+3] = (byte) (((host))       & 255);
+
+		m_offset+=4;
+	}
+
+	//  Put a 8-byte number to the frame
+	private void PutNumber8(UInt64 host) 
+	{
+		m_buffer[m_offset] = (byte) (((host) >> 56) & 255);
+		m_buffer[m_offset+1] = (byte) (((host) >> 48) & 255);
+		m_buffer[m_offset+2] = (byte) (((host) >> 40) & 255);
+		m_buffer[m_offset+3] = (byte) (((host) >> 32) & 255);
+		m_buffer[m_offset+4] = (byte) (((host) >> 24) & 255); 
+		m_buffer[m_offset+5] = (byte) (((host) >> 16) & 255);
+		m_buffer[m_offset+6] = (byte) (((host) >> 8)  & 255);
+		m_buffer[m_offset+7] = (byte) (((host))       & 255);
+
+		m_offset+=8;
+	}
+
+	//  Get a 1-byte number from the frame
+	private byte GetNumber1() 
+	{
+		if (m_offset + 1 > m_buffer.Length) 
+		{
+			//zsys_warning ("$(class.name): GET_NUMBER1 failed"); 
+			//goto malformed; 
+		} 
+    
+		byte b = m_buffer[m_offset];
+		
+		m_offset++;
+
+		return b;
+	}
+
+	//  Get a 2-byte number from the frame
+	private UInt16 GetNumber2() 
+	{ 
+		if (m_offset + 2 > m_buffer.Length) 
+		{
+			//zsys_warning ("$(class.name): GET_NUMBER1 failed"); 
+			//goto malformed; 
+		} 
+    
+		UInt16 number = (UInt16)((m_buffer[m_offset] << 8) + 
+						m_buffer[m_offset+1]);
+		
+		m_offset+=2;
+
+		return number;
+	}
+
+	//  Get a 4-byte number from the frame
+	private UInt32 GetNumber4() 
+	{ 
+		if (m_offset + 4 > m_buffer.Length) 
+		{
+			//zsys_warning ("$(class.name): GET_NUMBER1 failed"); 
+			//goto malformed; 
+		} 
+    
+		UInt32 number = 
+			(((UInt32)m_buffer[m_offset]) << 24) + 
+			(((UInt32)m_buffer[m_offset+1]) << 16)  +
+			(((UInt32)m_buffer[m_offset+2]) << 8) +
+			(UInt32)m_buffer[m_offset+3];
+		
+		m_offset+=4;
+
+		return number;
+	}
+
+	//  Get a 8byte number from the frame
+	private UInt64 GetNumber8() 
+	{ 
+		if (m_offset + 8 > m_buffer.Length) 
+		{
+			//zsys_warning ("$(class.name): GET_NUMBER1 failed"); 
+			//goto malformed; 
+		} 
+    
+		UInt64 number = 
+			(((UInt64) m_buffer[m_offset]) << 56) + 
+			(((UInt64) m_buffer[m_offset+1]) << 48)  +
+			(((UInt64) m_buffer[m_offset+2]) << 40) +
+			(((UInt64) m_buffer[m_offset+3]) << 32) +
+			(((UInt64) m_buffer[m_offset+4]) << 24) +
+			(((UInt64) m_buffer[m_offset+5]) << 16) +
+			(((UInt64) m_buffer[m_offset+6]) << 8) +		
+			(UInt64) m_buffer[m_offset+7];
+		
+		m_offset+=8;
+
+		return number;
+	}
+
+	//  Put a string to the frame
+	private void PutString(string host) 
+	{     
+		PutNumber1((byte)host.Length); 
+
+		Encoding.ASCII.GetBytes(host, 0, host.Length, m_buffer, m_offset);
+    
+		m_offset += host.Length;
+	}
+
+	//  Get a string from the frame
+	private string GetString() 
+	{ 
+		int length = GetNumber1();    
+		if (m_offset + length > m_buffer.Length) 
+		{ 
+		  //  zsys_warning ("$(class.name): GET_STRING failed"); 
+		  //  goto malformed; 
+		} 
+
+		string s = Encoding.ASCII.GetString(m_buffer, m_offset, length);
+
+		m_offset += length;
+
+		return s;
+	}
+
+	//  Put a long string to the frame
+	private void PutLongString(string host) 
+	{     
+		PutNumber4((UInt32)host.Length);
+	 
+		Encoding.ASCII.GetBytes(host, 0, host.Length, m_buffer, m_offset);
+    
+		m_offset += host.Length;
+	}
+
+	//  Get a long string from the frame
+	private string GetLongString() 
+	{ 
+		int length = (int)GetNumber4();    
+		if (m_offset + length > m_buffer.Length) 
+		{ 
+		  //  zsys_warning ("$(class.name): GET_STRING failed"); 
+		  //  goto malformed; 
+		} 
+
+		string s = Encoding.ASCII.GetString(m_buffer, m_offset, length);
+
+		m_offset += length;
+
+		return s;
+	}
+
+	#endregion
+
+	//  --------------------------------------------------------------------------
+	//  Receive a $(class.name) from the socket. 
+	public void Receive(IReceivingSocket input)
+	{	    
+		bool more;
+   
+		if (input is RouterSocket) 
+		{        		
+			RoutingId = input.Receive(out more);
+		    if (!more) 
+			{
+				// TODO: throw exception 
+				//zsys_warning ("$(class.name): no routing ID");
+				//return -1;          //  Interrupted or malformed
+			}
+		}
+
+		m_buffer = input.Receive(out more);
+        
+		UInt16 signature = GetNumber2();
+    
+		if (signature != (0xAAA0 | $(class.signature))) 
+		{
+			// TODO: throw exception
+			//zsys_warning ("$(class.name): invalid signature");
+			//  TODO: discard invalid messages and loop, and return
+			//  -1 only on interrupt
+			//goto malformed;         //  Interrupted
+		}
+		//  Get message id and parse per message type
+		Id = GetNumber1();
+	
+		switch (Id) 
+		{
+.for class.message
+			case $(message.name):
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+				{
+					$(cstype) $(name:pascal) = GetNumber$(size)();
+                
+					if ($(name:pascal) != $(value:)) 
+					{
+						//TODO: throw exception
+						//zsys_warning ("$(class.name): $(name) is invalid");
+						//goto malformed;
+					}
+				}
+.           else
+				$(name) = GetNumber$(size)();
+.           endif
+.       elsif type = "octets"
+				$(name) = GetOctets($(size));
+.       elsif type = "string"
+.           if defined (field.value)
+				{
+					string $(name:camel) = GetString();                
+					if ($(name:camel) != "$(value:)") 
+					{
+					  //  zsys_warning ("$(class.name): $(name) is invalid");
+					  //  goto malformed;
+					}
+				}
+.           else
+				$(name) = GetString();
+.           endif
+.       elsif type = "longstr"
+				$(name) = GetLongString();            
+.       elsif type = "strings"
+				{			
+					int listSize = (int)GetNumber4();                
+					$(name) = new List<string>(listSize);
+                
+					while (listSize-- > 0) 
+					{
+						string s = GetLongString();
+						$(name).Add(s);                   
+					}
+				}
+.       elsif type = "hash"
+				{
+					int hashSize = (int)GetNumber4();
+                
+					$(name) = new Dictionary<string, string>();                
+					while (hashSize-- > 0)  
+					{
+						string key = GetString();
+						string value = GetLongString();
+						$(name).Add(key, value);
+					}
+				}
+.       elsif type = "chunk"
+				{
+					int chunkSize = (int)GetNumber4();
+                
+					if (m_offset + chunkSize > m_buffer.Length) 
+					{
+						// TODO: throw exception
+						//zsys_warning ("$(class.name): $(name) is missing data");
+						//goto malformed;
+					}
+                
+					$(name) = GetOctets(chunkSize);                
+				}
+.       elsif type = "uuid"
+				if (m_offset + 16 > m_buffer.Length) 
+				{
+					// TODO: throw exception
+					//zsys_warning ("$(class.name): $(name) is invalid");
+					//goto malformed;
+				}
+            
+				$(name) = new Guid(GetOctets(16));            
+.       elsif type = "frame"
+				//  Get next frame off socket
+				if (!more)
+				{
+					// TODO: throw exception
+				
+					//zsys_warning ("$(class.name): $(name) is missing");
+					//goto malformed;
+				}
+            
+				$(name) = input.Receive(out more);
+.       elsif type = "msg"
+				//  Get zero or more remaining frames            
+				if (more)
+					$(name) = input.ReceiveMessage();
+				else
+					$(name) = new NetMQMessage();
+.       endif
+.   endfor
+            break;
+
+.endfor
+        default:
+            //zsys_warning ("$(class.name): bad message ID");
+            //goto malformed;
+			// TODO: throw exception
+			break;
+		}        
+	}
+
+
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the socket. Does not destroy it.
+	public void Send(IOutgoingSocket output)
+	{    
+		if (output is RouterSocket)
+			output.SendMore(RoutingId);
+
+		int frameSize = 2 + 1;          //  Signature and message ID
+		switch (Id) 
+		{
+.for class.message where count (field)
+			case $(message.name):
+.   for field
+.       if type = "number"
+				frameSize += $(size);      //  $(name)
+.       elsif type = "octets"
+				frameSize += $(size);      //  $(name)
+.       elsif type = "string"
+.           if defined (field.value)
+				frameSize += 1 +  "$(value:)".Length;
+.           else
+				frameSize += 1 + $(name).Length;
+.           endif
+.       elsif type = "longstr"
+				frameSize += 4;
+				if ($(name) != null)
+					frameSize += $(name).Length;
+.       elsif type = "strings"
+				frameSize += 4;            //  Size is 4 octets
+				if ($(name) != null) 
+				{
+					foreach(string s in $(name))
+					{
+						frameSize += 4 + s.Length;
+					}                
+				}
+.       elsif type = "hash"
+				frameSize += 4;            //  Size is 4 octets
+				if ($(name) != null) 
+				{                
+					int $(name:Pascal)Size = 0;
+
+					foreach (var pair in $(name))
+					{
+						$(name:pascal)Size += 1 + pair.Key.Length;
+						$(name:pascal)Size += 4 + pair.Value.Length;
+					}
+
+					frameSize += $(name:pascal)Size;
+				}
+            
+.       elsif type = "chunk"
+				frameSize += 4;            //  Size is 4 octets
+				if ($(name) != null)
+					frameSize += $(name).Length;
+.       elsif type = "uuid"
+				frameSize  += 16;    //  $(name)
+.       elsif type = "frame"
+.       elsif type = "msg"
+.           class.msg = name
+.           if item () <> count (message.field)
+.               echo "E: in $(message.name:), $(field.name) must come last"
+.           endif
+.       endif
+.   endfor
+				break;
+.endfor
+		}
+		//  Now serialize message into the frame
+    
+		m_buffer = new byte[frameSize];
+		PutNumber2(0xAAA0 | $(class.signature));
+		PutNumber1((byte)Id);
+.if defined (class.msg)
+		bool send$(class.msg:camel) = false;
+.endif
+		int frames = 1;              //  Total number of frames to send
+    
+		switch (Id) 
+		{
+.for class.message where count (field)
+			case $(message.name):
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+				PutNumber$(size)($(value:));
+.           else
+	            PutNumber$(size)($(name));
+.           endif
+.       elsif type = "octets"
+				PutOctets($(name));
+.       elsif type = "string"
+.           if defined (field.value)
+				PutString("$(value:)");
+.           else
+				PutString($(name));
+.           endif
+.       elsif type = "longstr"
+				if ($(name) != null) 
+				{
+					PutLongString($(name));                
+				}
+				else
+					PutNumber4(0);    //  Empty string
+.       elsif type = "strings"
+				if ($(name) != null) 
+				{
+					PutNumber4((UInt32)$(name).Count);
+
+					foreach (string s in $(name))
+					{
+						PutLongString(s);
+					}                
+				}
+				else
+					PutNumber4(0);    //  Empty string array
+.       elsif type = "hash"
+				if ($(name) != null) 
+				{
+					PutNumber4((UInt32)$(name).Count);
+                
+					foreach(var pair in $(name))
+					{
+						PutString(pair.Key);
+						PutLongString(pair.Value);
+					}				
+				}
+				else
+					PutNumber4(0);    //  Empty hash
+.       elsif type = "chunk"
+				if ($(name) != null)
+				{
+					PutNumber4((UInt32)$(name).Length);
+					Buffer.BlockCopy($(name), 0, m_buffer, m_offset, $(name).Length);
+					m_offset += $(name).Length;
+				}
+				else
+					PutNumber4(0);    //  Empty chunk
+.       elsif type = "uuid"            
+				Buffer.BlockCopy($(name).ToByteArray(), 0, m_buffer, m_offset, 16);
+				m_offset += 16;
+.       elsif type = "frame"
+				frames++;
+.       elsif type = "msg"
+				frames += $(name) != null ? $(name).FrameCount : 1;
+				send$(class.msg:Camel) = true;
+.       endif
+.   endfor
+				break;
+
+.endfor
+		}
+		//  Now send the data frame
+
+		frames--;
+
+		if (frames == 0)
+		{
+			output.Send(m_buffer);
+		}
+		else
+		{
+			output.SendMore(m_buffer);
+		}
+        
+.for class.message where count (field, type = "frame")
+		//  Now send any frame fields, in order
+		if (Id == $(message.name)) 
+		{
+.   for field where type = "frame"
+			frames--;
+	
+			if (frames == 0)
+				output.Send($(field.name) != null ? $(field.name) : new byte[0]);
+			else 
+				output.SendMore($(field.name) != null ? $(field.name) : new byte[0]);            		            
+.   endfor
+		}
+.endfor
+.if defined (class.msg)
+		//  Now send the $(class.msg) if necessary
+		if (send$(class.msg:Camel)) 
+		{
+			if ($(class.msg) != null) 
+			{
+				output.SendMessage($(class.msg));            
+			}
+			else
+				output.Send(new byte[0]);            
+		}
+.endif    
+	}
+
+//  --------------------------------------------------------------------------
+//  Get/set the message routing_id
+
+	public byte[] RoutingId
+	{
+		get;set;
+	}
+
+//  --------------------------------------------------------------------------
+//  Get/set the $(class.name) id
+
+	public int Id 
+	{
+		get;set;
+	}
+
+//  --------------------------------------------------------------------------
+//  Return a printable command string
+
+	public string Command
+	{
+		get
+		{	    
+			switch (Id) 
+			{
+.for class.message
+				case $(message.name):
+					return "$(message.name)";
+					break;					
+.endfor
+			}
+			return "?";
+		}
+	}
+
+.for class.field where !defined (value)
+.   if type = "number"
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+	public $(cstype) $(name)
+	{
+		get;set;
+	}
+
+.   elsif type = "octets"
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+	public byte[] $(name) 
+	{
+		get;set;
+	}
+
+.   elsif type = "string"
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+	public string $(name)
+	{
+		get;set;
+	}
+
+.   elsif type = "longstr"
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+
+	public string $(name)
+	{
+		get;set;
+	}
+
+.   elsif type = "strings"
+//  --------------------------------------------------------------------------
+//  Get the $(name) field, without transferring ownership
+
+	public List<string> $(name)
+	{
+		get;set;
+	}
+
+.   elsif type = "hash"
+//  --------------------------------------------------------------------------
+//  Get the $(name) field without transferring ownership
+
+	public Dictionary<string, string> $(name)
+	{
+		get;set;
+	}
+
+.   elsif type = "uuid"
+
+	public Guid $(name) 
+	{
+		get;set;
+	}
+
+.   elsif type = "msg"
+
+	public NetMQMessage $(name) 
+	{
+		get;set;
+	}
+
+.   elsif type = "chunk" | type = "frame" 
+//  --------------------------------------------------------------------------
+//  Get the $(name) field without transferring ownership
+
+	public byte[] $(name) 
+	{
+		get;set;
+	}
+.   endif
+.endfor
+}
