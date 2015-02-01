@@ -1,26 +1,23 @@
 <class
-    name = "zproto_example_cs"
+    name = "Example"
     signature = "0"
     title = "zproto example protocol csharp"
     script = "zproto_codec_cs"    
-    source_dir = "."
+    source_dir = "./csharp/ZProto"
+    test_dir ="./csharp/ZProto.Tests"
+    namespace ="ZProto"
+    test_namespace="ZProto.Test"
     >
 This is an example protocol designed to teach you how this stuff works.
 
-The class name tells the code generator what .h and .c to generate. Use
-the same name as you're using for this .xml file. The header/source values
-provide the relative location for these two output files. Default is "."
+The class name tells the code generator what files to generate. The source_dir and test_dir values
+provide the relative location for Source file and Test file files. Default is "."
 
 The signature is put into every protocol message and lets us filter bogus
 or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
 for each protocol you write, at least.
 
 <include filename = "license.xml" />
-
-You can define constants. These are put into the header file, prefixed by
-the class name, so e.g. #define ZPROTO_EXAMPLE_VERSION  1
-
-<define name = "VERSION" value = "1" />
 
 If you define a grammar block, the BNF generator outputs this before doing
 individual messages. Otherwise it generates something not entirely random.
@@ -88,26 +85,23 @@ zproto supports lists and hashes of strings:
 This message contains a list and a hash.
 </message>
 
-You should read the zproto_example.h file quite carefully to see what API
-these field types generate.
-
 zproto supports several kinds of binary data:
 
-* You can define a raw octet block of fixed size, which is a byte * in
+* You can define a raw octet block of fixed size, which is a byte array in
   the API. You can use this to encode short binary fields. Do not use
   for anything longer than e.g. 256 octets.
 
-* You can define chunks, which are zchunk_t objects in the API. Chunks
+* You can define chunks, which are byte arrays in the API. Chunks
   are encoded like longstr fields, a 4-octet length and a body.
 
-* You can define uuids, which are zuuid_t objects in the API.
+* You can define uuids, which are Guid objects in the API.
 
-* You can define frames, which are zframe_t objects in the API. Frames
-  are sent as separate ZeroMQ frames on the wire. This is ideal for
+* You can define frames, which are byte arrays in the API. Frames
+  are sent as separate NetMQ frames on the wire. This is ideal for
   variable-size binary data such as images, or other blobs.
   
-* You can define ZeroMQ messages, which are zmsg_t objects in the API.
-  This is useful for protocols that want to wrap entire ZeroMQ messages
+* You can define NetMQ messages, which are NetMQMessage objects in the API.
+  This is useful for protocols that want to wrap entire NetMQ messages
   in other data. If you use a "msg" type field, it must be the last
   field in the message.
 
@@ -130,8 +124,8 @@ Demonstrate custom-defined types
 </message>
 
 Here is the custom type. In the BNF, this will express as a separate term,
-as you'd expect. In the C API, this will be expressed as atomic properties
-prefixed with the original field name, e.g. client_forename, supplier_email.
+as you'd expect. In the csharp API, this will be expressed as atomic properties
+prefixed with the original field name, e.g. ClientForename, SupplierEmail.
 
 <type name = "person">
     <field name = "forename" type = "string">Given name</field>
