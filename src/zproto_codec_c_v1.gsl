@@ -1539,6 +1539,9 @@ $(class.name)_test (bool verbose)
 {
     printf (" * $(class.name): ");
 
+    //  Silence an "unused" warning by "using" the verbose variable
+    if (verbose) {;}
+
     //  @selftest
     //  Simple create/destroy test
     $(class.name)_t *self = $(class.name)_new (0);
