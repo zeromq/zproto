@@ -1187,6 +1187,12 @@ $(class.name)_test (bool verbose)
         assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
 .       elsif type = "msg"
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
+.       elsif type = "uuid"
+        zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
+        assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
+        if (instance == 1) {
+            zuuid_destroy (&$(message.name)_$(name)_dup);
+        }
 .       endif
 .   endfor
     }
