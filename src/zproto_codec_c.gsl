@@ -231,20 +231,27 @@ struct _$(class.name)_t {
     byte *ceiling;                      //  Valid upper limit for read pointer
 .for class.field
 .   if type = "number" & !defined (field.value)
-    $(ctype) $(name);                   //  $(field.?'':)
+    /* $(field.?'':)  */
+    $(ctype) $(name);
 .   elsif type = "octets"
-    byte $(name) [$(size)];             //  $(field.?'':)
+    /* $(field.?'':)  */
+    byte $(name) [$(size)];
 .   elsif type = "string" & !defined (field.value)
-    char $(name) [256];                 //  $(field.?'':)
+    /* $(field.?'':)  */
+    char $(name) [256];
 .   elsif type = "longstr"
-    char *$(name);                      //  $(field.?'':)
+    /* $(field.?'':)  */
+    char *$(name);
 .   elsif type = "strings"
-    zlist_t *$(name);                   //  $(field.?'':)
+    /* $(field.?'':)  */
+    zlist_t *$(name);
 .   elsif type = "hash"
-    zhash_t *$(name);                   //  $(field.?'':)
+    /* $(field.?'':)  */
+    zhash_t *$(name);
     size_t $(name)_bytes;               //  Size of hash content
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
-    z$(type)_t *$(name);                //  $(field.?'':)
+    /* $(field.?'':)  */
+    z$(type)_t *$(name);
 .   endif
 .endfor
 };
