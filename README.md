@@ -8,8 +8,6 @@ zproto is several things:
 
 * A code generator capable of producing full-featured protocol servers based on a high-level finite-state machine model.
 
-* A base project for your ZeroMQ C protocol clients and servers, that use these two techniques.
-
 To use zproto, clone the repository at https://github.com/zeromq/zproto.
 
 Build and test using the usual commands:
@@ -29,15 +27,7 @@ To rebuild the codec, first build and install https://github.com/imatix/gsl. The
     cd src
     make code check
 
-Finally, to use zproto as the base for your own projects, copy the skeleton directory into a new location, and create a new git repository there:
-
-    git init .
-
-And then manually change all references to 'myproj' to your own project prefix, both in filenames, and inside the sources. On linux you can also use the create script:
-
-    scripts/create_project.sh <project directory>
-
-The name of the project directory equals your project's name which will be used to initialize the configuration.
+To use zproto as the base for your own projects, create a new project with [zproject](http://github.com/zeromq/zproject) which nicely integrates with zproto. 
 
 ## The Codec Generator
 

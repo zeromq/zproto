@@ -51,30 +51,53 @@ struct _zproto_example_t {
     int id;                             //  zproto_example message ID
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
-    uint16_t sequence;                  //  
-    byte level;                         //  Log severity level
-    byte event;                         //  Type of event
-    uint16_t node;                      //  Sending node
-    uint16_t peer;                      //  Refers to this peer
-    uint64_t time;                      //  Log date/time
-    char host [256];                    //  Originating hostname
-    char *data;                         //  Actual log message
-    zlist_t *aliases;                   //  List of strings
-    zhash_t *headers;                   //  Other random properties
+    /*                */
+    uint16_t sequence;
+    /* Log severity level  */
+    byte level;
+    /* Type of event  */
+    byte event;
+    /* Sending node   */
+    uint16_t node;
+    /* Refers to this peer  */
+    uint16_t peer;
+    /* Log date/time  */
+    uint64_t time;
+    /* Originating hostname  */
+    char host [256];
+    /* Actual log message  */
+    char *data;
+    /* List of strings  */
+    zlist_t *aliases;
+    /* Other random properties  */
+    zhash_t *headers;
     size_t headers_bytes;               //  Size of hash content
-    byte flags [4];                     //  A set of flags
-    zchunk_t *public_key;               //  Our public key
-    zuuid_t *identifier;                //  Unique identity
-    zframe_t *address;                  //  Return address as frame
-    zmsg_t *content;                    //  Message to be delivered
-    char client_forename [256];         //  Given name
-    char client_surname [256];          //  Family name
-    char client_mobile [256];           //  Mobile phone number
-    char client_email [256];            //  Email address
-    char supplier_forename [256];       //  Given name
-    char supplier_surname [256];        //  Family name
-    char supplier_mobile [256];         //  Mobile phone number
-    char supplier_email [256];          //  Email address
+    /* A set of flags  */
+    byte flags [4];
+    /* Our public key  */
+    zchunk_t *public_key;
+    /* Unique identity  */
+    zuuid_t *identifier;
+    /* Return address as frame  */
+    zframe_t *address;
+    /* Message to be delivered  */
+    zmsg_t *content;
+    /* Given name     */
+    char client_forename [256];
+    /* Family name    */
+    char client_surname [256];
+    /* Mobile phone number  */
+    char client_mobile [256];
+    /* Email address  */
+    char client_email [256];
+    /* Given name     */
+    char supplier_forename [256];
+    /* Family name    */
+    char supplier_surname [256];
+    /* Mobile phone number  */
+    char supplier_mobile [256];
+    /* Email address  */
+    char supplier_email [256];
 };
 
 //  --------------------------------------------------------------------------
@@ -365,6 +388,7 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
                     zsys_warning ("zproto_example: public_key is missing data");
                     goto malformed;
                 }
+                zchunk_destroy (&self->public_key);
                 self->public_key = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
@@ -372,6 +396,7 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
                 zsys_warning ("zproto_example: identifier is invalid");
                 goto malformed;
             }
+            zuuid_destroy (&self->identifier);
             self->identifier = zuuid_new ();
             zuuid_set (self->identifier, self->needle);
             self->needle += ZUUID_LEN;
@@ -1327,6 +1352,9 @@ zproto_example_test (bool verbose)
 {
     printf (" * zproto_example: ");
 
+    //  Silence an "unused" warning by "using" the verbose variable
+    if (verbose) {;}
+
     //  @selftest
     //  Simple create/destroy test
     zproto_example_t *self = zproto_example_new ();
@@ -1419,6 +1447,11 @@ zproto_example_test (bool verbose)
         assert (zproto_example_flags (self) [0] == 123);
         assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
+        zuuid_t *acutal_identifier = zproto_example_identifier (self);
+        assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
+        if (instance == 1) {
+            zuuid_destroy (&binary_identifier_dup);
+        }
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
     }
