@@ -769,7 +769,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
 .   for field where type = "frame"
         //  If $(name) isn't set, send an empty frame
         if (self->$(field.name))
-            zframe_send (&self->$(field.name), output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0))
+            zframe_send (&self->$(field.name), output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
 .   endfor

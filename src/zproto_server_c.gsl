@@ -118,6 +118,12 @@ endfor
 #ifndef __$(CLASS.NAME)_H_INCLUDED__
 #define __$(CLASS.NAME)_H_INCLUDED__
 
+.if file.exists ("../include/czmq.h")
+#include "czmq.h"
+.else
+#include <czmq.h>
+.endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
