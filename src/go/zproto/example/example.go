@@ -159,7 +159,7 @@ func Clone(t Transit) Transit {
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
 		cloned.sequence = msg.sequence
-		cloned.Flags = msg.Flags
+		copy(cloned.Flags, msg.Flags)
 		cloned.PublicKey = append(cloned.PublicKey, msg.PublicKey...)
 		cloned.Identifier = append(cloned.Identifier, msg.Identifier...)
 		cloned.Address = append(cloned.Address, msg.Address...)

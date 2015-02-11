@@ -63,11 +63,7 @@ function set_defaults ()
                     echo "E: bad size $(size) for $(name)"
                 endif
             elsif type = "octets"
-                if defined(size)
-                    field.gotype = "[$(size)]byte"
-                else
-                    field.gotype = "[]byte"
-                endif
+                field.gotype = "[]byte"
             elsif type = "strings"
                 field.gotype = "[]string"
             elsif type = "hash"
