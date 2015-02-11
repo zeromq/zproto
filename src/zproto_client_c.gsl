@@ -283,6 +283,12 @@ endfor
 #ifndef __$(CLASS.NAME)_H_INCLUDED__
 #define __$(CLASS.NAME)_H_INCLUDED__
 
+.if file.exists ("../include/czmq.h")
+#include "czmq.h"
+.else
+#include <czmq.h>
+.endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -301,7 +307,7 @@ $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new ($(args));
 .else
 
-b$(CLASS.EXPORT_MACRO)$(class.name)_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (void);
 .endfor
 
