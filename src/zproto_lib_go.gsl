@@ -40,11 +40,6 @@ function set_defaults ()
             field.name = go_name(field.name)
             field.fname = field.name
             field.name = defined(field.in_header) ?? "$(field.name)" ? field.name
-            if defined (repeat)
-                message.repeat = 1
-                echo "W: repeat attribute used in $(name) isn't supported by go_codec"
-                next
-            endif
             if type = "number"
                 if defined (value)
                     # strconv package is needed if the number has a constant value

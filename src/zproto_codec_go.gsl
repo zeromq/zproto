@@ -49,7 +49,7 @@ const (
 )
 
 .id_maxlen = 0
-.for message where !defined (repeat)
+.for message
 .    message.origname = message.name
 .    message.name = go_name(message.name)
 .    if id_maxlen < string.length(message.name)+2
@@ -57,7 +57,7 @@ const (
 .    endif
 .endfor
 const (
-.for message where !defined (repeat)
+.for message
 	$("$(name:no)Id"%-$(id_maxlen)s) uint8 = $(id)
 .endfor
 )
@@ -101,7 +101,7 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	binary.Read(buffer, binary.BigEndian, &id)
 
 	switch id {
-.for message where !defined (repeat)
+.for message
 	case $(name:no)Id:
 		t = New$(name:no)()
 .endfor
@@ -196,7 +196,7 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 func Clone(t Transit) Transit {
 
 	switch msg := t.(type) {
-.for message where !defined (repeat)
+.for message
 	case *$(name:no):
 		cloned := New$(name:no)()
 		routingId := make([]byte, len(msg.RoutingId()))
@@ -280,7 +280,7 @@ func getBytes(buffer *bytes.Buffer) []byte {
 .#
 .# Each message is in a separate file
 .#
-.for message where !defined (repeat)
+.for message
 .output "$(go_package_path())/$(origname).go"
 package $(go_package_name())
 
