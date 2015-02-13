@@ -3,8 +3,8 @@
 // DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
 //
 // The correct places for commits are:
-//  - The XML model used for this code generation: zproto_example.xml
-//  - The code generation script that built this file: zproto_codec_c
+//  - The XML model used for this code generation: zproto_example_go.xml
+//  - The code generation script that built this file: zproto_codec_go
 package example
 
 import (

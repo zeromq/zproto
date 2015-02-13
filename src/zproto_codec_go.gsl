@@ -1,5 +1,5 @@
 .template 0
-#   zproto_codec_c.gsl
+#   zproto_codec_go.gsl
 #
 #   Generates a codec for a protocol specification
 #
