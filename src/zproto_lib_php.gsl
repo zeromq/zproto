@@ -1,0 +1,104 @@
+.template 0
+#  Library functions
+
+function expand_headers ()
+    for message
+        if !defined (message.id)
+            message.id = item ()
+        endif
+        for field where item () = 1
+            for class.header
+                for field as hfield
+                    hfield.in_header = "true"
+                    copy hfield before field
+                endfor
+            endfor
+        else
+            for class.header
+                for field as hfield
+                    hfield.in_header = "true"
+                    copy hfield to message
+                endfor
+            endfor
+        endfor
+    endfor
+endfunction
+
+function set_defaults ()
+    resolve_types ()
+    
+    class.signature ?= 0
+    class.package_dir ?= "."
+    class.test_dir ?= "."
+    class.namespace ?= "Zproto"
+
+    for message
+        message.name = "$(message.name:c)"
+        message.field_maxlen = 0
+        for field
+            field.name = php_name(field.name)
+            field.fname = field.name
+            field.name = defined(field.in_header) ?? "$(field.name)" ? field.name
+            if type = "number"
+                field.phptype = "number"
+                field.size ?= 1
+                if size > 8 | size < 0
+                    echo "E: bad size $(size) for $(name)"
+                endif
+            elsif type = "strings" | type = "hash"
+                field.phptype = "array"
+            elsif type = "string" | type = "longstr" | type = "octets" | type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
+                field.phptype = "string"
+            else
+                echo "E: unknown type '$(type)'"
+            endif
+            if message.field_maxlen < string.length(field.name)
+                message.field_maxlen = string.length(field.name)
+            endif
+            for class.field as cfield where cfield.name = field.name
+                if cfield.type <> field.type
+                    echo "E: field '$(name)' must have same type everywhere"
+                endif
+            else
+                copy field to class
+            endfor
+        endfor
+    endfor
+
+    directory.create(directory.resolve(class.package_dir))
+    directory.create(directory.resolve(class.package_dir + "/" + php_basename()))
+
+endfunction
+
+function php_name (name)
+    my.name = "$(name:c)"
+    my.name = "$(my.Name)"
+
+    return string.replace(my.name,'_')
+endfunction
+
+function php_basename ()
+    if string.matchpat(class.name, "*_*")
+        my.name = string.substr(class.name, string.locate_last(class.name, "_") + 1)
+        return "$(my.Name)"
+    endif
+    return "$(class.Name)"
+endfunction
+
+function php_namespace (suffix)
+    if defined(suffix)
+        return "$(class.namespace)\\$(Suffix)"
+    endif
+
+    return "$(class.namespace:no)"
+endfunction
+
+function php_lcfirst (name)
+    my.name = "$(name:no)"
+    my.first = string.substr(my.name, 0, 0)
+    my.rest  = string.substr(my.name, 1)
+
+    return "$(my.first)$(my.rest:no)"
+endfunction
+
+.endtemplate
