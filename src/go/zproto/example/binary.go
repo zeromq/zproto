@@ -13,7 +13,7 @@ import (
 type Binary struct {
 	routingId  []byte
 	sequence   uint16
-	Flags      [4]byte
+	Flags      []byte
 	PublicKey  []byte
 	Identifier []byte
 	Address    []byte
@@ -55,6 +55,12 @@ func (b *Binary) Marshal() ([]byte, error) {
 	// Identifier is a block of []byte with one byte length
 	bufferSize += 1 + len(b.Identifier)
 
+	// Address is a block of []byte with one byte length
+	bufferSize += 1 + len(b.Address)
+
+	// Content is a block of []byte with one byte length
+	bufferSize += 1 + len(b.Content)
+
 	// Now serialize the message
 	tmpBuf := make([]byte, bufferSize)
 	tmpBuf = tmpBuf[:0]
@@ -66,13 +72,15 @@ func (b *Binary) Marshal() ([]byte, error) {
 	binary.Write(buffer, binary.BigEndian, b.sequence)
 
 	// Flags
-	binary.Write(buffer, binary.BigEndian, b.Flags)
+	binary.Write(buffer, binary.BigEndian, b.Flags[:4])
 
-	// PublicKey
 	putBytes(buffer, b.PublicKey)
 
-	// Identifier
 	putBytes(buffer, b.Identifier)
+
+	putBytes(buffer, b.Address)
+
+	putBytes(buffer, b.Content)
 
 	return buffer.Bytes(), nil
 }
@@ -104,19 +112,21 @@ func (b *Binary) Unmarshal(frames ...[]byte) error {
 	// sequence
 	binary.Read(buffer, binary.BigEndian, &b.sequence)
 	// Flags
+
+	b.Flags = make([]byte, 4)
 	binary.Read(buffer, binary.BigEndian, &b.Flags)
 	// PublicKey
+
 	b.PublicKey = getBytes(buffer)
 	// Identifier
+
 	b.Identifier = getBytes(buffer)
 	// Address
-	if 0 <= len(frames)-1 {
-		b.Address = frames[0]
-	}
+
+	b.Address = getBytes(buffer)
 	// Content
-	if 1 <= len(frames)-1 {
-		b.Content = frames[1]
-	}
+
+	b.Content = getBytes(buffer)
 
 	return nil
 }

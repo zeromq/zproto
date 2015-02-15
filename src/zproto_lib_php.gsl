@@ -28,45 +28,27 @@ function set_defaults ()
     resolve_types ()
     
     class.signature ?= 0
-    class.package_dir ?= "go"
-    class.package ?= "github.com/pebbe/zmq4"
-    class.source_dir ?= "."
+    class.package_dir ?= "."
+    class.test_dir ?= "."
+    class.namespace ?= "Zproto"
 
     for message
         message.name = "$(message.name:c)"
-        # 9 = number of characters of "routingId". maxlen is used to format structure fields correctly.
-        message.field_maxlen = 9
+        message.field_maxlen = 0
         for field
-            field.name = go_name(field.name)
+            field.name = php_name(field.name)
             field.fname = field.name
             field.name = defined(field.in_header) ?? "$(field.name)" ? field.name
             if type = "number"
-                if defined (value)
-                    # strconv package is needed if the number has a constant value
-                    message.strconv = 1
-                endif
+                field.phptype = "number"
                 field.size ?= 1
-                if size = 1
-                    field.gotype = "byte"
-                elsif size = 2
-                    field.gotype = "uint16"
-                elsif size = 4
-                    field.gotype = "uint32"
-                elsif size = 8
-                    field.gotype = "uint64"
-                else
+                if size > 8 | size < 0
                     echo "E: bad size $(size) for $(name)"
                 endif
-            elsif type = "octets"
-                field.gotype = "[]byte"
-            elsif type = "strings"
-                field.gotype = "[]string"
-            elsif type = "hash"
-                field.gotype = "map[string]string"
-            elsif type = "string" | type = "longstr"
-                field.gotype = "string"
-            elsif type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
-                field.gotype = "[]byte"
+            elsif type = "strings" | type = "hash"
+                field.phptype = "array"
+            elsif type = "string" | type = "longstr" | type = "octets" | type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
+                field.phptype = "string"
             else
                 echo "E: unknown type '$(type)'"
             endif
@@ -82,26 +64,41 @@ function set_defaults ()
             endfor
         endfor
     endfor
+
+    directory.create(directory.resolve(class.package_dir))
+    directory.create(directory.resolve(class.package_dir + "/" + php_basename()))
+
 endfunction
 
-function go_name (name)
+function php_name (name)
     my.name = "$(name:c)"
     my.name = "$(my.Name)"
+
     return string.replace(my.name,'_')
 endfunction
 
-function go_package_name ()
+function php_basename ()
     if string.matchpat(class.name, "*_*")
-        return string.substr(class.name, string.locate_last(class.name, "_") + 1)
+        my.name = string.substr(class.name, string.locate_last(class.name, "_") + 1)
+        return "$(my.Name)"
     endif
-    return class.name
+    return "$(class.Name)"
 endfunction
 
-function go_package_path ()
-    my.name = string.replace(class.name, "_|/")
-    my.path = directory.resolve(class.package_dir + "/" + my.name)
-    directory.create(my.path)
-    return my.path
+function php_namespace (suffix)
+    if defined(suffix)
+        return "$(class.namespace)\\$(Suffix)"
+    endif
+
+    return "$(class.namespace:no)"
+endfunction
+
+function php_lcfirst (name)
+    my.name = "$(name:no)"
+    my.first = string.substr(my.name, 0, 0)
+    my.rest  = string.substr(my.name, 1)
+
+    return "$(my.first)$(my.rest:no)"
 endfunction
 
 .endtemplate

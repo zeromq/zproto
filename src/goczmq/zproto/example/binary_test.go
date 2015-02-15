@@ -38,7 +38,7 @@ func TestBinary(t *testing.T) {
 
 	binary.sequence = 123
 
-	binary.Flags = [4]byte{'z', 'z', 'z', 'z'}
+	binary.Flags = []byte{'z', 'z', 'z', 'z'}
 
 	binary.PublicKey = []byte("Captcha Diem")
 
@@ -66,7 +66,7 @@ func TestBinary(t *testing.T) {
 	if len(tr.Flags) != 4 {
 		t.Fatalf("mismatch octets size for %s", "Flags")
 	}
-	for idx, b := range [4]byte{'z', 'z', 'z', 'z'} {
+	for idx, b := range []byte{'z', 'z', 'z', 'z'} {
 		if tr.Flags[idx] != b {
 			t.Fatalf("mismatch octets value for %s", "Flags")
 		}

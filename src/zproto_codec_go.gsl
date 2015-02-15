@@ -1,5 +1,5 @@
 .template 0
-#   zproto_codec_c.gsl
+#   zproto_codec_go.gsl
 #
 #   Generates a codec for a protocol specification
 #
@@ -49,7 +49,7 @@ const (
 )
 
 .id_maxlen = 0
-.for message where !defined (repeat)
+.for message
 .    message.origname = message.name
 .    message.name = go_name(message.name)
 .    if id_maxlen < string.length(message.name)+2
@@ -57,7 +57,7 @@ const (
 .    endif
 .endfor
 const (
-.for message where !defined (repeat)
+.for message
 	$("$(name:no)Id"%-$(id_maxlen)s) uint8 = $(id)
 .endfor
 )
@@ -101,7 +101,7 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	binary.Read(buffer, binary.BigEndian, &id)
 
 	switch id {
-.for message where !defined (repeat)
+.for message
 	case $(name:no)Id:
 		t = New$(name:no)()
 .endfor
@@ -196,7 +196,7 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 func Clone(t Transit) Transit {
 
 	switch msg := t.(type) {
-.for message where !defined (repeat)
+.for message
 	case *$(name:no):
 		cloned := New$(name:no)()
 		routingId := make([]byte, len(msg.RoutingId()))
@@ -212,12 +212,8 @@ func Clone(t Transit) Transit {
 			cloned.$(name:no)[idx] = str
 		}
 .       elsif type = "octets"
-.           if defined(size)
-		cloned.$(name:no) = msg.$(name:no)
-.           else
-		cloned.$(name:no) = append(cloned.$(name:no), msg.$(name:no)...)
-.           endif
-.       elsif type = "frame" | type = "msg" | type = "uuid" | type = "chunk"
+		copy(cloned.$(name:no), msg.$(name:no))
+.       elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
 		cloned.$(name:no) = append(cloned.$(name:no), msg.$(name:no)...)
 .       else
 		cloned.$(name:no) = msg.$(name:no)
@@ -284,7 +280,7 @@ func getBytes(buffer *bytes.Buffer) []byte {
 .#
 .# Each message is in a separate file
 .#
-.for message where !defined (repeat)
+.for message
 .output "$(go_package_path())/$(origname).go"
 package $(go_package_name())
 
@@ -345,15 +341,14 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 
 	// $(name:no) is a $(size)-byte integer
 	bufferSize += $(size)
-.    elsif type = "octets" | type = "chunk" | type = "uuid"
+.    elsif type = "octets"
 
-.        if defined(size)
 	// $(name:no) is a block of [$(size)]byte
 	bufferSize += $(size)
-.        else
+.    elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+
 	// $(name:no) is a block of []byte with one byte length
 	bufferSize += 1 + len($(self).$(name:no))
-.        endif
 .    elsif type = "string"
 
 	// $(name:no) is a string with 1-byte length
@@ -407,14 +402,13 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 .        else
 	binary.Write(buffer, binary.BigEndian, $(self).$(name:no))
 .        endif
-.    elsif type = "octets" | type = "chunk" | type = "uuid"
+.    elsif type = "octets"
 
 	// $(name:no)
-.        if defined(size)
-	binary.Write(buffer, binary.BigEndian, $(self).$(name:no))
-.        else
+	binary.Write(buffer, binary.BigEndian, $(self).$(name:no)[:$(size)])
+.    elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+
 	putBytes(buffer, $(self).$(name:no))
-.        endif
 .    elsif type = "string"
 
 	// $(name:no)
@@ -486,12 +480,13 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 		return errors.New("malformed $(name:no) message")
 	}
 .        endif
-.    elsif type = "octets" | type = "uuid" | type = "chunk"
-.        if defined(size)
+.    elsif type = "octets"
+
+	$(self).$(name:no) = make($(gotype), $(size))
 	binary.Read(buffer, binary.BigEndian, &$(self).$(name:no))
-.        else
+.    elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
+
 	$(self).$(name:no) = getBytes(buffer)
-.        endif
 .    elsif type = "string"
 	$(self).$(name:no) = getString(buffer)
 .        if defined (field.value)
@@ -701,16 +696,11 @@ func Test$(name:no)(t *testing.T) {
 
 	$(struct).$(name:no) = 123
 .       elsif type = "octets"
-.           if defined(size)
-.               data = "'z', " * size
-.               data_len = string.length(data)
-.               data = string.substr(data, 0, data_len-3)
+.           data = "'z', " * size
+.           data_len = string.length(data)
+.           data = string.substr(data, 0, data_len-3)
 
-	$(struct).$(name:no) = [$(size)]byte{$(data)}
-.           else
-
-	$(struct).$(name:no) = []byte{'z', 'y'}
-.           endif
+	$(struct).$(name:no) = []byte{$(data)}
 .       elsif type = "string" | type = "longstr"
 
 	$(struct).$(name:no) = "Life is short but Now lasts for ever"
@@ -720,7 +710,7 @@ func Test$(name:no)(t *testing.T) {
 .       elsif type = "hash"
 
 	$(struct).$(name:no) = map[string]string{"Name": "Brutus", "Age": "43"}
-.       elsif type = "frame" | type = "msg" | type = "uuid" | type = "chunk"
+.       elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
 
 	$(struct).$(name:no) = []byte("Captcha Diem")
 .       endif
@@ -743,7 +733,6 @@ func Test$(name:no)(t *testing.T) {
 		t.Fatalf("expected %d, got %d", 123, tr.$(name:no))
 	}
 .       elsif type = "octets"
-.           if defined(size)
 .           data = "'z', " * size
 .           data_len = string.length(data)
 .           data = string.substr(data, 0, data_len-3)
@@ -751,22 +740,11 @@ func Test$(name:no)(t *testing.T) {
 	if len(tr.$(name:no)) != $(size) {
 		t.Fatalf("mismatch octets size for %s", "$(name:no)")
 	}
-	for idx, b := range [$(size)]byte{$(data)} {
+	for idx, b := range []byte{$(data)} {
 		if tr.$(name:no)[idx] != b {
 			t.Fatalf("mismatch octets value for %s", "$(name:no)")
 		}
 	}
-.           else
-
-	if len(tr.$(name:no)) != 2 {
-		t.Fatalf("mismatch octets size for %s", "$(name:no)")
-	}
-	for idx, b := range []byte{'z', 'y'} {
-		if tr.$(name:no)[idx] != b {
-			t.Fatalf("mismatch octets value for %s", "$(name:no)")
-		}
-	}
-.           endif
 .       elsif type = "string" | type = "longstr"
 
 	if tr.$(name:no) != "Life is short but Now lasts for ever" {
@@ -786,7 +764,7 @@ func Test$(name:no)(t *testing.T) {
 			t.Fatalf("expected %s, got %s", val, tr.$(name:no)[key])
 		}
 	}
-.       elsif type = "frame" | type = "msg" | type = "uuid" | type = "chunk"
+.       elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
 
 	if string(tr.$(name:no)) != "Captcha Diem" {
 		t.Fatalf("expected %s, got %s", "Captcha Diem", tr.$(name:no))

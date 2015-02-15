@@ -11,14 +11,16 @@ zproto_DATA = \
 	zproto_codec_c.gsl \
 	zproto_codec_c_v1.gsl \
 	zproto_codec_go.gsl \
+	zproto_codec_php.gsl \
 	zproto_codec_java.gsl \
 	zproto_codec_clj.gsl \
 	zproto_server_c.gsl \
-        zproto_server_clj.gsl \
+	zproto_server_clj.gsl \
 	zproto_client_c.gsl \
 	zproto_bnf.gsl \
 	zproto_lib.gsl \
 	zproto_lib_go.gsl \
+	zproto_lib_php.gsl \
 	zproto_lib_java.gsl \
 	zproto_lib_clj.gsl
 

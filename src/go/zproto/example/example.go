@@ -3,8 +3,8 @@
 // DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
 //
 // The correct places for commits are:
-//  - The XML model used for this code generation: zproto_example.xml
-//  - The code generation script that built this file: zproto_codec_c
+//  - The XML model used for this code generation: zproto_example_go.xml
+//  - The code generation script that built this file: zproto_codec_go
 package example
 
 import (
@@ -159,7 +159,7 @@ func Clone(t Transit) Transit {
 		copy(routingId, msg.RoutingId())
 		cloned.SetRoutingId(routingId)
 		cloned.sequence = msg.sequence
-		cloned.Flags = msg.Flags
+		copy(cloned.Flags, msg.Flags)
 		cloned.PublicKey = append(cloned.PublicKey, msg.PublicKey...)
 		cloned.Identifier = append(cloned.Identifier, msg.Identifier...)
 		cloned.Address = append(cloned.Address, msg.Address...)
