@@ -294,7 +294,11 @@ namespace $(php_namespace())\\$(php_basename());
 use $(php_namespace())\\$(php_basename());
 
 /**
+.    if defined(message.)
+ * $(string.trim (message.):block                                              )
+.    else
  * The $(php_name(message.name)) serializes a $(message.name:cobol,upper) message in $(class.title:no).
+.    endif
  */
 class $(php_name(message.name)) extends $(php_basename())
 {

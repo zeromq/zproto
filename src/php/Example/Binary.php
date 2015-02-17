@@ -36,7 +36,7 @@ namespace Zproto\Example;
 use Zproto\Example;
 
 /**
- * The Binary serializes a BINARY message in zproto example protocol.
+ * Deliver a multi-part message.
  */
 class Binary extends Example
 {

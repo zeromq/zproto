@@ -36,7 +36,7 @@ namespace Zproto\Example;
 use Zproto\Example;
 
 /**
- * The Structures serializes a STRUCTURES message in zproto example protocol.
+ * This message contains a list and a hash.
  */
 class Structures extends Example
 {

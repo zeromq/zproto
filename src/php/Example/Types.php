@@ -36,7 +36,7 @@ namespace Zproto\Example;
 use Zproto\Example;
 
 /**
- * The Types serializes a TYPES message in zproto example protocol.
+ * Demonstrate custom-defined types
  */
 class Types extends Example
 {

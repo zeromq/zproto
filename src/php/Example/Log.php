@@ -36,7 +36,7 @@ namespace Zproto\Example;
 use Zproto\Example;
 
 /**
- * The Log serializes a LOG message in zproto example protocol.
+ * Log an event.
  */
 class Log extends Example
 {
