@@ -199,12 +199,6 @@ for class.method
     else
         method.return = "0"
     endif
-    if method.name = "constructor"
-        method.args = string.substr (method.args, 2)
-        if method.args = ""
-            method.args = "void"
-        endif
-    endif
 endfor
 
 for class.send
@@ -300,18 +294,12 @@ typedef struct _$(class.name)_t $(class.name)_t;
 #endif
 
 //  @interface
-//  Create a new $(class.name)
-.for class.method where name = "constructor"
-//  $(method.?'No explanation':justify,block%-80s)
-$(CLASS.EXPORT_MACRO)$(class.name)_t *
-    $(class.name)_new ($(args));
-.else
-
+//  Create a new $(class.name), return the reference if successful, or NULL
+//  if construction failed due to lack of available memory.
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (void);
-.endfor
 
-//  Destroy the $(class.name)
+//  Destroy the $(class.name) and free all memory used by the object.
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
@@ -1025,17 +1013,8 @@ $(class.name)_new (void)
     if (self) {
         zsock_t *backend;
         self->msgpipe = zsys_create_pipe (&backend);
-        self->actor = zactor_new ($(class.name), backend);
-.for class.method where name = "constructor"
-        if (self->actor)
-            $(return) = $(class.name)_constructor (self\
-.       for field
-, $(name:c)\
-.       endfor
-);
-        if ($(return) == -1)
-            zactor_destroy (&self->actor);
-.endfor
+        if (self->msgpipe)
+            self->actor = zactor_new ($(class.name), backend);
         if (!self->actor)
             $(class.name)_destroy (&self);
     }
