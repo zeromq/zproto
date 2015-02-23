@@ -107,7 +107,7 @@ class $(php_basename())
     protected function unserialize()
     {
         if (!$this->isValid()) {
-            throw new \Exception(
+            throw new \\Exception(
                 'Invalid signature or message type: ' . bin2hex($this->buffer(3))
             );
         }
@@ -288,7 +288,7 @@ class $(php_basename())
     {
         // Make sure buffer is initialized
         if (!isset($this->buffer[$this->needle+($size-1)])) {
-            throw new \Exception('Malformed message');
+            throw new \\Exception('Malformed message');
         }
 
         $bytes = substr($this->buffer, $this->needle, $size);
