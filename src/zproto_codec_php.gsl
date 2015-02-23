@@ -181,25 +181,12 @@ class $(php_basename())
     }
 
     /**
-     * Unserializes a 64-bit number.
+     * Unserializes a 8-bit number.
      */
-    protected function getNumber8()
+    protected function getNumber()
     {
-        $num = unpack('Nhigher/Nlower', substr($this->buffer, $this->needle, 8));
-        $num = $num['higher'] << 32 | $num['lower'];
-
-        $this->needle += 8;
-
-        return $num;
-    }
-
-    /**
-     * Unserializes a 32-bit number.
-     */
-    protected function getNumber4()
-    {
-        $num = unpack('N', substr($this->buffer, $this->needle, 4));
-        $this->needle += 4;
+        $num = unpack('C', substr($this->buffer, $this->needle, 1));
+        $this->needle += 1;
 
         return $num;
     }
@@ -216,14 +203,45 @@ class $(php_basename())
     }
 
     /**
-     * Unserializes a 8-bit number.
+     * Unserializes a 32-bit number.
      */
-    protected function getNumber()
+    protected function getNumber4()
     {
-        $num = unpack('C', substr($this->buffer, $this->needle, 1));
-        $this->needle += 1;
+        $num = unpack('N', substr($this->buffer, $this->needle, 4));
+        $this->needle += 4;
 
         return $num;
+    }
+
+    /**
+     * Unserializes a 64-bit number.
+     */
+    protected function getNumber8()
+    {
+        $num = unpack('Nhigher/Nlower', substr($this->buffer, $this->needle, 8));
+        $num = $num['higher'] << 32 | $num['lower'];
+
+        $this->needle += 8;
+
+        return $num;
+    }
+
+    /**
+     * Unserializes a hash.
+     */
+    protected function getHash()
+    {
+        $hash = [];
+        $size = $this->getNumber4();
+
+        for ($i = 0; $i < $size; $i++) {
+            $key   = $this->getString();
+            $value = $this->getLongString();
+
+            $hash[$key] = $value;
+        }
+
+        return $hash;
     }
 
     /**
@@ -264,6 +282,20 @@ class $(php_basename())
     protected function putNumber8($number)
     {
         $this->buffer .= pack('NN', $number & 0xffffffff00000000, $number & 0x00000000ffffffff);
+    }
+
+    /**
+     * Serializes a hash.
+     *
+     * @param number $has The hash being serialized
+     */
+    protected function putHash(array $hash)
+    {
+        $this->putNumber4(count($hash));
+        foreach ($hash as $key => $val) {
+            $this->putString($key);
+            $this->putLongString($val);
+        }
     }
 }
 .#
@@ -332,6 +364,8 @@ class $(php_name(message.name)) extends $(php_basename())
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->get$(Phptype)$(size)();
 .        elsif field.type = "chunk"
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getBytes();
+.        elsif field.type = "hash"
+        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getHash();
 .        else
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->get$(Phptype)();
 .        endif
@@ -351,6 +385,8 @@ class $(php_name(message.name)) extends $(php_basename())
         \$this->put$(Phptype)$(size)(\$this->$(php_lcfirst(name)));
 .        elsif field.type = "chunk"
         \$this->putBytes(\$this->$(php_lcfirst(name)));
+.        elsif field.type = "hash"
+        \$this->putHash(\$this->$(php_lcfirst(name)));
 .        else
         \$this->put$(Phptype)(\$this->$(php_lcfirst(name)));
 .        endif
