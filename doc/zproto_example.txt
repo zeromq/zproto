@@ -311,6 +311,11 @@ EXAMPLE
         assert (zproto_example_flags (self) [0] == 123);
         assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
+        zuuid_t *acutal_identifier = zproto_example_identifier (self);
+        assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
+        if (instance == 1) {
+            zuuid_destroy (&binary_identifier_dup);
+        }
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
     }
