@@ -107,11 +107,12 @@ class $(php_basename())
     protected function unserialize()
     {
         if (!$this->isValid()) {
-            throw new UserException(
-                ['Invalid signature or message type: ' . var_export($this->buffer. TRUE)]
+            throw new \Exception(
+                'Invalid signature or message type: ' . bin2hex($this->buffer(3))
             );
         }
 
+        // It's a valid message, move the needle to point to the forth byte (0..3)
         $this->needle = 3;
     }
 
@@ -144,13 +145,8 @@ class $(php_basename())
      */
     protected function getString()
     {
-        $len = ord($this->buffer[$this->needle++]);
-        $str = substr($this->buffer, $this->needle, $len);
-
-        // 1-byte size of the str and the string itself
-        $this->needle += $len;
-
-        return $str;
+        $len = ord($this->buffer());
+        return $this->buffer($len);
     }
 
     /**
@@ -172,12 +168,8 @@ class $(php_basename())
      */
     protected function getBytes()
     {
-        $len   = $this->getNumber8();
-        $bytes = substr($this->buffer, $this->needle, $len);
-
-        $this->needle += $len;
-
-        return $bytes;
+        $len = $this->getNumber8();
+        return $this->buffer($len);
     }
 
     /**
@@ -185,10 +177,7 @@ class $(php_basename())
      */
     protected function getNumber()
     {
-        $num = unpack('C', substr($this->buffer, $this->needle, 1));
-        $this->needle += 1;
-
-        return $num;
+        return unpack('C', $this->buffer(1));
     }
 
     /**
@@ -196,10 +185,7 @@ class $(php_basename())
      */
     protected function getNumber2()
     {
-        $num = unpack('n', substr($this->buffer, $this->needle, 2));
-        $this->needle += 2;
-
-        return $num;
+        return unpack('n', $this->buffer(2));
     }
 
     /**
@@ -207,10 +193,7 @@ class $(php_basename())
      */
     protected function getNumber4()
     {
-        $num = unpack('N', substr($this->buffer, $this->needle, 4));
-        $this->needle += 4;
-
-        return $num;
+        return unpack('N', $this->buffer(4));
     }
 
     /**
@@ -218,10 +201,8 @@ class $(php_basename())
      */
     protected function getNumber8()
     {
-        $num = unpack('Nhigher/Nlower', substr($this->buffer, $this->needle, 8));
+        $num = unpack('Nhigher/Nlower', $this->buffer(8));
         $num = $num['higher'] << 32 | $num['lower'];
-
-        $this->needle += 8;
 
         return $num;
     }
@@ -296,6 +277,24 @@ class $(php_basename())
             $this->putString($key);
             $this->putLongString($val);
         }
+    }
+
+    /**
+     * Buffer returns a bytes array size of $size started at $this->needle
+     *
+     * @param int $size Number of bytes
+     */
+    protected function buffer($size = 1)
+    {
+        // Make sure buffer is initialized
+        if (!isset($this->buffer[$this->needle+($size-1)])) {
+            throw new \Exception('Malformed message');
+        }
+
+        $bytes = substr($this->buffer, $this->needle, $size);
+        $this->needle += $size;
+
+        return $bytes;
     }
 }
 .#
