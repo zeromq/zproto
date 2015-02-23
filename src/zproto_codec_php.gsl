@@ -365,6 +365,8 @@ class $(php_name(message.name)) extends $(php_basename())
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getBytes();
 .        elsif field.type = "hash"
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getHash();
+.        elsif field.type = "longstr"
+        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getLongString();
 .        else
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->get$(Phptype)();
 .        endif
@@ -386,6 +388,8 @@ class $(php_name(message.name)) extends $(php_basename())
         \$this->putBytes(\$this->$(php_lcfirst(name)));
 .        elsif field.type = "hash"
         \$this->putHash(\$this->$(php_lcfirst(name)));
+.        elsif field.type = "longstr"
+        \$this->putLongString(\$this->$(php_lcfirst(name)));
 .        else
         \$this->put$(Phptype)(\$this->$(php_lcfirst(name)));
 .        endif
