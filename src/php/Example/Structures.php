@@ -1,8 +1,8 @@
 <?php
 
 /**
- * Library Example is 100% generated. If you edit this file,
- * you will lose your changes at the next build cycle.
+ * Library Example is 100% generated. If you edit this file, you will
+ * lose your changes at the next build cycle.
  * DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
  *
  * The correct places for commits are:
@@ -36,7 +36,7 @@ namespace Zproto\Example;
 use Zproto\Example;
 
 /**
- * The Structures serializes a STRUCTURES message in zproto example protocol.
+ * This message contains a list and a hash.
  */
 class Structures extends Example
 {
