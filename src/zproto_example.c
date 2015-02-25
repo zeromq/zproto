@@ -606,7 +606,7 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
         //  If address isn't set, send an empty frame
         if (self->address)
-            zframe_send (&self->address, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0))
+            zframe_send (&self->address, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
         else
             zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
     }
