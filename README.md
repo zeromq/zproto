@@ -2,11 +2,13 @@
 
 ## Man Page
 
-zproto is several things:
+zproto is a set of code generators that can produce:
 
-* A code generator capable of producing fast and efficient binary codecs for ZeroMQ-based protocols.
+* fast and efficient binary codecs for ZeroMQ-based protocols.
 
-* A code generator capable of producing full-featured protocol servers based on a high-level finite-state machine model.
+* full-featured protocol servers based on high-level state machine models.
+ 
+* full-featured protocol clients based on high-level state machine models. 
 
 To use zproto, clone the repository at https://github.com/zeromq/zproto.
 
@@ -20,7 +22,7 @@ And then install the code generators:
 
     make install
 
-Next, read the model/zproto_example.xml file to learn how to write your own protocol specifications. The binary codec has the same name, and is src/zproto_example.c and include/zproto_example.h.
+Next, read the src/zproto_example.xml file to learn how to write your own protocol specifications. The binary codec has the same name, and is src/zproto_example.c and include/zproto_example.h.
 
 To rebuild the codec, first build and install https://github.com/imatix/gsl. Then run these commands:
 
@@ -47,8 +49,8 @@ To contribute patches back to this code, please send GitHub pull requests, addin
 
 To use:
 
-* Write your protocol as an XML file, using model/zproto_example.xml as a starting point.
-* Generate your protocol, using model/generate as a starting point.
+* Write your protocol as an XML file, using src/zproto_example.xml as a starting point.
+* Generate your protocol, using src/generate as a starting point.
 * Add the generated .h and .c files to your git repository.
 * Don't modify generated codecs. Change the model, and regenerate.
 
@@ -58,15 +60,17 @@ While ZeroMQ gives you a powerful communications engine to use in many different
 
 ### Quick Background
 
-zproto is based on work by Hintjens I did for Chapter 7 of the ZeroMQ book, used in FileMQ, Zyre, and several other projects. It's a collection of code generation tools that take models and turn them into perfect code.
+By Pieter Hintjens.
 
-iMatix used to do code generation as our main business. We got... very good at it. There are lots of ways to generate code, and the most powerful and sophisticated code generator ever built by mankind lives on Github.com at [imatix/gsl](https://github.com/imatix/gsl). It's an interpreter for programs that eat models (self-describing documents) and spew out text of any shape and form.
+zproto is based Chapter 7 of my ZeroMQ book, originally used in FileMQ, Zyre, and several other projects.
+
+My company iMatix used to do code generation as our main business. We got... very good at it. There are lots of ways to generate code, and the most powerful and sophisticated code generator ever built by mankind lives on Github.com at [imatix/gsl](https://github.com/imatix/gsl). It's an interpreter for programs that eat models (self-describing documents) and spew out text of any shape and form.
 
 The only problem with sophisticated magic like GSL is that it quickly excludes other people. So in ZeroMQ I've been very careful to not do a lot of code generation, only opening that mysterious black box when there was real need.
 
-The first case was in CZMQ, to generate the classes for ZeroMQ socket options. Then in CZMQ, to [generate project files](https://github.com/zeromq/czmq/tree/master/model) (for various build systems) from [a single project.xml](https://github.com/zeromq/czmq/blob/master/model/project.xml) file. Yes, we still use XML models. It's actually a good use case for simple schema-free XML.
+The first case was in CZMQ, to generate the classes for ZeroMQ socket options. Then in CZMQ, to [generate project files](https://github.com/zeromq/czmq/tree/master/model) (for various build systems) from [a single project.xml](https://github.com/zeromq/czmq/blob/master/src/project.xml) file. Yes, we still use XML models. It's actually a good use case for simple schema-free XML.
 
-Then I started generating binary codecs for protocols, [starting with FILEMQ](https://github.com/zeromq/filemq/blob/master/model/fmq_msg.xml). We used these codecs for a few different projects and they started to be quite solid. Something like a protobufs for ZeroMQ. You can see that the generated code [looks as good](https://github.com/zeromq/filemq/blob/master/include/fmq_msg.h) as hand-written code. It's actually better: [more consistent, with fewer errors](https://github.com/zeromq/filemq/blob/master/src/fmq_msg.c).
+Then I started generating binary codecs for protocols, [starting with FILEMQ](https://github.com/zeromq/filemq/blob/master/src/fmq_msg.xml). We used these codecs for a few different projects and they started to be quite solid. Something like a protobufs for ZeroMQ. You can see that the generated code [looks as good](https://github.com/zeromq/filemq/blob/master/include/fmq_msg.h) as hand-written code. It's actually better: [more consistent, with fewer errors](https://github.com/zeromq/filemq/blob/master/src/fmq_msg.c).
 
 Finally, I drew back on an even older iMatix speciality, which was state machines. My first free software tool was [Libero](http://legacy.imatix.com/html/libero/), a great tool for designing code as state machines and producing lovely, robust engines in pretty much any language. Libero predates GSL, so isn't as flexible. However it uses a very elegant and simple state-event-action model.
 
