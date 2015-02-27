@@ -697,7 +697,7 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
                     }
 .       endfor
 .       if ! count (action)
-			// no action - just logging
+                        //  No action - just logging
                         if ($(class.name)_verbose)
                             zsys_debug ("$(class.name):         $ $(name)");
 .       endif
