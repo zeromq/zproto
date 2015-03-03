@@ -42,6 +42,9 @@ import (
 .    endif
 .endfor
 const (
+	// Signature is put into every protocol message and lets us filter bogus
+	// or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
+	// for each protocol you write, at least.
 	Signature uint16 = 0xAAA0 | $(class.signature)
 .for define
 	$(define.Name:c%-$(const_maxlen)s) = $(value)
@@ -56,9 +59,10 @@ const (
 .        id_maxlen = string.length(message.name)+2
 .    endif
 .endfor
+// Definition of message IDs
 const (
 .for message
-	$("$(name:no)Id"%-$(id_maxlen)s) uint8 = $(id)
+	$("$(name:no)ID"%-$(id_maxlen)s) uint8 = $(id)
 .endfor
 )
 
@@ -72,8 +76,8 @@ type Transit interface {
 .elsif class.package = "github.com/zeromq/goczmq"
 	Send(*goczmq.Sock) error
 .endif
-	SetRoutingId([]byte)
-	RoutingId() []byte
+	SetRoutingID([]byte)
+	RoutingID() []byte
 .for field where defined(in_header)
 	Set$(fname:no)($(gotype))
 	$(fname:no)() $(gotype)
@@ -102,7 +106,7 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 
 	switch id {
 .for message
-	case $(name:no)Id:
+	case $(name:no)ID:
 		t = New$(name:no)()
 .endfor
 	}
@@ -163,17 +167,17 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 		return nil, err
 	}
 
-	var routingId []byte
-	// If message came from a router socket, first frame is routingId
+	var routingID []byte
+	// If message came from a router socket, first frame is routingID
 .if class.package = "github.com/pebbe/zmq4"
 	if sType == zmq.ROUTER {
 .elsif class.package = "github.com/zeromq/goczmq"
 	if sType == goczmq.ROUTER {
 .endif
 		if len(frames) <= 1 {
-			return nil, errors.New("no routingId")
+			return nil, errors.New("no routingID")
 		}
-		routingId = frames[0]
+		routingID = frames[0]
 		frames = frames[1:]
 	}
 
@@ -187,7 +191,7 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 .elsif class.package = "github.com/zeromq/goczmq"
 	if sType == goczmq.ROUTER {
 .endif
-		t.SetRoutingId(routingId)
+		t.SetRoutingID(routingID)
 	}
 	return t, err
 }
@@ -199,9 +203,9 @@ func Clone(t Transit) Transit {
 .for message
 	case *$(name:no):
 		cloned := New$(name:no)()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
+		routingID := make([]byte, len(msg.RoutingID()))
+		copy(routingID, msg.RoutingID())
+		cloned.SetRoutingID(routingID)
 .    for field
 .       if type = "hash"
 		for key, val := range msg.$(name:no) {
@@ -300,9 +304,10 @@ import (
 .endif
 )
 
+// $(name:no) struct
 // $(string.trim (.?''):left)
 type $(name:no) struct {
-	$("routingId"%-$(field_maxlen + 1)s)[]byte
+	$("routingID"%-$(field_maxlen + 1)s)[]byte
 .for field
 .   if defined(in_header)
 	$(name%-$(field_maxlen + 1)s)$(gotype)
@@ -313,7 +318,7 @@ type $(name:no) struct {
 }
 .self = string.substr(name,0,0)
 
-// New creates new $(name:no) message.
+// New$(name:no) creates new $(name:no) message.
 func New$(name:no)() *$(name:no) {
 	$(name) := &$(name:no){}
 .struct = "$(name)"
@@ -340,11 +345,19 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 .    if type = "number"
 
 	// $(name:no) is a $(size)-byte integer
+.        if size = 1
+	bufferSize++
+.        else
 	bufferSize += $(size)
+.        endif
 .    elsif type = "octets"
 
 	// $(name:no) is a block of [$(size)]byte
+.        if size = 1
+	bufferSize++
+.        else
 	bufferSize += $(size)
+.        endif
 .    elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
 
 	// $(name:no) is a block of []byte with one byte length
@@ -391,7 +404,7 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 	tmpBuf = tmpBuf[:0]
 	buffer := bytes.NewBuffer(tmpBuf)
 	binary.Write(buffer, binary.BigEndian, Signature)
-	binary.Write(buffer, binary.BigEndian, $(name:no)Id)
+	binary.Write(buffer, binary.BigEndian, $(name:no)ID)
 .for field
 .    if type = "number"
 
@@ -467,7 +480,7 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 	// Get message id and parse per message type
 	var id uint8
 	binary.Read(buffer, binary.BigEndian, &id)
-	if id != $(name:no)Id {
+	if id != $(name:no)ID {
 		return errors.New("malformed $(name:no) message")
 	}
 .frames = 0
@@ -548,17 +561,17 @@ func ($(self) *$(name:no)) Send(sock *goczmq.Sock) (err error) {
 		return err
 	}
 
-	// If we're sending to a ROUTER, we send the routingId first
+	// If we're sending to a ROUTER, we send the routingID first
 .if class.package = "github.com/pebbe/zmq4"
 	if socType == zmq.ROUTER {
-		_, err = socket.SendBytes($(self).routingId, zmq.SNDMORE)
+		_, err = socket.SendBytes($(self).routingID, zmq.SNDMORE)
 		if err != nil {
 			return err
 		}
 	}
 .elsif class.package = "github.com/zeromq/goczmq"
 	if socType == goczmq.ROUTER {
-		err = sock.SendFrame($(self).routingId, goczmq.MORE)
+		err = sock.SendFrame($(self).routingID, goczmq.MORE)
 		if err != nil {
 			return err
 		}
@@ -604,26 +617,26 @@ func ($(self) *$(name:no)) Send(sock *goczmq.Sock) (err error) {
 	return err
 }
 
-// RoutingId returns the routingId for this message, routingId should be set
+// RoutingID returns the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func ($(self) *$(name:no)) RoutingId() []byte {
-	return $(self).routingId
+func ($(self) *$(name:no)) RoutingID() []byte {
+	return $(self).routingID
 }
 
-// SetRoutingId sets the routingId for this message, routingId should be set
+// SetRoutingID sets the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func ($(self) *$(name:no)) SetRoutingId(routingId []byte) {
-	$(self).routingId = routingId
+func ($(self) *$(name:no)) SetRoutingID(routingID []byte) {
+	$(self).routingID = routingID
 }
 .struct = "$(name:no)"
 .for field where defined(in_header)
 
-// Set$(name:no) sets the $(name).
+// Set$(fname:no) sets the $(name).
 func ($(self) *$(struct:no)) Set$(fname:no)($(name) $(gotype)) {
 	$(self).$(name) = $(name)
 }
 
-// $(name:no) returns the $(name).
+// $(fname:no) returns the $(name).
 func ($(self) *$(struct:no)) $(fname:no)() $(gotype) {
 	return $(self).$(name)
 }
@@ -658,8 +671,8 @@ func Test$(name:no)(t *testing.T) {
 	defer output.Destroy()
 .endif
 
-	routingId := "Shout"
-	output.SetIdentity(routingId)
+	routingID := "Shout"
+	output.SetIdentity(routingID)
 .if class.package = "github.com/pebbe/zmq4"
 	err = output.Bind("inproc://selftest-$(name)")
 .elsif class.package = "github.com/zeromq/goczmq"
@@ -782,8 +795,8 @@ func Test$(name:no)(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if routingId != string(tr.RoutingId()) {
-		t.Fatalf("expected %s, got %s", routingId, string(tr.RoutingId()))
+	if routingID != string(tr.RoutingID()) {
+		t.Fatalf("expected %s, got %s", routingID, string(tr.RoutingID()))
 	}
 }
 .endfor
