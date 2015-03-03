@@ -10,9 +10,10 @@ import (
 	"github.com/zeromq/goczmq"
 )
 
+// Log struct
 // Log an event.
 type Log struct {
-	routingId []byte
+	routingID []byte
 	sequence  uint16
 	Version   uint16
 	Level     byte
@@ -24,7 +25,7 @@ type Log struct {
 	Data      string
 }
 
-// New creates new Log message.
+// NewLog creates new Log message.
 func NewLog() *Log {
 	log := &Log{}
 	return log
@@ -57,10 +58,10 @@ func (l *Log) Marshal() ([]byte, error) {
 	bufferSize += 2
 
 	// Level is a 1-byte integer
-	bufferSize += 1
+	bufferSize++
 
 	// Event is a 1-byte integer
-	bufferSize += 1
+	bufferSize++
 
 	// Node is a 2-byte integer
 	bufferSize += 2
@@ -84,7 +85,7 @@ func (l *Log) Marshal() ([]byte, error) {
 	tmpBuf = tmpBuf[:0]
 	buffer := bytes.NewBuffer(tmpBuf)
 	binary.Write(buffer, binary.BigEndian, Signature)
-	binary.Write(buffer, binary.BigEndian, LogId)
+	binary.Write(buffer, binary.BigEndian, LogID)
 
 	// sequence
 	binary.Write(buffer, binary.BigEndian, l.sequence)
@@ -138,7 +139,7 @@ func (l *Log) Unmarshal(frames ...[]byte) error {
 	// Get message id and parse per message type
 	var id uint8
 	binary.Read(buffer, binary.BigEndian, &id)
-	if id != LogId {
+	if id != LogID {
 		return errors.New("malformed Log message")
 	}
 	// sequence
@@ -178,9 +179,9 @@ func (l *Log) Send(sock *goczmq.Sock) (err error) {
 		return err
 	}
 
-	// If we're sending to a ROUTER, we send the routingId first
+	// If we're sending to a ROUTER, we send the routingID first
 	if socType == goczmq.ROUTER {
-		err = sock.SendFrame(l.routingId, goczmq.MORE)
+		err = sock.SendFrame(l.routingID, goczmq.MORE)
 		if err != nil {
 			return err
 		}
@@ -195,24 +196,24 @@ func (l *Log) Send(sock *goczmq.Sock) (err error) {
 	return err
 }
 
-// RoutingId returns the routingId for this message, routingId should be set
+// RoutingID returns the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (l *Log) RoutingId() []byte {
-	return l.routingId
+func (l *Log) RoutingID() []byte {
+	return l.routingID
 }
 
-// SetRoutingId sets the routingId for this message, routingId should be set
+// SetRoutingID sets the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (l *Log) SetRoutingId(routingId []byte) {
-	l.routingId = routingId
+func (l *Log) SetRoutingID(routingID []byte) {
+	l.routingID = routingID
 }
 
-// Setsequence sets the sequence.
+// SetSequence sets the sequence.
 func (l *Log) SetSequence(sequence uint16) {
 	l.sequence = sequence
 }
 
-// sequence returns the sequence.
+// Sequence returns the sequence.
 func (l *Log) Sequence() uint16 {
 	return l.sequence
 }

@@ -9,9 +9,10 @@ import (
 	"github.com/zeromq/goczmq"
 )
 
+// Types struct
 // Demonstrate custom-defined types
 type Types struct {
-	routingId        []byte
+	routingID        []byte
 	sequence         uint16
 	ClientForename   string
 	ClientSurname    string
@@ -23,7 +24,7 @@ type Types struct {
 	SupplierEmail    string
 }
 
-// New creates new Types message.
+// NewTypes creates new Types message.
 func NewTypes() *Types {
 	types := &Types{}
 	return types
@@ -89,7 +90,7 @@ func (t *Types) Marshal() ([]byte, error) {
 	tmpBuf = tmpBuf[:0]
 	buffer := bytes.NewBuffer(tmpBuf)
 	binary.Write(buffer, binary.BigEndian, Signature)
-	binary.Write(buffer, binary.BigEndian, TypesId)
+	binary.Write(buffer, binary.BigEndian, TypesID)
 
 	// sequence
 	binary.Write(buffer, binary.BigEndian, t.sequence)
@@ -142,7 +143,7 @@ func (t *Types) Unmarshal(frames ...[]byte) error {
 	// Get message id and parse per message type
 	var id uint8
 	binary.Read(buffer, binary.BigEndian, &id)
-	if id != TypesId {
+	if id != TypesID {
 		return errors.New("malformed Types message")
 	}
 	// sequence
@@ -179,9 +180,9 @@ func (t *Types) Send(sock *goczmq.Sock) (err error) {
 		return err
 	}
 
-	// If we're sending to a ROUTER, we send the routingId first
+	// If we're sending to a ROUTER, we send the routingID first
 	if socType == goczmq.ROUTER {
-		err = sock.SendFrame(t.routingId, goczmq.MORE)
+		err = sock.SendFrame(t.routingID, goczmq.MORE)
 		if err != nil {
 			return err
 		}
@@ -196,24 +197,24 @@ func (t *Types) Send(sock *goczmq.Sock) (err error) {
 	return err
 }
 
-// RoutingId returns the routingId for this message, routingId should be set
+// RoutingID returns the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (t *Types) RoutingId() []byte {
-	return t.routingId
+func (t *Types) RoutingID() []byte {
+	return t.routingID
 }
 
-// SetRoutingId sets the routingId for this message, routingId should be set
+// SetRoutingID sets the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (t *Types) SetRoutingId(routingId []byte) {
-	t.routingId = routingId
+func (t *Types) SetRoutingID(routingID []byte) {
+	t.routingID = routingID
 }
 
-// Setsequence sets the sequence.
+// SetSequence sets the sequence.
 func (t *Types) SetSequence(sequence uint16) {
 	t.sequence = sequence
 }
 
-// sequence returns the sequence.
+// Sequence returns the sequence.
 func (t *Types) Sequence() uint16 {
 	return t.sequence
 }

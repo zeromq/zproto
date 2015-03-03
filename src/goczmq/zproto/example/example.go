@@ -17,15 +17,19 @@ import (
 )
 
 const (
+	// Signature is put into every protocol message and lets us filter bogus
+	// or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
+	// for each protocol you write, at least.
 	Signature uint16 = 0xAAA0 | 0
 	Version          = 1
 )
 
+// Definition of message IDs
 const (
-	LogId        uint8 = 1
-	StructuresId uint8 = 2
-	BinaryId     uint8 = 3
-	TypesId      uint8 = 4
+	LogID        uint8 = 1
+	StructuresID uint8 = 2
+	BinaryID     uint8 = 3
+	TypesID      uint8 = 4
 )
 
 // Transit is a codec interface
@@ -34,8 +38,8 @@ type Transit interface {
 	Unmarshal(...[]byte) error
 	String() string
 	Send(*goczmq.Sock) error
-	SetRoutingId([]byte)
-	RoutingId() []byte
+	SetRoutingID([]byte)
+	RoutingID() []byte
 	SetSequence(uint16)
 	Sequence() uint16
 }
@@ -61,13 +65,13 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 	binary.Read(buffer, binary.BigEndian, &id)
 
 	switch id {
-	case LogId:
+	case LogID:
 		t = NewLog()
-	case StructuresId:
+	case StructuresID:
 		t = NewStructures()
-	case BinaryId:
+	case BinaryID:
 		t = NewBinary()
-	case TypesId:
+	case TypesID:
 		t = NewTypes()
 	}
 	err = t.Unmarshal(frames...)
@@ -104,13 +108,13 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 		return nil, err
 	}
 
-	var routingId []byte
-	// If message came from a router socket, first frame is routingId
+	var routingID []byte
+	// If message came from a router socket, first frame is routingID
 	if sType == goczmq.ROUTER {
 		if len(frames) <= 1 {
-			return nil, errors.New("no routingId")
+			return nil, errors.New("no routingID")
 		}
-		routingId = frames[0]
+		routingID = frames[0]
 		frames = frames[1:]
 	}
 
@@ -120,7 +124,7 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 	}
 
 	if sType == goczmq.ROUTER {
-		t.SetRoutingId(routingId)
+		t.SetRoutingID(routingID)
 	}
 	return t, err
 }
@@ -131,9 +135,9 @@ func Clone(t Transit) Transit {
 	switch msg := t.(type) {
 	case *Log:
 		cloned := NewLog()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
+		routingID := make([]byte, len(msg.RoutingID()))
+		copy(routingID, msg.RoutingID())
+		cloned.SetRoutingID(routingID)
 		cloned.sequence = msg.sequence
 		cloned.Version = msg.Version
 		cloned.Level = msg.Level
@@ -147,9 +151,9 @@ func Clone(t Transit) Transit {
 
 	case *Structures:
 		cloned := NewStructures()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
+		routingID := make([]byte, len(msg.RoutingID()))
+		copy(routingID, msg.RoutingID())
+		cloned.SetRoutingID(routingID)
 		cloned.sequence = msg.sequence
 		for idx, str := range msg.Aliases {
 			cloned.Aliases[idx] = str
@@ -161,9 +165,9 @@ func Clone(t Transit) Transit {
 
 	case *Binary:
 		cloned := NewBinary()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
+		routingID := make([]byte, len(msg.RoutingID()))
+		copy(routingID, msg.RoutingID())
+		cloned.SetRoutingID(routingID)
 		cloned.sequence = msg.sequence
 		copy(cloned.Flags, msg.Flags)
 		cloned.PublicKey = append(cloned.PublicKey, msg.PublicKey...)
@@ -174,9 +178,9 @@ func Clone(t Transit) Transit {
 
 	case *Types:
 		cloned := NewTypes()
-		routingId := make([]byte, len(msg.RoutingId()))
-		copy(routingId, msg.RoutingId())
-		cloned.SetRoutingId(routingId)
+		routingID := make([]byte, len(msg.RoutingID()))
+		copy(routingID, msg.RoutingID())
+		cloned.SetRoutingID(routingID)
 		cloned.sequence = msg.sequence
 		cloned.ClientForename = msg.ClientForename
 		cloned.ClientSurname = msg.ClientSurname

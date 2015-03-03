@@ -9,9 +9,10 @@ import (
 	"github.com/zeromq/goczmq"
 )
 
+// Binary struct
 // Deliver a multi-part message.
 type Binary struct {
-	routingId  []byte
+	routingID  []byte
 	sequence   uint16
 	Flags      []byte
 	PublicKey  []byte
@@ -20,7 +21,7 @@ type Binary struct {
 	Content    []byte
 }
 
-// New creates new Binary message.
+// NewBinary creates new Binary message.
 func NewBinary() *Binary {
 	binary := &Binary{}
 	return binary
@@ -66,7 +67,7 @@ func (b *Binary) Marshal() ([]byte, error) {
 	tmpBuf = tmpBuf[:0]
 	buffer := bytes.NewBuffer(tmpBuf)
 	binary.Write(buffer, binary.BigEndian, Signature)
-	binary.Write(buffer, binary.BigEndian, BinaryId)
+	binary.Write(buffer, binary.BigEndian, BinaryID)
 
 	// sequence
 	binary.Write(buffer, binary.BigEndian, b.sequence)
@@ -106,7 +107,7 @@ func (b *Binary) Unmarshal(frames ...[]byte) error {
 	// Get message id and parse per message type
 	var id uint8
 	binary.Read(buffer, binary.BigEndian, &id)
-	if id != BinaryId {
+	if id != BinaryID {
 		return errors.New("malformed Binary message")
 	}
 	// sequence
@@ -143,9 +144,9 @@ func (b *Binary) Send(sock *goczmq.Sock) (err error) {
 		return err
 	}
 
-	// If we're sending to a ROUTER, we send the routingId first
+	// If we're sending to a ROUTER, we send the routingID first
 	if socType == goczmq.ROUTER {
-		err = sock.SendFrame(b.routingId, goczmq.MORE)
+		err = sock.SendFrame(b.routingID, goczmq.MORE)
 		if err != nil {
 			return err
 		}
@@ -163,24 +164,24 @@ func (b *Binary) Send(sock *goczmq.Sock) (err error) {
 	return err
 }
 
-// RoutingId returns the routingId for this message, routingId should be set
+// RoutingID returns the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (b *Binary) RoutingId() []byte {
-	return b.routingId
+func (b *Binary) RoutingID() []byte {
+	return b.routingID
 }
 
-// SetRoutingId sets the routingId for this message, routingId should be set
+// SetRoutingID sets the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (b *Binary) SetRoutingId(routingId []byte) {
-	b.routingId = routingId
+func (b *Binary) SetRoutingID(routingID []byte) {
+	b.routingID = routingID
 }
 
-// Setsequence sets the sequence.
+// SetSequence sets the sequence.
 func (b *Binary) SetSequence(sequence uint16) {
 	b.sequence = sequence
 }
 
-// sequence returns the sequence.
+// Sequence returns the sequence.
 func (b *Binary) Sequence() uint16 {
 	return b.sequence
 }
