@@ -9,15 +9,16 @@ import (
 	zmq "github.com/pebbe/zmq4"
 )
 
+// Structures struct
 // This message contains a list and a hash.
 type Structures struct {
-	routingId []byte
+	routingID []byte
 	sequence  uint16
 	Aliases   []string
 	Headers   map[string]string
 }
 
-// New creates new Structures message.
+// NewStructures creates new Structures message.
 func NewStructures() *Structures {
 	structures := &Structures{}
 	structures.Headers = make(map[string]string)
@@ -60,7 +61,7 @@ func (s *Structures) Marshal() ([]byte, error) {
 	tmpBuf = tmpBuf[:0]
 	buffer := bytes.NewBuffer(tmpBuf)
 	binary.Write(buffer, binary.BigEndian, Signature)
-	binary.Write(buffer, binary.BigEndian, StructuresId)
+	binary.Write(buffer, binary.BigEndian, StructuresID)
 
 	// sequence
 	binary.Write(buffer, binary.BigEndian, s.sequence)
@@ -102,7 +103,7 @@ func (s *Structures) Unmarshal(frames ...[]byte) error {
 	// Get message id and parse per message type
 	var id uint8
 	binary.Read(buffer, binary.BigEndian, &id)
-	if id != StructuresId {
+	if id != StructuresID {
 		return errors.New("malformed Structures message")
 	}
 	// sequence
@@ -137,9 +138,9 @@ func (s *Structures) Send(socket *zmq.Socket) (err error) {
 		return err
 	}
 
-	// If we're sending to a ROUTER, we send the routingId first
+	// If we're sending to a ROUTER, we send the routingID first
 	if socType == zmq.ROUTER {
-		_, err = socket.SendBytes(s.routingId, zmq.SNDMORE)
+		_, err = socket.SendBytes(s.routingID, zmq.SNDMORE)
 		if err != nil {
 			return err
 		}
@@ -154,24 +155,24 @@ func (s *Structures) Send(socket *zmq.Socket) (err error) {
 	return err
 }
 
-// RoutingId returns the routingId for this message, routingId should be set
+// RoutingID returns the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (s *Structures) RoutingId() []byte {
-	return s.routingId
+func (s *Structures) RoutingID() []byte {
+	return s.routingID
 }
 
-// SetRoutingId sets the routingId for this message, routingId should be set
+// SetRoutingID sets the routingID for this message, routingID should be set
 // whenever talking to a ROUTER.
-func (s *Structures) SetRoutingId(routingId []byte) {
-	s.routingId = routingId
+func (s *Structures) SetRoutingID(routingID []byte) {
+	s.routingID = routingID
 }
 
-// Setsequence sets the sequence.
+// SetSequence sets the sequence.
 func (s *Structures) SetSequence(sequence uint16) {
 	s.sequence = sequence
 }
 
-// sequence returns the sequence.
+// Sequence returns the sequence.
 func (s *Structures) Sequence() uint16 {
 	return s.sequence
 }
