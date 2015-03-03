@@ -257,24 +257,6 @@ $(CLASS.EXPORT_MACRO)void
         const char *key, const char *format, ...);
 $(CLASS.EXPORT_MACRO)size_t
     $(class.name)_$(name)_size ($(class.name)_t *self);
-// The following three functions are conveniet getters of numbers from hash fields. These functions work in tandem with $(class.name)_$(name)_insert. They return:
-// -1 on failure (bad fnc params)
-// 0 on success (the whole string was converted) 
-// 1 not entire string converted
-// 2 value out of range, default_value returned
-// 3 nothing could be converted, default_value returned
-// 4 no such key present, default_value returned
-$(CLASS.EXPORT_MACRO)int
-    $(class.name)_$(name)_unsigned ($(class.name)_t *self,
-        const char *key, uint64_t *value, uint64_t default_value);
-
-$(CLASS.EXPORT_MACRO)int
-    $(class.name)_$(name)_signed ($(class.name)_t *self,
-        const char *key, int64_t *value, int64_t default_value);
-
-$(CLASS.EXPORT_MACRO)int
-    $(class.name)_$(name)_double ($(class.name)_t *self,
-        const char *key, double *value, double default_value);
 .#
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
 //  Get a copy of the $(name) field
@@ -1512,99 +1494,6 @@ $(class.name)_$(name)_size ($(class.name)_t *self)
     return zhash_size (self->$(name));
 }
 
-int
-$(class.name)_$(name)_unsigned ($(class.name)_t *self, const char *key, uint64_t *value, uint64_t default_value)
-{
-    if (!self || !key || !value || !(self->$(name))) {
-        return -1; // bad input
-    }
-    *value = default_value;
-
-    char *string = NULL;
-    string = (char *) (zhash_lookup (self->$(name), key));
-    if (!string) {
-        return 4; // no such key present; default_value returned
-    }
-
-    char *end;
-    uint64_t u = (uint64_t) strtoull (string, &end, 10);
-    if (errno == ERANGE) {
-        errno = 0;
-        return 2; // value present, but out of range; default_value returned
-    }
-    else if (end == string) {
-        return 3; // value present; but can not be converted, not even partially; default_value returned
-    }
-    else if (*end != '\\0') {
-        *value = u;
-        return 1; // value present, but not entire string valid; partially converted value returned
-    }
-    *value = u;
-    return 0;
-}
-
-int
-$(class.name)_$(name)_signed ($(class.name)_t *self, const char *key, int64_t *value, int64_t default_value)
-{
-    if (!self || !key || !value || !(self->$(name))) {
-        return -1; // bad input
-    }
-    *value = default_value;
-
-    char *string = NULL;
-    string = (char *) (zhash_lookup (self->$(name), key));
-    if (!string) {
-        return 4; // no such key present; default_value returned
-    }
-
-    char *end;
-    int64_t u = (int64_t) strtoll (string, &end, 10);
-    if (errno == ERANGE) {
-        errno = 0;
-        return 2; // value present, but out of range; default_value returned
-    }
-    else if (end == string) {
-        return 3; // value present; but can not be converted, not even partially; default_value returned
-    }
-    else if (*end != '\\0') {
-        *value = u;
-        return 1; // value present, but not entire string valid; partially converted value returned
-    }
-    *value = u;
-    return 0;
-}
-
-int
-$(class.name)_$(name)_double ($(class.name)_t *self, const char *key, double *value, double default_value)
-{
-    if (!self || !key || !value || !(self->$(name))) {
-        return -1; // bad input
-    }
-    *value = default_value;
-
-    char *string = NULL;
-    string = (char *) (zhash_lookup (self->$(name), key));
-    if (!string) {
-        return 4; // no such key present; default_value returned
-    }
-    char *end;
-    double u = strtod (string, &end);
-    if (errno == ERANGE) {
-        errno = 0;
-        return 2; // value present, but out of range; default_value returned
-    }
-    else if (end == string) {
-        return 3; // value present; but can not be converted, not even partially; default_value returned
-    }
-    else if (*end != '\\0') {
-        *value = u;
-        return 1; // value present, but not entire string valid; partially converted value returned
-    }
-    *value = u;
-    return 0;
-}
-
-
 .   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
@@ -1694,22 +1583,6 @@ $(class.name)_test (bool verbose)
 .       elsif type = "hash"
     $(class.name)_$(name)_insert (self, "Name", "Brutus");
     $(class.name)_$(name)_insert (self, "Age", "%d", 43);
-    // _aux_unsigned
-    $(class.name)_$(name)_insert (self, "unsigned_0", "%"PRIu64, 5050L);
-    $(class.name)_$(name)_insert (self, "unsigned_1", "%s", "50x50");    
-    $(class.name)_$(name)_insert (self, "unsigned_2", "%s", "55555555555555555555555555555555555555555555555555555555");    
-    $(class.name)_$(name)_insert (self, "unsigned_3", "%s", "xyz50");
-    // _aux_signed
-    $(class.name)_$(name)_insert (self, "signed_0", "%"PRId64, -5050L);
-    $(class.name)_$(name)_insert (self, "signed_1", "%s", "-50x50");    
-    $(class.name)_$(name)_insert (self, "signed_2", "%s", "-55555555555555555555555555555555555555555555555555555555");    
-    $(class.name)_$(name)_insert (self, "signed_3", "%s", "-xyz50");
-    // _aux_double
-    $(class.name)_$(name)_insert (self, "double_0", "%.9f", -5.533094112);
-    $(class.name)_$(name)_insert (self, "double_1", "%s", "-50x50");    
-    $(class.name)_$(name)_insert (self, "double_11", "%s", "-50.77654x50");   
-    $(class.name)_$(name)_insert (self, "double_2", "%.0f1", DBL_MAX);
-    $(class.name)_$(name)_insert (self, "double_3", "%s", "-xyz50");
 .       elsif type = "chunk" | type = "frame"
     z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
@@ -1745,64 +1618,9 @@ $(class.name)_test (bool verbose)
         assert (streq ($(class.name)_$(name)_first (self), "Name: Brutus"));
         assert (streq ($(class.name)_$(name)_next (self), "Age: 43"));
 .       elsif type = "hash"
-
-        assert ($(class.name)_$(name)_size (self) == 15);
+        assert ($(class.name)_$(name)_size (self) == 2);
         assert (streq ($(class.name)_$(name)_string (self, "Name", "?"), "Brutus"));
         assert ($(class.name)_$(name)_number (self, "Age", 0) == 43);
-        uint64_t ui;
-        int rc;
-        rc = $(class.name)_$(name)_unsigned (self, "unsigned_0", &ui, 11);
-        assert (rc == 0);
-        assert (ui == 5050);    
-        rc = $(class.name)_$(name)_unsigned (self, "unsigned_1", &ui, 11);    
-        assert (rc == 1);
-        assert (ui == 50);    
-        rc = $(class.name)_$(name)_unsigned (self, "unsigned_2", &ui, 11); 
-        assert (rc == 2);
-        assert (ui == 11);   
-        rc = $(class.name)_$(name)_unsigned (self, "unsigned_3", &ui, 11); 
-        assert (rc == 3);
-        assert (ui == 11);    
-        rc = $(class.name)_$(name)_unsigned (self, "unsigned_4", &ui, 11);
-        assert (rc == 4);
-        assert (ui == 11);    
-        int64_t si;
-        rc = $(class.name)_$(name)_unsigned (self, "signed_0", &si, -11);
-        assert (rc == 0);
-        assert (si == -5050);    
-        rc = $(class.name)_$(name)_unsigned (self, "signed_1", &si, -11);    
-        assert (rc == 1);
-        assert (si == -50);    
-        rc = $(class.name)_$(name)_unsigned (self, "signed_2", &si, (int64_t) -11); 
-        assert (rc == 2);
-        assert (si == -11);        
-        rc = $(class.name)_$(name)_unsigned (self, "signed_3", &si, (int64_t) -11); 
-        assert (rc == 3);
-        assert (si == -11);  
-        rc = $(class.name)_$(name)_unsigned (self, "signed_4", &si, (int64_t) -11);
-        assert (rc == 4);
-        assert (si == -11);    
-        double di;
-        rc = $(class.name)_$(name)_double (self, "double_0", &di, -1.1);
-        assert (rc == 0);
-        assert (di == -5.533094112);    
-        rc = $(class.name)_$(name)_double (self, "double_1", &di, -1.1);    
-        assert (rc == 1);
-        assert (di == -50);    
-        rc = $(class.name)_$(name)_double (self, "double_11", &di, -1.1);    
-        assert (rc == 1);
-        assert (di == -50.77654);    
-        rc = $(class.name)_$(name)_double (self, "double_2", &di, -1.1); 
-        assert (rc == 2);
-        assert (di == -1.1);        
-        rc = $(class.name)_$(name)_double (self, "double_3", &di, -1.1); 
-        assert (rc == 3);
-        assert (di == -1.1);  
-        rc = $(class.name)_$(name)_double (self, "double_4", &di, -1.1);
-        assert (rc == 4);
-        assert (di == -1.1);    
-
-
 .       elsif type = "chunk"
         assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "Captcha Diem", 12) == 0);
 .       elsif type = "uuid"
