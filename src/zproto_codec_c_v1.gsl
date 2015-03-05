@@ -69,6 +69,10 @@ set_defaults ()
 #include <czmq.h>
 .endif
 
+.if defined (class.export_header)
+#include "$(class.export_header)"
+.endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
