@@ -43,8 +43,8 @@ set_defaults ()
     =========================================================================
 */
 
-#ifndef __$(CLASS.NAME)_H_INCLUDED__
-#define __$(CLASS.NAME)_H_INCLUDED__
+#ifndef $(CLASS.NAME)_H_INCLUDED
+#define $(CLASS.NAME)_H_INCLUDED
 
 /*  These are the $(class.name) messages:
 .for message
