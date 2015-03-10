@@ -448,33 +448,20 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  Decode a $(class.name) from the input size of specified size.
+//  Reads additional from the buffer if frames=true. Returns 0 if OK, -1 if there
+//  was an error.
 
 int
-$(class.name)_recv ($(class.name)_t *self, zsock_t *input)
+$(class.name)_decode ($(class.name)_t *self, byte *input, size_t size, bool frames)
 {
+    assert (self);
     assert (input);
-    
-    if (zsock_type (input) == ZMQ_ROUTER) {
-        zframe_destroy (&self->routing_id);
-        self->routing_id = zframe_recv (input);
-        if (!self->routing_id || !zsock_rcvmore (input)) {
-            zsys_warning ("$(class.name): no routing ID");
-            return -1;          //  Interrupted or malformed
-        }
-    }
-    zmq_msg_t frame;
-    zmq_msg_init (&frame);
-    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
-    if (size == -1) {
-        zsys_warning ("$(class.name): interrupted");
-        goto malformed;         //  Interrupted
-    }
+
     //  Get and check protocol signature
-    self->needle = (byte *) zmq_msg_data (&frame);
-    self->ceiling = self->needle + zmq_msg_size (&frame);
-    
+    self->needle = input;
+    self->ceiling = self->needle + size;
+
     uint16_t signature;
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | $(class.signature))) {
@@ -570,6 +557,84 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             zuuid_set (self->$(name), self->needle);
             self->needle += ZUUID_LEN;
 .       elsif type = "frame"
+            //  Get next frame off buffer
+            if (frames) {
+                self->ceiling += 4; //  Size is 4 octets
+                size_t frame_size;
+                GET_NUMBER4 (frame_size);
+
+                zframe_destroy (&self->$(name));
+                self->$(name) = zframe_new (self->needle, frame_size);
+                self->needle += frame_size;
+            }
+.       elsif type = "msg"
+            //  Get zero or more remaining frames
+            if (frames) {
+                self->ceiling += 4; //  Size is 4 octets
+                size_t frame_size;
+                GET_NUMBER4 (frame_size);
+
+                zmsg_destroy (&self->$(name));
+                self->$(name) = zmsg_new ();
+                zmsg_addmem (self->$(name), self->needle, frame_size);
+                self->needle += frame_size;
+            }
+.       endif
+.   endfor
+            break;
+
+.endfor
+        default:
+            zsys_warning ("$(class.name): bad message ID");
+            goto malformed;
+    }
+
+    //  Successful return
+    return 0;
+
+    //  Error returns
+    malformed:
+        zsys_warning ("$(class.name): $(name) malformed message, fail");
+        return -1;              //  Invalid message
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
+//  there was an error. Blocks if there is no message waiting.
+
+int
+$(class.name)_recv ($(class.name)_t *self, zsock_t *input)
+{
+    assert (self);
+    assert (input);
+
+    if (zsock_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zframe_recv (input);
+        if (!self->routing_id || !zsock_rcvmore (input)) {
+            zsys_warning ("$(class.name): no routing ID");
+            return -1;          //  Interrupted or malformed
+        }
+    }
+    zmq_msg_t frame;
+    zmq_msg_init (&frame);
+    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
+    if (size == -1) {
+        zsys_warning ("$(class.name): interrupted");
+        goto malformed;
+    }
+
+    int res = $(class.name)_decode (self, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame), false);
+    if (res == -1) {
+        goto malformed;
+    }
+
+    switch (self->id) {
+.for class.message where count (field, type = "msg") | count (field, type = "frame")
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field
+.       if type = "frame"
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("$(class.name): $(name) is missing");
@@ -589,10 +654,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             break;
 
 .endfor
-        default:
-            zsys_warning ("$(class.name): bad message ID");
-            goto malformed;
     }
+
     //  Successful return
     zmq_msg_close (&frame);
     return 0;
@@ -604,6 +667,75 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
         return -1;              //  Invalid message
 }
 
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
+//  OK, else -1.
+
+size_t
+$(class.name)_encode_size ($(class.name)_t *self)
+{
+    assert (self);
+
+    size_t size = 2 + 1;          //  Signature and message ID
+    switch (self->id) {
+.for class.message where count (field)
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field
+.       if type = "number"
+            size += $(size);      //  $(name)
+.       elsif type = "octets"
+            size += $(size);      //  $(name)
+.       elsif type = "string"
+.           if defined (field.value)
+            size += 1 + strlen ("$(value:)");
+.           else
+            size += 1 + strlen (self->$(name));
+.           endif
+.       elsif type = "longstr"
+            size += 4;
+            if (self->$(name))
+                size += strlen (self->$(name));
+.       elsif type = "strings"
+            size += 4;            //  Size is 4 octets
+            if (self->$(name)) {
+                char *$(name) = (char *) zlist_first (self->$(name));
+                while ($(name)) {
+                    size += 4 + strlen ($(name));
+                    $(name) = (char *) zlist_next (self->$(name));
+                }
+            }
+.       elsif type = "hash"
+            size += 4;            //  Size is 4 octets
+            if (self->$(name)) {
+                self->$(name)_bytes = 0;
+                char *item = (char *) zhash_first (self->$(name));
+                while (item) {
+                    self->$(name)_bytes += 1 + strlen (zhash_cursor (self->$(name)));
+                    self->$(name)_bytes += 4 + strlen (item);
+                    item = (char *) zhash_next (self->$(name));
+                }
+            }
+            size += self->$(name)_bytes;
+.       elsif type = "chunk"
+            size += 4;            //  Size is 4 octets
+            if (self->$(name))
+                size += zchunk_size (self->$(name));
+.       elsif type = "uuid"
+            size += ZUUID_LEN;    //  $(name)
+.       elsif type = "frame"
+.       elsif type = "msg"
+.           class.msg = name
+.           if item () <> count (message.field)
+.               echo "E: in $(message.name:), $(field.name) must come last"
+.           endif
+.       endif
+.   endfor
+            break;
+.endfor
+    }
+
+    return size;
+}
 
 //  --------------------------------------------------------------------------
 //  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
@@ -618,66 +750,12 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
     if (zsock_type (output) == ZMQ_ROUTER)
         zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
 
-    size_t frame_size = 2 + 1;          //  Signature and message ID
-    switch (self->id) {
-.for class.message where count (field)
-        case $(CLASS.NAME)_$(MESSAGE.NAME):
-.   for field
-.       if type = "number"
-            frame_size += $(size);      //  $(name)
-.       elsif type = "octets"
-            frame_size += $(size);      //  $(name)
-.       elsif type = "string"
-.           if defined (field.value)
-            frame_size += 1 + strlen ("$(value:)");
-.           else
-            frame_size += 1 + strlen (self->$(name));
-.           endif
-.       elsif type = "longstr"
-            frame_size += 4;
-            if (self->$(name))
-                frame_size += strlen (self->$(name));
-.       elsif type = "strings"
-            frame_size += 4;            //  Size is 4 octets
-            if (self->$(name)) {
-                char *$(name) = (char *) zlist_first (self->$(name));
-                while ($(name)) {
-                    frame_size += 4 + strlen ($(name));
-                    $(name) = (char *) zlist_next (self->$(name));
-                }
-            }
-.       elsif type = "hash"
-            frame_size += 4;            //  Size is 4 octets
-            if (self->$(name)) {
-                self->$(name)_bytes = 0;
-                char *item = (char *) zhash_first (self->$(name));
-                while (item) {
-                    self->$(name)_bytes += 1 + strlen (zhash_cursor (self->$(name)));
-                    self->$(name)_bytes += 4 + strlen (item);
-                    item = (char *) zhash_next (self->$(name));
-                }
-            }
-            frame_size += self->$(name)_bytes;
-.       elsif type = "chunk"
-            frame_size += 4;            //  Size is 4 octets
-            if (self->$(name))
-                frame_size += zchunk_size (self->$(name));
-.       elsif type = "uuid"
-            frame_size += ZUUID_LEN;    //  $(name)
-.       elsif type = "frame"
-.       elsif type = "msg"
-.           class.msg = name
-.           if item () <> count (message.field)
-.               echo "E: in $(message.name:), $(field.name) must come last"
-.           endif
-.       endif
-.   endfor
-            break;
-.endfor
-    }
+    size_t frame_size = $(class.name)_encode_size(self);
+
     //  Now serialize message into the frame
     zmq_msg_t frame;
     zmq_msg_init_size (&frame, frame_size);
+
     self->needle = (byte *) zmq_msg_data (&frame);
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
