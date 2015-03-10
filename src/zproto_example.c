@@ -581,9 +581,8 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
     if (zsock_type (output) == ZMQ_ROUTER)
         zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
 
-    size_t frame_size = zproto_example_encode_size(self);
-
     //  Now serialize message into the frame
+    size_t frame_size = zproto_example_encode_size(self);
     zmq_msg_t frame;
     zmq_msg_init_size (&frame, frame_size);
 

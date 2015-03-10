@@ -667,9 +667,9 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
         return -1;              //  Invalid message
 }
 
+
 //  --------------------------------------------------------------------------
-//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
+//  Return size of the $(class.name).
 
 size_t
 $(class.name)_encode_size ($(class.name)_t *self)
@@ -737,6 +737,7 @@ $(class.name)_encode_size ($(class.name)_t *self)
     return size;
 }
 
+
 //  --------------------------------------------------------------------------
 //  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
 //  OK, else -1.
@@ -750,9 +751,8 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
     if (zsock_type (output) == ZMQ_ROUTER)
         zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
 
-    size_t frame_size = $(class.name)_encode_size(self);
-
     //  Now serialize message into the frame
+    size_t frame_size = $(class.name)_encode_size(self);
     zmq_msg_t frame;
     zmq_msg_init_size (&frame, frame_size);
 
