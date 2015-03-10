@@ -63,57 +63,6 @@ if test "x${ZPROTO_GCOV}" == "xyes"; then
     fi
 fi
 
-# libzmq integration
-AC_ARG_WITH([libzmq],
-            [AS_HELP_STRING([--with-libzmq],
-                            [Specify libzmq prefix])],
-            [search_libzmq="yes"],
-            [])
-
-if test "x$search_libzmq" = "xyes"; then
-    if test -r "${with_libzmq}/include/zmq.h"; then
-        CFLAGS="-I${with_libzmq}/include ${CFLAGS}"
-        LDFLAGS="-L${with_libzmq}/lib ${LDFLAGS}"
-    else
-        AC_MSG_ERROR([${with_libzmq}/include/zmq.h not found. Please check libzmq prefix])
-    fi
-fi
-
-AC_CHECK_LIB(zmq, zmq_init,
-    LIBS="-lzmq $LIBS",
-    [AC_MSG_ERROR([cannot link with -lzmq, install libzmq.])])
-
-AC_MSG_CHECKING([whether libzmq installation works])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <zmq.h>],
-    [zmq_init(1);]) ],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_ERROR([no. Please specify libzmq installation prefix using --with-libzmq])])
-
-# libczmq integration
-AC_ARG_WITH([libczmq],
-    [AS_HELP_STRING([--with-libczmq],
-        [Specify libczmq prefix])],
-    [search_libczmq="yes"], [])
-
-if test "x$search_libczmq" = "xyes"; then
-    if test -r "${with_libczmq}/include/czmq.h"; then
-        CFLAGS="-I${with_libczmq}/include ${CFLAGS}"
-        LDFLAGS="-L${with_libczmq}/lib ${LDFLAGS}"
-    else
-        AC_MSG_ERROR([${with_libczmq}/include/czmq.h not found. Please check libczmq prefix])
-    fi
-fi
-
-AC_CHECK_LIB(czmq, zctx_test,
-        LIBS="-lczmq $LIBS",
-        [AC_MSG_ERROR([cannot link with -lczmq, install libczmq.])])
-
-AC_MSG_CHECKING([whether libczmq installation works])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <czmq.h>],
-    [zctx_test (0);]) ],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_ERROR([no. Please specify libczmq installation prefix using --with-czmq])])
-
 # gsl installed
 AC_ARG_VAR(search_gsl, "")
 AC_DEFUN([AC_PROG_GSL], [AC_CHECK_PROG(search_gsl, gsl, yes)])
