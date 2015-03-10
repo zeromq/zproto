@@ -739,31 +739,20 @@ $(class.name)_encode_size ($(class.name)_t *self)
 
 
 //  --------------------------------------------------------------------------
-//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
+//  Encode the $(class.name) into the output.
 
-int
-$(class.name)_send ($(class.name)_t *self, zsock_t *output)
+size_t
+$(class.name)_encode ($(class.name)_t *self, byte *output)
 {
     assert (self);
     assert (output);
 
-    if (zsock_type (output) == ZMQ_ROUTER)
-        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
-
-    //  Now serialize message into the frame
-    size_t frame_size = $(class.name)_encode_size(self);
-    zmq_msg_t frame;
-    zmq_msg_init_size (&frame, frame_size);
-
-    self->needle = (byte *) zmq_msg_data (&frame);
+    self->needle = output;
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
-.if defined (class.msg)
-    bool send_$(class.msg) = false;
-.endif
+
     size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
 .for class.message where count (field)
         case $(CLASS.NAME)_$(MESSAGE.NAME):
@@ -831,16 +820,54 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
             nbr_frames++;
 .       elsif type = "msg"
             nbr_frames += self->$(name)? zmsg_size (self->$(name)): 1;
-            send_$(class.msg) = true;
 .       endif
 .   endfor
             break;
 
 .endfor
     }
+
+    return nbr_frames;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
+//  OK, else -1.
+
+int
+$(class.name)_send ($(class.name)_t *self, zsock_t *output)
+{
+    assert (self);
+    assert (output);
+
+    if (zsock_type (output) == ZMQ_ROUTER)
+        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
+
+    //  Now serialize message into the frame
+    size_t frame_size = $(class.name)_encode_size(self);
+    zmq_msg_t frame;
+    zmq_msg_init_size (&frame, frame_size);
+
+    size_t nbr_frames = $(class.name)_encode (self, (byte *) zmq_msg_data (&frame));
+
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+
+.if defined (class.msg)
+    bool send_$(class.msg) = false;
+.endif
+
+    switch (self->id) {
+.for class.message where count (field, type = "msg")
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field where type = "msg"
+            send_$(class.msg) = true;
+.   endfor
+            break;
+.endfor
+    }
+
 .for class.message where count (field, type = "frame")
     //  Now send any frame fields, in order
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
@@ -1185,7 +1212,6 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 .   endif
 
 .endfor
-
 //  --------------------------------------------------------------------------
 //  Selftest
 

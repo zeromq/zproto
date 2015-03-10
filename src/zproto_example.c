@@ -498,9 +498,9 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
         return -1;              //  Invalid message
 }
 
+
 //  --------------------------------------------------------------------------
-//  Send the zproto_example to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
+//  Return size of the zproto_example.
 
 size_t
 zproto_example_encode_size (zproto_example_t *self)
@@ -568,30 +568,22 @@ zproto_example_encode_size (zproto_example_t *self)
     return size;
 }
 
-//  --------------------------------------------------------------------------
-//  Send the zproto_example to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
 
-int
-zproto_example_send (zproto_example_t *self, zsock_t *output)
+//  --------------------------------------------------------------------------
+//  Encode the zproto_example into the output.
+
+size_t
+zproto_example_encode (zproto_example_t *self, byte *output)
 {
     assert (self);
     assert (output);
 
-    if (zsock_type (output) == ZMQ_ROUTER)
-        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
-
-    //  Now serialize message into the frame
-    size_t frame_size = zproto_example_encode_size(self);
-    zmq_msg_t frame;
-    zmq_msg_init_size (&frame, frame_size);
-
-    self->needle = (byte *) zmq_msg_data (&frame);
+    self->needle = output;
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
-    bool send_content = false;
+
     size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             PUT_NUMBER2 (self->sequence);
@@ -653,7 +645,6 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
             self->needle += ZUUID_LEN;
             nbr_frames++;
             nbr_frames += self->content? zmsg_size (self->content): 1;
-            send_content = true;
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -669,9 +660,42 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
             break;
 
     }
+
+    return nbr_frames;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the zproto_example to the socket. Does not destroy it. Returns 0 if
+//  OK, else -1.
+
+int
+zproto_example_send (zproto_example_t *self, zsock_t *output)
+{
+    assert (self);
+    assert (output);
+
+    if (zsock_type (output) == ZMQ_ROUTER)
+        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
+
+    //  Now serialize message into the frame
+    size_t frame_size = zproto_example_encode_size(self);
+    zmq_msg_t frame;
+    zmq_msg_init_size (&frame, frame_size);
+
+    size_t nbr_frames = zproto_example_encode (self, (byte *) zmq_msg_data (&frame));
+
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+
+    bool send_content = false;
+
+    switch (self->id) {
+        case ZPROTO_EXAMPLE_BINARY:
+            send_content = true;
+            break;
+    }
+
     //  Now send any frame fields, in order
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
         //  If address isn't set, send an empty frame
@@ -1411,7 +1435,6 @@ zproto_example_set_supplier_email (zproto_example_t *self, const char *value)
     strncpy (self->supplier_email, value, 255);
     self->supplier_email [255] = 0;
 }
-
 
 
 //  --------------------------------------------------------------------------
