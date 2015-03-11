@@ -448,33 +448,20 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  Decode a $(class.name) from the input size of specified size.
+//  Reads additional from the buffer if frames=true. Returns 0 if OK, -1 if there
+//  was an error.
 
 int
-$(class.name)_recv ($(class.name)_t *self, zsock_t *input)
+$(class.name)_decode ($(class.name)_t *self, byte *input, size_t size, bool frames)
 {
+    assert (self);
     assert (input);
-    
-    if (zsock_type (input) == ZMQ_ROUTER) {
-        zframe_destroy (&self->routing_id);
-        self->routing_id = zframe_recv (input);
-        if (!self->routing_id || !zsock_rcvmore (input)) {
-            zsys_warning ("$(class.name): no routing ID");
-            return -1;          //  Interrupted or malformed
-        }
-    }
-    zmq_msg_t frame;
-    zmq_msg_init (&frame);
-    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
-    if (size == -1) {
-        zsys_warning ("$(class.name): interrupted");
-        goto malformed;         //  Interrupted
-    }
+
     //  Get and check protocol signature
-    self->needle = (byte *) zmq_msg_data (&frame);
-    self->ceiling = self->needle + zmq_msg_size (&frame);
-    
+    self->needle = input;
+    self->ceiling = self->needle + size;
+
     uint16_t signature;
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | $(class.signature))) {
@@ -570,6 +557,96 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             zuuid_set (self->$(name), self->needle);
             self->needle += ZUUID_LEN;
 .       elsif type = "frame"
+            //  Get next frame off buffer
+            if (frames) {
+                size_t frame_size;
+                GET_NUMBER4 (frame_size);
+                if (self->needle + frame_size > (self->ceiling)) {
+                    zsys_warning ("$(class.name): $(name) is missing data");
+                    goto malformed;
+                }
+
+                zframe_destroy (&self->$(name));
+                self->$(name) = zframe_new (self->needle, frame_size);
+                self->needle += frame_size;
+            }
+.       elsif type = "msg"
+            //  Get zero or more remaining frames
+            if (frames) {
+                size_t zmsg_size = 0;
+                GET_NUMBER4 (zmsg_size);
+                if (self->needle + zmsg_size > (self->ceiling)) {
+                    zsys_warning ("$(class.name): $(name) is missing data");
+                    goto malformed;
+                }
+
+                size_t zmsg_frame_size;
+                zmsg_destroy (&self->$(name));
+                self->$(name) = zmsg_new ();
+
+                while (zmsg_size-- > 0) {
+                    GET_NUMBER4 (zmsg_frame_size);
+
+                    zmsg_addmem (self->$(name), self->needle, zmsg_frame_size);
+                    self->needle += zmsg_frame_size;
+                }
+            }
+.       endif
+.   endfor
+            break;
+
+.endfor
+        default:
+            zsys_warning ("$(class.name): bad message ID");
+            goto malformed;
+    }
+
+    //  Successful return
+    return 0;
+
+    //  Error returns
+    malformed:
+        zsys_warning ("$(class.name): $(name) malformed message, fail");
+        return -1;              //  Invalid message
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
+//  there was an error. Blocks if there is no message waiting.
+
+int
+$(class.name)_recv ($(class.name)_t *self, zsock_t *input)
+{
+    assert (self);
+    assert (input);
+
+    if (zsock_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zframe_recv (input);
+        if (!self->routing_id || !zsock_rcvmore (input)) {
+            zsys_warning ("$(class.name): no routing ID");
+            return -1;          //  Interrupted or malformed
+        }
+    }
+    zmq_msg_t frame;
+    zmq_msg_init (&frame);
+    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
+    if (size == -1) {
+        zsys_warning ("$(class.name): interrupted");
+        goto malformed;
+    }
+
+    int res = $(class.name)_decode (self, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame), false);
+    if (res == -1) {
+        goto malformed;
+    }
+
+    switch (self->id) {
+.for class.message where count (field, type = "msg") | count (field, type = "frame")
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field
+.       if type = "frame"
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("$(class.name): $(name) is missing");
@@ -589,10 +666,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             break;
 
 .endfor
-        default:
-            zsys_warning ("$(class.name): bad message ID");
-            goto malformed;
     }
+
     //  Successful return
     zmq_msg_close (&frame);
     return 0;
@@ -606,48 +681,43 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 
 
 //  --------------------------------------------------------------------------
-//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
+//  Return size of the $(class.name).
 
-int
-$(class.name)_send ($(class.name)_t *self, zsock_t *output)
+size_t
+$(class.name)_encode_size ($(class.name)_t *self, bool frames)
 {
     assert (self);
-    assert (output);
 
-    if (zsock_type (output) == ZMQ_ROUTER)
-        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
-
-    size_t frame_size = 2 + 1;          //  Signature and message ID
+    size_t size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
 .for class.message where count (field)
         case $(CLASS.NAME)_$(MESSAGE.NAME):
 .   for field
 .       if type = "number"
-            frame_size += $(size);      //  $(name)
+            size += $(size);      //  $(name)
 .       elsif type = "octets"
-            frame_size += $(size);      //  $(name)
+            size += $(size);      //  $(name)
 .       elsif type = "string"
 .           if defined (field.value)
-            frame_size += 1 + strlen ("$(value:)");
+            size += 1 + strlen ("$(value:)");
 .           else
-            frame_size += 1 + strlen (self->$(name));
+            size += 1 + strlen (self->$(name));
 .           endif
 .       elsif type = "longstr"
-            frame_size += 4;
+            size += 4;
             if (self->$(name))
-                frame_size += strlen (self->$(name));
+                size += strlen (self->$(name));
 .       elsif type = "strings"
-            frame_size += 4;            //  Size is 4 octets
+            size += 4;            //  Size is 4 octets
             if (self->$(name)) {
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
-                    frame_size += 4 + strlen ($(name));
+                    size += 4 + strlen ($(name));
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
 .       elsif type = "hash"
-            frame_size += 4;            //  Size is 4 octets
+            size += 4;            //  Size is 4 octets
             if (self->$(name)) {
                 self->$(name)_bytes = 0;
                 char *item = (char *) zhash_first (self->$(name));
@@ -657,35 +727,58 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
                     item = (char *) zhash_next (self->$(name));
                 }
             }
-            frame_size += self->$(name)_bytes;
+            size += self->$(name)_bytes;
 .       elsif type = "chunk"
-            frame_size += 4;            //  Size is 4 octets
+            size += 4;            //  Size is 4 octets
             if (self->$(name))
-                frame_size += zchunk_size (self->$(name));
+                size += zchunk_size (self->$(name));
 .       elsif type = "uuid"
-            frame_size += ZUUID_LEN;    //  $(name)
+            size += ZUUID_LEN;    //  $(name)
 .       elsif type = "frame"
+            if (frames) {
+                size += 4;        //  Size is 4 octets
+                size += zframe_size (self->$(name));
+            }
 .       elsif type = "msg"
 .           class.msg = name
 .           if item () <> count (message.field)
 .               echo "E: in $(message.name:), $(field.name) must come last"
 .           endif
+            size += 4;            //  Size is 4 octets
+            zframe_t *frame = zmsg_first (self->$(class.msg));
+            while (frame) {
+                size += 4;        //  Size is 4 octets
+                size += zframe_size (frame);
+                frame = zmsg_next (self->$(class.msg));
+            }
 .       endif
 .   endfor
             break;
 .endfor
     }
-    //  Now serialize message into the frame
-    zmq_msg_t frame;
-    zmq_msg_init_size (&frame, frame_size);
-    self->needle = (byte *) zmq_msg_data (&frame);
+
+    return size;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode the $(class.name) into the output.
+
+size_t
+$(class.name)_encode ($(class.name)_t *self, byte *output, bool frames)
+{
+    assert (self);
+    assert (output);
+
+    self->needle = output;
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
+
 .if defined (class.msg)
-    bool send_$(class.msg) = false;
+    bool encode_$(class.msg) = false;
 .endif
     size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
 .for class.message where count (field)
         case $(CLASS.NAME)_$(MESSAGE.NAME):
@@ -753,16 +846,97 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
             nbr_frames++;
 .       elsif type = "msg"
             nbr_frames += self->$(name)? zmsg_size (self->$(name)): 1;
-            send_$(class.msg) = true;
+.           if defined (class.msg)
+            encode_$(class.msg) = true;
+.           endif
 .       endif
 .   endfor
             break;
 
 .endfor
     }
+
+    if (!frames) {
+        return nbr_frames;
+    }
+
+.for class.message where count (field, type = "frame")
+    //  Now encode any frame fields, in order
+    if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
+.   for field where type = "frame"
+        //  If $(name) isn't set, encode an empty frame
+        if (self->$(field.name)) {
+            PUT_NUMBER4 (zframe_size (self->$(name)))
+            memcpy (self->needle,
+                    (byte *) zframe_data (self->$(name)),
+                    zframe_size (self->$(name)));
+            self->needle += zframe_size (self->$(name));
+        } else
+            PUT_NUMBER4 (0)
+.   endfor
+    }
+.endfor
+.if defined (class.msg)
+    //  Now encode the $(class.msg) if necessary
+    if (encode_$(class.msg)) {
+        if (self->$(class.msg)) {
+            PUT_NUMBER4 (zmsg_size (self->$(class.msg)))
+            zframe_t *frame = zmsg_first (self->$(class.msg));
+            while (frame) {
+                PUT_NUMBER4 (zframe_size (frame))
+                memcpy (self->needle,
+                        (byte *) zframe_data (frame),
+                        zframe_size (frame));
+                self->needle += zframe_size (frame);
+                frame = zmsg_next (self->$(class.msg));
+            }
+        }
+        else
+            PUT_NUMBER4 (0)
+    }
+.endif
+
+    return nbr_frames;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the $(class.name) to the socket. Does not destroy it. Returns 0 if
+//  OK, else -1.
+
+int
+$(class.name)_send ($(class.name)_t *self, zsock_t *output)
+{
+    assert (self);
+    assert (output);
+
+    if (zsock_type (output) == ZMQ_ROUTER)
+        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
+
+    //  Now serialize message into the frame
+    size_t frame_size = $(class.name)_encode_size(self, false);
+    zmq_msg_t frame;
+    zmq_msg_init_size (&frame, frame_size);
+
+    size_t nbr_frames = $(class.name)_encode (self, (byte *) zmq_msg_data (&frame), false);
+
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+
+.if defined (class.msg)
+    bool send_$(class.msg) = false;
+.endif
+
+    switch (self->id) {
+.for class.message where count (field, type = "msg")
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field where type = "msg"
+            send_$(class.msg) = true;
+.   endfor
+            break;
+.endfor
+    }
+
 .for class.message where count (field, type = "frame")
     //  Now send any frame fields, in order
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
@@ -1107,7 +1281,6 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 .   endif
 
 .endfor
-
 //  --------------------------------------------------------------------------
 //  Selftest
 
@@ -1134,9 +1307,14 @@ $(class.name)_test (bool verbose)
     assert (output);
     zsock_bind (output, "inproc://selftest-$(class.name)");
 
+    FILE *fp;
+
     //  Encode/send/decode and verify each message type
+    size_t buf_size;
+    byte *buf;
     int instance;
     self = $(class.name)_new ();
+
 .for class.message
     $(class.name)_set_id (self, $(CLASS.NAME)_$(MESSAGE.NAME));
 
@@ -1171,8 +1349,25 @@ $(class.name)_test (bool verbose)
     $(class.name)_send (self, output);
     $(class.name)_send (self, output);
 
-    for (instance = 0; instance < 2; instance++) {
-        $(class.name)_recv (self, input);
+    buf_size = $(class.name)_encode_size (self, true);
+    buf = (byte *) malloc (buf_size);
+    assert (buf);
+    $(class.name)_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/$(class.name)_$(name).bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
+
+    // Receive twice the decode from the buffer
+    for (instance = 0; instance < 2+1; instance++) {
+        if (instance < 2) {
+            $(class.name)_recv (self, input);
+        } else {
+            $(class.name)_decode (self, buf, buf_size, true);
+        }
         assert ($(class.name)_routing_id (self));
 .   for field where !defined (value)
 .       if type = "number"
@@ -1197,12 +1392,15 @@ $(class.name)_test (bool verbose)
 .       elsif type = "uuid"
         zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
         assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
-        if (instance == 1) {
+        if (instance == 2) {
             zuuid_destroy (&$(message.name)_$(name)_dup);
         }
 .       endif
 .   endfor
     }
+
+    free (buf);
+
 .endfor
 
     $(class.name)_destroy (&self);

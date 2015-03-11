@@ -9,10 +9,10 @@ gcc -g -o zproto_selftest zproto*.c ${CFLAGS} ${LDFLAGS} -DHAVE_CONFIG_H -lczmq 
 
 if [ $? -eq 0 ]; then
     if [ "$1" == "-q" ]; then
-        ./zproto_selftest
+        ./zproto_selftest $@
         exit
     else
-        $VG ./zproto_selftest
+        $VG ./zproto_selftest $@
     fi
 fi
 rm -f vgcore.*

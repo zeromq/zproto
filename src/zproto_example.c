@@ -290,33 +290,20 @@ zproto_example_destroy (zproto_example_t **self_p)
 
 
 //  --------------------------------------------------------------------------
-//  Receive a zproto_example from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  Decode a zproto_example from the input size of specified size.
+//  Reads additional from the buffer if frames=true. Returns 0 if OK, -1 if there
+//  was an error.
 
 int
-zproto_example_recv (zproto_example_t *self, zsock_t *input)
+zproto_example_decode (zproto_example_t *self, byte *input, size_t size, bool frames)
 {
+    assert (self);
     assert (input);
-    
-    if (zsock_type (input) == ZMQ_ROUTER) {
-        zframe_destroy (&self->routing_id);
-        self->routing_id = zframe_recv (input);
-        if (!self->routing_id || !zsock_rcvmore (input)) {
-            zsys_warning ("zproto_example: no routing ID");
-            return -1;          //  Interrupted or malformed
-        }
-    }
-    zmq_msg_t frame;
-    zmq_msg_init (&frame);
-    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
-    if (size == -1) {
-        zsys_warning ("zproto_example: interrupted");
-        goto malformed;         //  Interrupted
-    }
+
     //  Get and check protocol signature
-    self->needle = (byte *) zmq_msg_data (&frame);
-    self->ceiling = self->needle + zmq_msg_size (&frame);
-    
+    self->needle = input;
+    self->ceiling = self->needle + size;
+
     uint16_t signature;
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | 0)) {
@@ -400,19 +387,39 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             self->identifier = zuuid_new ();
             zuuid_set (self->identifier, self->needle);
             self->needle += ZUUID_LEN;
-            //  Get next frame off socket
-            if (!zsock_rcvmore (input)) {
-                zsys_warning ("zproto_example: address is missing");
-                goto malformed;
+            //  Get next frame off buffer
+            if (frames) {
+                size_t frame_size;
+                GET_NUMBER4 (frame_size);
+                if (self->needle + frame_size > (self->ceiling)) {
+                    zsys_warning ("zproto_example: address is missing data");
+                    goto malformed;
+                }
+
+                zframe_destroy (&self->address);
+                self->address = zframe_new (self->needle, frame_size);
+                self->needle += frame_size;
             }
-            zframe_destroy (&self->address);
-            self->address = zframe_recv (input);
             //  Get zero or more remaining frames
-            zmsg_destroy (&self->content);
-            if (zsock_rcvmore (input))
-                self->content = zmsg_recv (input);
-            else
+            if (frames) {
+                size_t zmsg_size = 0;
+                GET_NUMBER4 (zmsg_size);
+                if (self->needle + zmsg_size > (self->ceiling)) {
+                    zsys_warning ("zproto_example: content is missing data");
+                    goto malformed;
+                }
+
+                size_t zmsg_frame_size;
+                zmsg_destroy (&self->content);
                 self->content = zmsg_new ();
+
+                while (zmsg_size-- > 0) {
+                    GET_NUMBER4 (zmsg_frame_size);
+
+                    zmsg_addmem (self->content, self->needle, zmsg_frame_size);
+                    self->needle += zmsg_frame_size;
+                }
+            }
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -431,6 +438,67 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             zsys_warning ("zproto_example: bad message ID");
             goto malformed;
     }
+
+    //  Successful return
+    return 0;
+
+    //  Error returns
+    malformed:
+        zsys_warning ("zproto_example: zproto_example malformed message, fail");
+        return -1;              //  Invalid message
+}
+
+
+//  --------------------------------------------------------------------------
+//  Receive a zproto_example from the socket. Returns 0 if OK, -1 if
+//  there was an error. Blocks if there is no message waiting.
+
+int
+zproto_example_recv (zproto_example_t *self, zsock_t *input)
+{
+    assert (self);
+    assert (input);
+
+    if (zsock_type (input) == ZMQ_ROUTER) {
+        zframe_destroy (&self->routing_id);
+        self->routing_id = zframe_recv (input);
+        if (!self->routing_id || !zsock_rcvmore (input)) {
+            zsys_warning ("zproto_example: no routing ID");
+            return -1;          //  Interrupted or malformed
+        }
+    }
+    zmq_msg_t frame;
+    zmq_msg_init (&frame);
+    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
+    if (size == -1) {
+        zsys_warning ("zproto_example: interrupted");
+        goto malformed;
+    }
+
+    int res = zproto_example_decode (self, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame), false);
+    if (res == -1) {
+        goto malformed;
+    }
+
+    switch (self->id) {
+        case ZPROTO_EXAMPLE_BINARY:
+            //  Get next frame off socket
+            if (!zsock_rcvmore (input)) {
+                zsys_warning ("zproto_example: address is missing");
+                goto malformed;
+            }
+            zframe_destroy (&self->address);
+            self->address = zframe_recv (input);
+            //  Get zero or more remaining frames
+            zmsg_destroy (&self->content);
+            if (zsock_rcvmore (input))
+                self->content = zmsg_recv (input);
+            else
+                self->content = zmsg_new ();
+            break;
+
+    }
+
     //  Successful return
     zmq_msg_close (&frame);
     return 0;
@@ -444,44 +512,39 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
 
 
 //  --------------------------------------------------------------------------
-//  Send the zproto_example to the socket. Does not destroy it. Returns 0 if
-//  OK, else -1.
+//  Return size of the zproto_example.
 
-int
-zproto_example_send (zproto_example_t *self, zsock_t *output)
+size_t
+zproto_example_encode_size (zproto_example_t *self, bool frames)
 {
     assert (self);
-    assert (output);
 
-    if (zsock_type (output) == ZMQ_ROUTER)
-        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
-
-    size_t frame_size = 2 + 1;          //  Signature and message ID
+    size_t size = 2 + 1;          //  Signature and message ID
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
-            frame_size += 2;            //  sequence
-            frame_size += 2;            //  version
-            frame_size += 1;            //  level
-            frame_size += 1;            //  event
-            frame_size += 2;            //  node
-            frame_size += 2;            //  peer
-            frame_size += 8;            //  time
-            frame_size += 1 + strlen (self->host);
-            frame_size += 4;
+            size += 2;            //  sequence
+            size += 2;            //  version
+            size += 1;            //  level
+            size += 1;            //  event
+            size += 2;            //  node
+            size += 2;            //  peer
+            size += 8;            //  time
+            size += 1 + strlen (self->host);
+            size += 4;
             if (self->data)
-                frame_size += strlen (self->data);
+                size += strlen (self->data);
             break;
         case ZPROTO_EXAMPLE_STRUCTURES:
-            frame_size += 2;            //  sequence
-            frame_size += 4;            //  Size is 4 octets
+            size += 2;            //  sequence
+            size += 4;            //  Size is 4 octets
             if (self->aliases) {
                 char *aliases = (char *) zlist_first (self->aliases);
                 while (aliases) {
-                    frame_size += 4 + strlen (aliases);
+                    size += 4 + strlen (aliases);
                     aliases = (char *) zlist_next (self->aliases);
                 }
             }
-            frame_size += 4;            //  Size is 4 octets
+            size += 4;            //  Size is 4 octets
             if (self->headers) {
                 self->headers_bytes = 0;
                 char *item = (char *) zhash_first (self->headers);
@@ -491,37 +554,60 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
                     item = (char *) zhash_next (self->headers);
                 }
             }
-            frame_size += self->headers_bytes;
+            size += self->headers_bytes;
             break;
         case ZPROTO_EXAMPLE_BINARY:
-            frame_size += 2;            //  sequence
-            frame_size += 4;            //  flags
-            frame_size += 4;            //  Size is 4 octets
+            size += 2;            //  sequence
+            size += 4;            //  flags
+            size += 4;            //  Size is 4 octets
             if (self->public_key)
-                frame_size += zchunk_size (self->public_key);
-            frame_size += ZUUID_LEN;    //  identifier
+                size += zchunk_size (self->public_key);
+            size += ZUUID_LEN;    //  identifier
+            if (frames) {
+                size += 4;        //  Size is 4 octets
+                size += zframe_size (self->address);
+            }
+            size += 4;            //  Size is 4 octets
+            zframe_t *frame = zmsg_first (self->content);
+            while (frame) {
+                size += 4;        //  Size is 4 octets
+                size += zframe_size (frame);
+                frame = zmsg_next (self->content);
+            }
             break;
         case ZPROTO_EXAMPLE_TYPES:
-            frame_size += 2;            //  sequence
-            frame_size += 1 + strlen (self->client_forename);
-            frame_size += 1 + strlen (self->client_surname);
-            frame_size += 1 + strlen (self->client_mobile);
-            frame_size += 1 + strlen (self->client_email);
-            frame_size += 1 + strlen (self->supplier_forename);
-            frame_size += 1 + strlen (self->supplier_surname);
-            frame_size += 1 + strlen (self->supplier_mobile);
-            frame_size += 1 + strlen (self->supplier_email);
+            size += 2;            //  sequence
+            size += 1 + strlen (self->client_forename);
+            size += 1 + strlen (self->client_surname);
+            size += 1 + strlen (self->client_mobile);
+            size += 1 + strlen (self->client_email);
+            size += 1 + strlen (self->supplier_forename);
+            size += 1 + strlen (self->supplier_surname);
+            size += 1 + strlen (self->supplier_mobile);
+            size += 1 + strlen (self->supplier_email);
             break;
     }
-    //  Now serialize message into the frame
-    zmq_msg_t frame;
-    zmq_msg_init_size (&frame, frame_size);
-    self->needle = (byte *) zmq_msg_data (&frame);
+
+    return size;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Encode the zproto_example into the output.
+
+size_t
+zproto_example_encode (zproto_example_t *self, byte *output, bool frames)
+{
+    assert (self);
+    assert (output);
+
+    self->needle = output;
     PUT_NUMBER2 (0xAAA0 | 0);
     PUT_NUMBER1 (self->id);
-    bool send_content = false;
+
+    bool encode_content = false;
     size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             PUT_NUMBER2 (self->sequence);
@@ -583,7 +669,7 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
             self->needle += ZUUID_LEN;
             nbr_frames++;
             nbr_frames += self->content? zmsg_size (self->content): 1;
-            send_content = true;
+            encode_content = true;
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
@@ -599,9 +685,76 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
             break;
 
     }
+
+    if (!frames) {
+        return nbr_frames;
+    }
+
+    //  Now encode any frame fields, in order
+    if (self->id == ZPROTO_EXAMPLE_BINARY) {
+        //  If address isn't set, encode an empty frame
+        if (self->address) {
+            PUT_NUMBER4 (zframe_size (self->address))
+            memcpy (self->needle,
+                    (byte *) zframe_data (self->address),
+                    zframe_size (self->address));
+            self->needle += zframe_size (self->address);
+        } else
+            PUT_NUMBER4 (0)
+    }
+    //  Now encode the content if necessary
+    if (encode_content) {
+        if (self->content) {
+            PUT_NUMBER4 (zmsg_size (self->content))
+            zframe_t *frame = zmsg_first (self->content);
+            while (frame) {
+                PUT_NUMBER4 (zframe_size (frame))
+                memcpy (self->needle,
+                        (byte *) zframe_data (frame),
+                        zframe_size (frame));
+                self->needle += zframe_size (frame);
+                frame = zmsg_next (self->content);
+            }
+        }
+        else
+            PUT_NUMBER4 (0)
+    }
+
+    return nbr_frames;
+}
+
+
+//  --------------------------------------------------------------------------
+//  Send the zproto_example to the socket. Does not destroy it. Returns 0 if
+//  OK, else -1.
+
+int
+zproto_example_send (zproto_example_t *self, zsock_t *output)
+{
+    assert (self);
+    assert (output);
+
+    if (zsock_type (output) == ZMQ_ROUTER)
+        zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
+
+    //  Now serialize message into the frame
+    size_t frame_size = zproto_example_encode_size(self, false);
+    zmq_msg_t frame;
+    zmq_msg_init_size (&frame, frame_size);
+
+    size_t nbr_frames = zproto_example_encode (self, (byte *) zmq_msg_data (&frame), false);
+
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+
+    bool send_content = false;
+
+    switch (self->id) {
+        case ZPROTO_EXAMPLE_BINARY:
+            send_content = true;
+            break;
+    }
+
     //  Now send any frame fields, in order
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
         //  If address isn't set, send an empty frame
@@ -1343,7 +1496,6 @@ zproto_example_set_supplier_email (zproto_example_t *self, const char *value)
 }
 
 
-
 //  --------------------------------------------------------------------------
 //  Selftest
 
@@ -1370,9 +1522,14 @@ zproto_example_test (bool verbose)
     assert (output);
     zsock_bind (output, "inproc://selftest-zproto_example");
 
+    FILE *fp;
+
     //  Encode/send/decode and verify each message type
+    size_t buf_size;
+    byte *buf;
     int instance;
     self = zproto_example_new ();
+
     zproto_example_set_id (self, ZPROTO_EXAMPLE_LOG);
 
     zproto_example_set_sequence (self, 123);
@@ -1387,8 +1544,25 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
     zproto_example_send (self, output);
 
-    for (instance = 0; instance < 2; instance++) {
-        zproto_example_recv (self, input);
+    buf_size = zproto_example_encode_size (self, true);
+    buf = (byte *) malloc (buf_size);
+    assert (buf);
+    zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_log.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
+
+    // Receive twice the decode from the buffer
+    for (instance = 0; instance < 2+1; instance++) {
+        if (instance < 2) {
+            zproto_example_recv (self, input);
+        } else {
+            zproto_example_decode (self, buf, buf_size, true);
+        }
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
         assert (zproto_example_level (self) == 123);
@@ -1399,6 +1573,9 @@ zproto_example_test (bool verbose)
         assert (streq (zproto_example_host (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
     }
+
+    free (buf);
+
     zproto_example_set_id (self, ZPROTO_EXAMPLE_STRUCTURES);
 
     zproto_example_set_sequence (self, 123);
@@ -1410,8 +1587,25 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
     zproto_example_send (self, output);
 
-    for (instance = 0; instance < 2; instance++) {
-        zproto_example_recv (self, input);
+    buf_size = zproto_example_encode_size (self, true);
+    buf = (byte *) malloc (buf_size);
+    assert (buf);
+    zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_structures.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
+
+    // Receive twice the decode from the buffer
+    for (instance = 0; instance < 2+1; instance++) {
+        if (instance < 2) {
+            zproto_example_recv (self, input);
+        } else {
+            zproto_example_decode (self, buf, buf_size, true);
+        }
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
         zlist_t *aliases = zproto_example_get_aliases (self);
@@ -1420,6 +1614,9 @@ zproto_example_test (bool verbose)
         assert (streq ((char *) zlist_next (aliases), "Age: 43"));
         zlist_destroy (&aliases);
     }
+
+    free (buf);
+
     zproto_example_set_id (self, ZPROTO_EXAMPLE_BINARY);
 
     zproto_example_set_sequence (self, 123);
@@ -1440,8 +1637,25 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
     zproto_example_send (self, output);
 
-    for (instance = 0; instance < 2; instance++) {
-        zproto_example_recv (self, input);
+    buf_size = zproto_example_encode_size (self, true);
+    buf = (byte *) malloc (buf_size);
+    assert (buf);
+    zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_binary.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
+
+    // Receive twice the decode from the buffer
+    for (instance = 0; instance < 2+1; instance++) {
+        if (instance < 2) {
+            zproto_example_recv (self, input);
+        } else {
+            zproto_example_decode (self, buf, buf_size, true);
+        }
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
         assert (zproto_example_flags (self) [0] == 123);
@@ -1449,12 +1663,15 @@ zproto_example_test (bool verbose)
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
         zuuid_t *acutal_identifier = zproto_example_identifier (self);
         assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
-        if (instance == 1) {
+        if (instance == 2) {
             zuuid_destroy (&binary_identifier_dup);
         }
         assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
     }
+
+    free (buf);
+
     zproto_example_set_id (self, ZPROTO_EXAMPLE_TYPES);
 
     zproto_example_set_sequence (self, 123);
@@ -1470,8 +1687,25 @@ zproto_example_test (bool verbose)
     zproto_example_send (self, output);
     zproto_example_send (self, output);
 
-    for (instance = 0; instance < 2; instance++) {
-        zproto_example_recv (self, input);
+    buf_size = zproto_example_encode_size (self, true);
+    buf = (byte *) malloc (buf_size);
+    assert (buf);
+    zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_types.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
+
+    // Receive twice the decode from the buffer
+    for (instance = 0; instance < 2+1; instance++) {
+        if (instance < 2) {
+            zproto_example_recv (self, input);
+        } else {
+            zproto_example_decode (self, buf, buf_size, true);
+        }
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
         assert (streq (zproto_example_client_forename (self), "Life is short but Now lasts for ever"));
@@ -1483,6 +1717,9 @@ zproto_example_test (bool verbose)
         assert (streq (zproto_example_supplier_mobile (self), "Life is short but Now lasts for ever"));
         assert (streq (zproto_example_supplier_email (self), "Life is short but Now lasts for ever"));
     }
+
+    free (buf);
+
 
     zproto_example_destroy (&self);
     zsock_destroy (&input);
