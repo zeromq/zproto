@@ -1522,6 +1522,8 @@ zproto_example_test (bool verbose)
     assert (output);
     zsock_bind (output, "inproc://selftest-zproto_example");
 
+    FILE *fp;
+
     //  Encode/send/decode and verify each message type
     size_t buf_size;
     byte *buf;
@@ -1546,6 +1548,13 @@ zproto_example_test (bool verbose)
     buf = (byte *) malloc (buf_size);
     assert (buf);
     zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_log.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
 
     // Receive twice the decode from the buffer
     for (instance = 0; instance < 2+1; instance++) {
@@ -1582,6 +1591,13 @@ zproto_example_test (bool verbose)
     buf = (byte *) malloc (buf_size);
     assert (buf);
     zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_structures.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
 
     // Receive twice the decode from the buffer
     for (instance = 0; instance < 2+1; instance++) {
@@ -1626,6 +1642,13 @@ zproto_example_test (bool verbose)
     assert (buf);
     zproto_example_encode (self, buf, true);
 
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_binary.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
+
     // Receive twice the decode from the buffer
     for (instance = 0; instance < 2+1; instance++) {
         if (instance < 2) {
@@ -1668,6 +1691,13 @@ zproto_example_test (bool verbose)
     buf = (byte *) malloc (buf_size);
     assert (buf);
     zproto_example_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/zproto_example_types.bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
 
     // Receive twice the decode from the buffer
     for (instance = 0; instance < 2+1; instance++) {

@@ -1307,6 +1307,8 @@ $(class.name)_test (bool verbose)
     assert (output);
     zsock_bind (output, "inproc://selftest-$(class.name)");
 
+    FILE *fp;
+
     //  Encode/send/decode and verify each message type
     size_t buf_size;
     byte *buf;
@@ -1351,6 +1353,13 @@ $(class.name)_test (bool verbose)
     buf = (byte *) malloc (buf_size);
     assert (buf);
     $(class.name)_encode (self, buf, true);
+
+    // Save buffer for integration testing with other language implementations.
+    if (verbose) {
+        fp = fopen ("test-data/$(class.name)_$(name).bin", "w");
+        assert(fwrite (buf, 1, buf_size, fp));
+        fclose(fp);
+    }
 
     // Receive twice the decode from the buffer
     for (instance = 0; instance < 2+1; instance++) {
