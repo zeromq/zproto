@@ -368,7 +368,7 @@ $(header.:)
 //  Self test of this class
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_test (bool verbose);
-    
+
 //  To enable verbose tracing (animation) of $(class.name) instances, set
 //  this to true. This lets you trace from and including construction.
 $(CLASS.EXPORT_MACRO)extern volatile int
@@ -438,7 +438,7 @@ s_event_name [] = {
 .   endif
 .endfor
 };
- 
+
 
 //  ---------------------------------------------------------------------------
 //  Context for the client. This embeds the application-level client context
@@ -498,7 +498,7 @@ static void
 //  Global tracing/animation indicator; we can't use a client method as
 //  that only works after construction (which we often want to trace).
 volatile int $(class.name)_verbose = false;
-    
+
 //  Create a new client connection
 
 static s_client_t *
@@ -960,7 +960,7 @@ $(class.name) (zsock_t *cmdpipe, void *msgpipe)
     s_client_t *self = s_client_new (cmdpipe, (zsock_t *) msgpipe);
     if (self) {
         zsock_signal (cmdpipe, 0);
-        
+
         //  Set up handler for the sockets the client uses
         engine_handle_socket ((client_t *) self, self->cmdpipe, s_client_handle_cmdpipe);
         engine_handle_socket ((client_t *) self, self->msgpipe, s_client_handle_msgpipe);
@@ -1107,7 +1107,7 @@ s_accept_reply ($(class.name)_t *self, ...)
         char *reply = zstr_recv (self->actor);
         if (!reply)
             break;              //  Interrupted or timed-out
-        
+
         va_list args;
         va_start (args, self);
         char *filter = va_arg (args, char *);
@@ -1341,7 +1341,7 @@ typedef struct {
     zsock_t *dealer;            //  Socket to talk to server
     $(proto)_t *message;        //  Message to/from server
     client_args_t *args;        //  Arguments from methods
-    
+
     //  TODO: Add specific properties for your application
 } client_t;
 
@@ -1375,7 +1375,7 @@ $(class.name)_test (bool verbose)
     printf (" * $(class.name): ");
     if (verbose)
         printf ("\\n");
-    
+
     //  @selftest
     zactor_t *client = zactor_new ($(class.name), NULL);
     $(class.name)_verbose = verbose;

@@ -134,11 +134,11 @@ extern "C" {
 //  Create new $(class.name) instance, passing logging prefix:
 //
 //      zactor_t *$(class.name:c) = zactor_new ($(class.name), "myname");
-//  
+//
 //  Destroy $(class.name) instance
 //
 //      zactor_destroy (&$(class.name:c));
-//  
+//
 //  Enable verbose logging of commands and activity:
 //
 //      zstr_send ($(class.name:c), "VERBOSE");
@@ -164,7 +164,7 @@ extern "C" {
 //  Set configuration path value:
 //
 //      zstr_sendx ($(class.name:c), "SET", path, value, NULL);
-//    
+//
 //  Save configuration data to config file on disk:
 //
 //      zstr_sendx ($(class.name:c), "SAVE", filename, NULL);
@@ -516,7 +516,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     s_client_t *self = (s_client_t *) zmalloc (sizeof (s_client_t));
     assert (self);
     assert ((s_client_t *) &self->client == self);
-    
+
     self->server = server;
     self->hashkey = zframe_strhex (routing_id);
     self->routing_id = zframe_dup (routing_id);
@@ -530,7 +530,7 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
     //  If expiry timers are being used, create client ticket
     if (server->timeout)
         self->ticket = zloop_ticket (server->loop, s_client_handle_ticket, self);
-.endif    
+.endif
     //  Give application chance to initialize and set next event
 .for class.state where item () = 1
     self->state = $(name:c)_state;
@@ -723,17 +723,17 @@ static void
 s_server_config_global (s_server_t *self)
 {
     //  Built-in server configuration options
-    //  
+    //
     //  If we didn't already set verbose, check if the config tree wants it
     if (!self->verbose
     && atoi (zconfig_resolve (self->config, "server/verbose", "0")))
         self->verbose = true;
-        
+
     //  Default client timeout is 60 seconds
     self->timeout = atoi (
         zconfig_resolve (self->config, "server/timeout", "60000"));
     zloop_set_ticket_delay (self->loop, self->timeout);
-    
+
     //  Do we want to run server in the background?
     int background = atoi (
         zconfig_resolve (self->config, "server/background", "0"));
@@ -956,7 +956,7 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         //  Any input from client counts as activity
         if (client->ticket)
             zloop_ticket_reset (self->loop, client->ticket);
-        
+
         //  Pass to client state machine
         s_client_execute (client, s_protocol_event (self->message));
     }
@@ -1048,7 +1048,7 @@ struct _server_t {
     //  and are set by the generated engine; do not modify them!
     zsock_t *pipe;              //  Actor pipe back to caller
     zconfig_t *config;          //  Current loaded configuration
-    
+
     //  TODO: Add any properties you need here
 };
 
@@ -1122,7 +1122,7 @@ $(class.name)_test (bool verbose)
     printf (" * $(class.name): ");
     if (verbose)
         printf ("\\n");
-    
+
     //  @selftest
     zactor_t *server = zactor_new ($(class.name), "server");
     if (verbose)
@@ -1137,7 +1137,7 @@ $(class.name)_test (bool verbose)
     //  TODO: fill this out
     $(proto)_t *request = $(proto)_new ();
     $(proto)_destroy (&request);
-    
+
     zsock_destroy (&client);
     zactor_destroy (&server);
     //  @end
