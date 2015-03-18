@@ -140,7 +140,7 @@ function check_field (field)
         my.field.ctype = "zlist_t *"
         my.field.byref = 1
         my.field.destructor = "zlist_destroy"
-    elsif type = "chunk" | type = "frame" | type = "hash" | type = "msg"
+    elsif type = "chunk" | type = "frame" | type = "hash" | type = "msg" | type = "uuid"
         my.field.txt_pattern = "p"
         my.field.bin_pattern = "p"
         my.field.ctype = "z$(type)_t *"
@@ -192,7 +192,10 @@ for class.method
     if defined (method.return)
         method.return = "$(return:c)"
         for class.property where name = method.return
-            method.return = "self->" + method.return
+            method.byref = property.byref
+            if !property.byref
+                method.return = "self->" + method.return
+            endif
             method.type = property.type
             method.ctype = property.ctype
         endfor
@@ -1166,6 +1169,10 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .   endif
 {
     assert (self);
+.   if defined (method.return) & byref
+    $(ctype) $(return);
+.   endif
+
 .   if method.immediate = 0
     zsock_send (self->actor, "s$(pattern)", "$(NAME)"\
 .       for field
@@ -1193,6 +1200,10 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .       endif
 .   endif
 .   if defined (method.return)
+.       if byref
+    $(return) = self->$(return);
+    self->$(return) = NULL;     // Transfer ownership of $(return)
+.       endif
     return $(return);
 .   endif
 }
