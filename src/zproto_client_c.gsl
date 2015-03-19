@@ -1000,17 +1000,13 @@ struct _$(class.name)_t {
 static $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self\
 .if !(args = "void")
-, $(args)\
+$(args)\
 .endif
 );
-
-$(CLASS.EXPORT_MACRO)$(class.name)_t *
-$(class.name)_new ($(args))
-.else
+.endfor
 
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(class.name)_new (void)
-.endfor
 {
     $(class.name)_t *self = ($(class.name)_t *) zmalloc (sizeof ($(class.name)_t));
     if (self) {
@@ -1160,7 +1156,7 @@ s_accept_reply ($(class.name)_t *self, ...)
 static $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self\
 .       if !(args = "void")
-, $(args)\
+$(args)\
 .       endif
 )
 .   else
