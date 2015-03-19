@@ -305,7 +305,7 @@ import (
 )
 
 // $(name:no) struct
-// $(string.trim (.?''):left)
+// $(string.trim (.?''):block,left)
 type $(name:no) struct {
 	$("routingID"%-$(field_maxlen + 1)s)[]byte
 .for field
