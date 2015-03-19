@@ -1000,7 +1000,7 @@ struct _$(class.name)_t {
 static $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self\
 .if !(args = "void")
-, $(args)\
+$(args)\
 .endif
 );
 .endfor
@@ -1156,7 +1156,7 @@ s_accept_reply ($(class.name)_t *self, ...)
 static $(ctype)
 $(class.name)_$(name:c) ($(class.name)_t *self\
 .       if !(args = "void")
-, $(args)\
+$(args)\
 .       endif
 )
 .   else
