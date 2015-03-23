@@ -97,6 +97,7 @@ function check_field (field)
     my.field.name = "$(name:c)"
     my.field.byref = 0              #   Pass by greedy reference
     my.field.const = ""             #   By default, not a constant
+    my.field.txt_pattern = "?"
 
     if type = "integer"
         #   Used in zsock_send
@@ -166,7 +167,7 @@ for class.reply
     for field
         check_field (field)
         assume_property (field, 1)
-        reply.pattern += field.txt_pattern
+        reply.pattern += "$(field.txt_pattern)"
     endfor
 endfor
 
@@ -178,7 +179,7 @@ for class.method
     method.immediate ?= 0
     for field
         check_field (field)
-        method.pattern += field.txt_pattern
+        method.pattern += "$(field.txt_pattern)"
         if field.byref = 0
             method.args += ", $(const)$(ctype)$(name)"
         else
@@ -217,7 +218,7 @@ for class.send
         endfor
         for method.field
             check_field (field)
-            method.pattern += field.bin_pattern
+            method.pattern += "$(field.bin_pattern)"
             if field.byref = 0
                 method.args += ", $(const)$(ctype)$(name)"
             else
@@ -240,7 +241,7 @@ for class.recv
         for method.field
             check_field (field)
             assume_property (field, 0)
-            pattern += field.bin_pattern
+            pattern += "$(field.bin_pattern)"
             #   We must return a single msg type
             if type = "msg"
                 method.return = name
