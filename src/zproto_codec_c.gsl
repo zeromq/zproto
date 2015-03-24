@@ -1126,13 +1126,16 @@ $(class.name)_test (bool verbose)
     $(class.name)_destroy (&self);
 
     //  Create pair of sockets we can send through
-    zsock_t *input = zsock_new (ZMQ_ROUTER);
-    assert (input);
-    zsock_connect (input, "inproc://selftest-$(class.name)");
-
+    //  We must bind before connect if we wish to remain compatible with ZeroMQ < v4
     zsock_t *output = zsock_new (ZMQ_DEALER);
     assert (output);
-    zsock_bind (output, "inproc://selftest-$(class.name)");
+    int rc = zsock_bind (output, "inproc://selftest-$(class.name)");
+    assert (rc == 0);
+
+    zsock_t *input = zsock_new (ZMQ_ROUTER);
+    assert (input);
+    rc = zsock_connect (input, "inproc://selftest-$(class.name)");
+    assert (rc == 0);
 
     //  Encode/send/decode and verify each message type
     int instance;
