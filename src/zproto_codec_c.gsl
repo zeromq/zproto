@@ -53,12 +53,12 @@ set_defaults ()
 .   for field
 .       if type = "number"
         $(name)             $(type) $(size)\
-                                        $(field.?'':)
+                                        $(string.trim (field.)?'':left)
 .       elsif type = "octets"
         $(name)             $(type) [$(size)]\
-                                        $(field.?'':)
+                                        $(string.trim (field.)?'':left)
 .       else
-        $(name)             $(type)     $(field.?'':)
+        $(name)             $(type)     $(string.trim (field.)?'':left)
 .       endif
 .   endfor
 .endfor
@@ -231,26 +231,26 @@ struct _$(class.name)_t {
     byte *ceiling;                      //  Valid upper limit for read pointer
 .for class.field
 .   if type = "number" & !defined (field.value)
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     $(ctype) $(name);
 .   elsif type = "octets"
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     byte $(name) [$(size)];
 .   elsif type = "string" & !defined (field.value)
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     char $(name) [256];
 .   elsif type = "longstr"
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     char *$(name);
 .   elsif type = "strings"
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     zlist_t *$(name);
 .   elsif type = "hash"
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     zhash_t *$(name);
     size_t $(name)_bytes;               //  Size of hash content
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
-    /* $(field.?'':)  */
+    // $(string.trim (field.)?name:left,block)
     z$(type)_t *$(name);
 .   endif
 .endfor
@@ -474,7 +474,11 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
     //  Get and check protocol signature
     self->needle = (byte *) zmq_msg_data (&frame);
     self->ceiling = self->needle + zmq_msg_size (&frame);
+
+.if switches.digest ?= 1
+    zdigest_t * digest = zdigest_new ();
     
+.endif
     uint16_t signature;
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | $(class.signature))) {
@@ -489,6 +493,12 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
     switch (self->id) {
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   if switches.digest ?= 1
+            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
+            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
+            fprintf(stderr, "$(MESSAGE.NAME)-%s\\n", zdigest_string (digest));
+
+.   endif
 .   for field
 .       if type = "number"
 .           if defined (field.value)
@@ -594,12 +604,18 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             goto malformed;
     }
     //  Successful return
+.if switches.digest ?= 1
+    zdigest_destroy (&digest);
+.endif
     zmq_msg_close (&frame);
     return 0;
 
     //  Error returns
     malformed:
         zsys_warning ("$(class.name): $(name) malformed message, fail");
+.if switches.digest ?= 1
+        zdigest_destroy (&digest);
+.endif
         zmq_msg_close (&frame);
         return -1;              //  Invalid message
 }
@@ -1114,7 +1130,10 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 int
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name): ");
+    printf (" * $(class.name):");
+.if switches.digest ?= 1
+    printf ("\\n");
+.endif
 
     //  Silence an "unused" warning by "using" the verbose variable
     if (verbose) {;}
@@ -1145,29 +1164,43 @@ $(class.name)_test (bool verbose)
 
 .   for field where !defined (value)
 .       if type = "number"
-    $(class.name)_set_$(name) (self, 123);
+    $(class.name)_set_$(name) (self, $(->test.?123:));
 .       elsif type = "octets"
+.           if defined (->test)
+    byte $(name)_data [$(CLASS.NAME)_$(FIELD.NAME)_SIZE] = "$(->test.)";
+    $(class.name)_set_$(name) (self, $(name)_data);
+.           else
     byte $(name)_data [$(CLASS.NAME)_$(FIELD.NAME)_SIZE];
     memset ($(name)_data, 123, $(CLASS.NAME)_$(FIELD.NAME)_SIZE);
     $(class.name)_set_$(name) (self, $(name)_data);
+.           endif
 .       elsif type = "string" | type = "longstr"
-    $(class.name)_set_$(name) (self, "Life is short but Now lasts for ever");
+    $(class.name)_set_$(name) (self, "$(->test.?"Life is short but Now lasts for ever":)");
 .       elsif type = "strings"
     zlist_t *$(message.name)_$(name) = zlist_new ();
+.           if defined (->test)
+.               for test
+    zlist_append ($(message.name)_$(name), "$(test.)");
+.               endfor
+.           else
     zlist_append ($(message.name)_$(name), "Name: Brutus");
     zlist_append ($(message.name)_$(name), "Age: 43");
+.           endif
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "chunk" | type = "frame"
-    z$(type)_t *$(message.name)_$(name) = z$(type)_new ("Captcha Diem", 12);
+    z$(type)_t *$(message.name)_$(name) = z$(type)_new ("$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.):));
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "uuid"
     zuuid_t *$(message.name)_$(name) = zuuid_new ();
+.           if defined (->test)
+    zuuid_set_str ($(message.name)_$(name), "$(->test.)");
+.           endif
     zuuid_t *$(message.name)_$(name)_dup = zuuid_dup ($(message.name)_$(name));
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "msg"
     zmsg_t *$(message.name)_$(name) = zmsg_new ();
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
-    zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
+    zmsg_addstr ($(class.name)_$(name) (self), "$(->test.?"Hello, World":)");
 .       endif
 .   endfor
     //  Send twice
@@ -1179,22 +1212,36 @@ $(class.name)_test (bool verbose)
         assert ($(class.name)_routing_id (self));
 .   for field where !defined (value)
 .       if type = "number"
-        assert ($(class.name)_$(name) (self) == 123);
+        assert ($(class.name)_$(name) (self) == $(->test.?123:));
 .       elsif type = "octets"
+.           if defined (->test)
+        assert (memcmp ($(class.name)_$(name) (self), "$(->test.)", $(CLASS.NAME)_$(FIELD.NAME)_SIZE) == 0);
+.           else
         assert ($(class.name)_$(name) (self) [0] == 123);
         assert ($(class.name)_$(name) (self) [$(CLASS.NAME)_$(FIELD.NAME)_SIZE - 1] == 123);
+.           endif
 .       elsif type = "string" | type = "longstr"
-        assert (streq ($(class.name)_$(name) (self), "Life is short but Now lasts for ever"));
+        assert (streq ($(class.name)_$(name) (self), "$(->test.?"Life is short but Now lasts for ever":)"));
 .       elsif type = "strings"
         zlist_t *$(name) = $(class.name)_get_$(name) (self);
+.           if defined (->test)
+.               for test
+.                   if first ()
+        assert (streq ((char *) zlist_first ($(name)), "$(test.)"));
+.                   else
+        assert (streq ((char *) zlist_next ($(name)), "$(test.)"));
+.                   endif
+.               endfor
+.           else
         assert (zlist_size ($(name)) == 2);
         assert (streq ((char *) zlist_first ($(name)), "Name: Brutus"));
         assert (streq ((char *) zlist_next ($(name)), "Age: 43"));
+.           endif
         zlist_destroy (&$(name));
 .       elsif type = "chunk"
-        assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "Captcha Diem", 12) == 0);
+        assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.):)) == 0);
 .       elsif type = "frame"
-        assert (zframe_streq ($(class.name)_$(name) (self), "Captcha Diem"));
+        assert (zframe_streq ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)"));
 .       elsif type = "msg"
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       elsif type = "uuid"

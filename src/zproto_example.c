@@ -51,52 +51,52 @@ struct _zproto_example_t {
     int id;                             //  zproto_example message ID
     byte *needle;                       //  Read/write pointer for serialization
     byte *ceiling;                      //  Valid upper limit for read pointer
-    /*                */
+    // sequence
     uint16_t sequence;
-    /* Log severity level  */
+    // Log severity level
     byte level;
-    /* Type of event  */
+    // Type of event
     byte event;
-    /* Sending node   */
+    // Sending node
     uint16_t node;
-    /* Refers to this peer  */
+    // Refers to this peer
     uint16_t peer;
-    /* Log date/time  */
+    // Log date/time
     uint64_t time;
-    /* Originating hostname  */
+    // Originating hostname
     char host [256];
-    /* Actual log message  */
+    // Actual log message
     char *data;
-    /* List of strings  */
+    // List of strings
     zlist_t *aliases;
-    /* Other random properties  */
+    // Other random properties
     zhash_t *headers;
     size_t headers_bytes;               //  Size of hash content
-    /* A set of flags  */
+    // A set of flags
     byte flags [4];
-    /* Our public key  */
+    // Our public key
     zchunk_t *public_key;
-    /* Unique identity  */
+    // Unique identity
     zuuid_t *identifier;
-    /* Return address as frame  */
+    // Return address as frame
     zframe_t *address;
-    /* Message to be delivered  */
+    // Message to be delivered
     zmsg_t *content;
-    /* Given name     */
+    // Given name
     char client_forename [256];
-    /* Family name    */
+    // Family name
     char client_surname [256];
-    /* Mobile phone number  */
+    // Mobile phone number
     char client_mobile [256];
-    /* Email address  */
+    // Email address
     char client_email [256];
-    /* Given name     */
+    // Given name
     char supplier_forename [256];
-    /* Family name    */
+    // Family name
     char supplier_surname [256];
-    /* Mobile phone number  */
+    // Mobile phone number
     char supplier_mobile [256];
-    /* Email address  */
+    // Email address
     char supplier_email [256];
 };
 
@@ -316,6 +316,8 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
     //  Get and check protocol signature
     self->needle = (byte *) zmq_msg_data (&frame);
     self->ceiling = self->needle + zmq_msg_size (&frame);
+
+    zdigest_t * digest = zdigest_new ();
     
     uint16_t signature;
     GET_NUMBER2 (signature);
@@ -330,6 +332,10 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
 
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
+            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
+            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
+            fprintf(stderr, "LOG-%s\n", zdigest_string (digest));
+
             GET_NUMBER2 (self->sequence);
             {
                 uint16_t version;
@@ -349,6 +355,10 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
+            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
+            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
+            fprintf(stderr, "STRUCTURES-%s\n", zdigest_string (digest));
+
             GET_NUMBER2 (self->sequence);
             {
                 size_t list_size;
@@ -379,6 +389,10 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
+            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
+            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
+            fprintf(stderr, "BINARY-%s\n", zdigest_string (digest));
+
             GET_NUMBER2 (self->sequence);
             GET_OCTETS (self->flags, 4);
             {
@@ -416,6 +430,10 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
+            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
+            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
+            fprintf(stderr, "TYPES-%s\n", zdigest_string (digest));
+
             GET_NUMBER2 (self->sequence);
             GET_STRING (self->client_forename);
             GET_STRING (self->client_surname);
@@ -432,12 +450,14 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             goto malformed;
     }
     //  Successful return
+    zdigest_destroy (&digest);
     zmq_msg_close (&frame);
     return 0;
 
     //  Error returns
     malformed:
         zsys_warning ("zproto_example: zproto_example malformed message, fail");
+        zdigest_destroy (&digest);
         zmq_msg_close (&frame);
         return -1;              //  Invalid message
 }
@@ -1350,7 +1370,8 @@ zproto_example_set_supplier_email (zproto_example_t *self, const char *value)
 int
 zproto_example_test (bool verbose)
 {
-    printf (" * zproto_example: ");
+    printf (" * zproto_example:");
+    printf ("\n");
 
     //  Silence an "unused" warning by "using" the verbose variable
     if (verbose) {;}
@@ -1379,13 +1400,13 @@ zproto_example_test (bool verbose)
     zproto_example_set_id (self, ZPROTO_EXAMPLE_LOG);
 
     zproto_example_set_sequence (self, 123);
-    zproto_example_set_level (self, 123);
-    zproto_example_set_event (self, 123);
-    zproto_example_set_node (self, 123);
-    zproto_example_set_peer (self, 123);
-    zproto_example_set_time (self, 123);
-    zproto_example_set_host (self, "Life is short but Now lasts for ever");
-    zproto_example_set_data (self, "Life is short but Now lasts for ever");
+    zproto_example_set_level (self, 2);
+    zproto_example_set_event (self, 3);
+    zproto_example_set_node (self, 45536);
+    zproto_example_set_peer (self, 65535);
+    zproto_example_set_time (self, 1427261426);
+    zproto_example_set_host (self, "localhost");
+    zproto_example_set_data (self, "This is the message to log");
     //  Send twice
     zproto_example_send (self, output);
     zproto_example_send (self, output);
@@ -1394,20 +1415,21 @@ zproto_example_test (bool verbose)
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
-        assert (zproto_example_level (self) == 123);
-        assert (zproto_example_event (self) == 123);
-        assert (zproto_example_node (self) == 123);
-        assert (zproto_example_peer (self) == 123);
-        assert (zproto_example_time (self) == 123);
-        assert (streq (zproto_example_host (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_data (self), "Life is short but Now lasts for ever"));
+        assert (zproto_example_level (self) == 2);
+        assert (zproto_example_event (self) == 3);
+        assert (zproto_example_node (self) == 45536);
+        assert (zproto_example_peer (self) == 65535);
+        assert (zproto_example_time (self) == 1427261426);
+        assert (streq (zproto_example_host (self), "localhost"));
+        assert (streq (zproto_example_data (self), "This is the message to log"));
     }
     zproto_example_set_id (self, ZPROTO_EXAMPLE_STRUCTURES);
 
     zproto_example_set_sequence (self, 123);
     zlist_t *structures_aliases = zlist_new ();
-    zlist_append (structures_aliases, "Name: Brutus");
-    zlist_append (structures_aliases, "Age: 43");
+    zlist_append (structures_aliases, "First alias");
+    zlist_append (structures_aliases, "Second alias");
+    zlist_append (structures_aliases, "Third alias");
     zproto_example_set_aliases (self, &structures_aliases);
     //  Send twice
     zproto_example_send (self, output);
@@ -1418,27 +1440,27 @@ zproto_example_test (bool verbose)
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
         zlist_t *aliases = zproto_example_get_aliases (self);
-        assert (zlist_size (aliases) == 2);
-        assert (streq ((char *) zlist_first (aliases), "Name: Brutus"));
-        assert (streq ((char *) zlist_next (aliases), "Age: 43"));
+        assert (streq ((char *) zlist_first (aliases), "First alias"));
+        assert (streq ((char *) zlist_next (aliases), "Second alias"));
+        assert (streq ((char *) zlist_next (aliases), "Third alias"));
         zlist_destroy (&aliases);
     }
     zproto_example_set_id (self, ZPROTO_EXAMPLE_BINARY);
 
     zproto_example_set_sequence (self, 123);
-    byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE];
-    memset (flags_data, 123, ZPROTO_EXAMPLE_FLAGS_SIZE);
+    byte flags_data [ZPROTO_EXAMPLE_FLAGS_SIZE] = "b38c";
     zproto_example_set_flags (self, flags_data);
-    zchunk_t *binary_public_key = zchunk_new ("Captcha Diem", 12);
+    zchunk_t *binary_public_key = zchunk_new ("89f5ffe70d747869dfe8", 20);
     zproto_example_set_public_key (self, &binary_public_key);
     zuuid_t *binary_identifier = zuuid_new ();
+    zuuid_set_str (binary_identifier, "3a60e6850a1e4cc15f3bfd4b42bc6b3e");
     zuuid_t *binary_identifier_dup = zuuid_dup (binary_identifier);
     zproto_example_set_identifier (self, &binary_identifier);
-    zframe_t *binary_address = zframe_new ("Captcha Diem", 12);
+    zframe_t *binary_address = zframe_new ("0206f99f6137d9fe380f", 20);
     zproto_example_set_address (self, &binary_address);
     zmsg_t *binary_content = zmsg_new ();
     zproto_example_set_content (self, &binary_content);
-    zmsg_addstr (zproto_example_content (self), "Hello, World");
+    zmsg_addstr (zproto_example_content (self), "728a92c6749235ba7002");
     //  Send twice
     zproto_example_send (self, output);
     zproto_example_send (self, output);
@@ -1447,15 +1469,14 @@ zproto_example_test (bool verbose)
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
-        assert (zproto_example_flags (self) [0] == 123);
-        assert (zproto_example_flags (self) [ZPROTO_EXAMPLE_FLAGS_SIZE - 1] == 123);
-        assert (memcmp (zchunk_data (zproto_example_public_key (self)), "Captcha Diem", 12) == 0);
+        assert (memcmp (zproto_example_flags (self), "b38c", ZPROTO_EXAMPLE_FLAGS_SIZE) == 0);
+        assert (memcmp (zchunk_data (zproto_example_public_key (self)), "89f5ffe70d747869dfe8", 20) == 0);
         zuuid_t *acutal_identifier = zproto_example_identifier (self);
         assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
         if (instance == 1) {
             zuuid_destroy (&binary_identifier_dup);
         }
-        assert (zframe_streq (zproto_example_address (self), "Captcha Diem"));
+        assert (zframe_streq (zproto_example_address (self), "0206f99f6137d9fe380f"));
         assert (zmsg_size (zproto_example_content (self)) == 1);
     }
     zproto_example_set_id (self, ZPROTO_EXAMPLE_TYPES);
