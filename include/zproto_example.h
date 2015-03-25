@@ -35,8 +35,8 @@
     =========================================================================
 */
 
-#ifndef __ZPROTO_EXAMPLE_H_INCLUDED__
-#define __ZPROTO_EXAMPLE_H_INCLUDED__
+#ifndef ZPROTO_EXAMPLE_H_INCLUDED
+#define ZPROTO_EXAMPLE_H_INCLUDED
 
 /*  These are the zproto_example messages:
 
