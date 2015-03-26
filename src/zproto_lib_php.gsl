@@ -26,6 +26,11 @@ endfunction
 
 function set_defaults ()
     resolve_types ()
+
+    class.package_dir = defined(switches.package_dir) ?? switches.package_dir
+    class.test_dir = defined(switches.test_dir) ?? switches.test_dir
+    class.namespace = defined(switches.namespace) ?? switches.namespace
+    class.script = defined(switches.script) ?? switches.script
     
     class.signature ?= 0
     class.package_dir ?= "."

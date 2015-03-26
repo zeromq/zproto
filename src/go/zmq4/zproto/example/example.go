@@ -3,7 +3,7 @@
 // DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
 //
 // The correct places for commits are:
-//  - The XML model used for this code generation: zproto_example_goczmq.xml
+//  - The XML model used for this code generation: zproto_example.xml
 //  - The code generation script that built this file: zproto_codec_go
 package example
 
@@ -13,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/zeromq/goczmq"
+	zmq "github.com/pebbe/zmq4"
 )
 
 const (
@@ -37,7 +37,7 @@ type Transit interface {
 	Marshal() ([]byte, error)
 	Unmarshal(...[]byte) error
 	String() string
-	Send(*goczmq.Sock) error
+	Send(*zmq.Socket) error
 	SetRoutingID([]byte)
 	RoutingID() []byte
 	SetSequence(uint16)
@@ -80,37 +80,31 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 }
 
 // Recv receives marshaled data from a 0mq socket.
-func Recv(sock *goczmq.Sock) (t Transit, err error) {
-	return recv(sock, 0)
+func Recv(socket *zmq.Socket) (t Transit, err error) {
+	return recv(socket, 0)
 }
 
 // RecvNoWait receives marshaled data from 0mq socket. It won't wait for input.
-func RecvNoWait(sock *goczmq.Sock) (t Transit, err error) {
-	return recv(sock, goczmq.DONTWAIT)
+func RecvNoWait(socket *zmq.Socket) (t Transit, err error) {
+	return recv(socket, zmq.DONTWAIT)
 }
 
 // recv receives marshaled data from 0mq socket.
-func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
-	var frames [][]byte
-
-	if flag == goczmq.DONTWAIT {
-		frames, err = sock.RecvMessageNoWait()
-	} else {
-		frames, err = sock.RecvMessage()
-	}
-
+func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
+	// Read all frames
+	frames, err := socket.RecvMessageBytes(flag)
 	if err != nil {
 		return nil, err
 	}
 
-	sType := sock.GetType()
+	sType, err := socket.GetType()
 	if err != nil {
 		return nil, err
 	}
 
 	var routingID []byte
 	// If message came from a router socket, first frame is routingID
-	if sType == goczmq.ROUTER {
+	if sType == zmq.ROUTER {
 		if len(frames) <= 1 {
 			return nil, errors.New("no routingID")
 		}
@@ -123,7 +117,7 @@ func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
 		return nil, err
 	}
 
-	if sType == goczmq.ROUTER {
+	if sType == zmq.ROUTER {
 		t.SetRoutingID(routingID)
 	}
 	return t, err

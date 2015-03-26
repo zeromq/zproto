@@ -26,11 +26,14 @@ endfunction
 
 function set_defaults ()
     resolve_types ()
+
+    class.package_dir = defined(switches.package_dir) ?? switches.package_dir
+    class.package = defined(switches.package) ?? switches.package
+    class.script = defined(switches.script) ?? switches.script
     
     class.signature ?= 0
     class.package_dir ?= "go"
     class.package ?= "github.com/pebbe/zmq4"
-    class.source_dir ?= "."
 
     for message
         message.name = "$(message.name:c)"
