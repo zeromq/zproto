@@ -72,7 +72,7 @@ class Structures extends Example
 
         $this->sequence = $this->getNumber2();
         $this->aliases  = $this->getArray();
-        $this->headers  = $this->getArray();
+        $this->headers  = $this->getHash();
     }
 
     /**
@@ -85,7 +85,7 @@ class Structures extends Example
     {
         $this->putNumber2($this->sequence);
         $this->putArray($this->aliases);
-        $this->putArray($this->headers);
+        $this->putHash($this->headers);
 
         return $this->buffer;
     }

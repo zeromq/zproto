@@ -108,7 +108,7 @@ class Log extends Example
         $this->peer     = $this->getNumber2();
         $this->time     = $this->getNumber8();
         $this->host     = $this->getString();
-        $this->data     = $this->getString();
+        $this->data     = $this->getLongString();
     }
 
     /**
@@ -127,7 +127,7 @@ class Log extends Example
         $this->putNumber2($this->peer);
         $this->putNumber8($this->time);
         $this->putString($this->host);
-        $this->putString($this->data);
+        $this->putLongString($this->data);
 
         return $this->buffer;
     }

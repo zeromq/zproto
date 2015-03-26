@@ -107,11 +107,12 @@ class Example
     protected function unserialize()
     {
         if (!$this->isValid()) {
-            throw new UserException(
-                ['Invalid signature or message type: ' . var_export($this->buffer. TRUE)]
+            throw new \Exception(
+                'Invalid signature or message type: ' . bin2hex($this->buffer(3))
             );
         }
 
+        // It's a valid message, move the needle to point to the forth byte (0..3)
         $this->needle = 3;
     }
 
@@ -144,13 +145,8 @@ class Example
      */
     protected function getString()
     {
-        $len = ord($this->buffer[$this->needle++]);
-        $str = substr($this->buffer, $this->needle, $len);
-
-        // 1-byte size of the str and the string itself
-        $this->needle += $len;
-
-        return $str;
+        $len = ord($this->buffer());
+        return $this->buffer($len);
     }
 
     /**
@@ -172,47 +168,8 @@ class Example
      */
     protected function getBytes()
     {
-        $len   = $this->getNumber8();
-        $bytes = substr($this->buffer, $this->needle, $len);
-
-        $this->needle += $len;
-
-        return $bytes;
-    }
-
-    /**
-     * Unserializes a 64-bit number.
-     */
-    protected function getNumber8()
-    {
-        $num = unpack('Nhigher/Nlower', substr($this->buffer, $this->needle, 8));
-        $num = $num['higher'] << 32 | $num['lower'];
-
-        $this->needle += 8;
-
-        return $num;
-    }
-
-    /**
-     * Unserializes a 32-bit number.
-     */
-    protected function getNumber4()
-    {
-        $num = unpack('N', substr($this->buffer, $this->needle, 4));
-        $this->needle += 4;
-
-        return $num;
-    }
-
-    /**
-     * Unserializes a 16-bit number.
-     */
-    protected function getNumber2()
-    {
-        $num = unpack('n', substr($this->buffer, $this->needle, 2));
-        $this->needle += 2;
-
-        return $num;
+        $len = $this->getNumber8();
+        return $this->buffer($len);
     }
 
     /**
@@ -220,10 +177,52 @@ class Example
      */
     protected function getNumber()
     {
-        $num = unpack('C', substr($this->buffer, $this->needle, 1));
-        $this->needle += 1;
+        return unpack('C', $this->buffer(1));
+    }
+
+    /**
+     * Unserializes a 16-bit number.
+     */
+    protected function getNumber2()
+    {
+        return unpack('n', $this->buffer(2));
+    }
+
+    /**
+     * Unserializes a 32-bit number.
+     */
+    protected function getNumber4()
+    {
+        return unpack('N', $this->buffer(4));
+    }
+
+    /**
+     * Unserializes a 64-bit number.
+     */
+    protected function getNumber8()
+    {
+        $num = unpack('Nhigher/Nlower', $this->buffer(8));
+        $num = $num['higher'] << 32 | $num['lower'];
 
         return $num;
+    }
+
+    /**
+     * Unserializes a hash.
+     */
+    protected function getHash()
+    {
+        $hash = [];
+        $size = $this->getNumber4();
+
+        for ($i = 0; $i < $size; $i++) {
+            $key   = $this->getString();
+            $value = $this->getLongString();
+
+            $hash[$key] = $value;
+        }
+
+        return $hash;
     }
 
     /**
@@ -264,5 +263,37 @@ class Example
     protected function putNumber8($number)
     {
         $this->buffer .= pack('NN', $number & 0xffffffff00000000, $number & 0x00000000ffffffff);
+    }
+
+    /**
+     * Serializes a hash.
+     *
+     * @param number $has The hash being serialized
+     */
+    protected function putHash(array $hash)
+    {
+        $this->putNumber4(count($hash));
+        foreach ($hash as $key => $val) {
+            $this->putString($key);
+            $this->putLongString($val);
+        }
+    }
+
+    /**
+     * Buffer returns a bytes array size of $size started at $this->needle
+     *
+     * @param int $size Number of bytes
+     */
+    protected function buffer($size = 1)
+    {
+        // Make sure buffer is initialized
+        if (!isset($this->buffer[$this->needle+($size-1)])) {
+            throw new \Exception('Malformed message');
+        }
+
+        $bytes = substr($this->buffer, $this->needle, $size);
+        $this->needle += $size;
+
+        return $bytes;
     }
 }
