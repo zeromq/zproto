@@ -30,7 +30,9 @@ You can optionally define a header that will be repeated at the start of
 every message. This is just a kind of macro.
 
 <header>
-    <field name = "sequence" type = "number" size = "2" />
+    <field name = "sequence" type = "number" size = "2">
+        <test>123</test>
+    </field>
 </header>
 
 The protocol consists of one or more 'messages', each consisting of one or
