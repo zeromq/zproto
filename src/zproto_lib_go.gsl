@@ -100,10 +100,10 @@ function go_package_name ()
     return class.name
 endfunction
 
-function go_package_path ()
-    my.name = string.replace(class.name, "_|/")
+function go_package_path (name)
+    my.name = my.name ? class.name
+    my.name = string.replace(my.name, "_|/")
     my.path = directory.resolve(class.package_dir + "/" + my.name)
-    directory.create(my.path)
     return my.path
 endfunction
 

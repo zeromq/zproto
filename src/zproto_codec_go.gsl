@@ -12,6 +12,7 @@ generate_bnf ()
 set_defaults ()
 .endtemplate
 
+.directory.create(go_package_path())
 .output "$(go_package_path())/$(go_package_name()).go"
 // Package $(go_package_name()) is 100% generated. If you edit this file,
 // you will lose your changes at the next build cycle.
@@ -284,6 +285,7 @@ func getBytes(buffer *bytes.Buffer) []byte {
 .#
 .# Each message is in a separate file
 .#
+.directory.create(go_package_path())
 .for message
 .output "$(go_package_path())/$(origname).go"
 package $(go_package_name())
@@ -641,6 +643,7 @@ func ($(self) *$(struct:no)) $(fname:no)() $(gotype) {
 	return $(self).$(name)
 }
 .endfor
+.directory.create(go_package_path())
 .output "$(go_package_path())/$(origname)_test.go"
 package $(go_package_name())
 
