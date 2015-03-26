@@ -48,12 +48,12 @@ function generate_bnf
         endif
         for field
             if type = "number"
-                    >    $(name:c)       = number-$(size)        ; $(field.?'':)
+                    >    $(name:c)       = number-$(size)        ; $(string.trim (field.)?'':left)
                     class.use_number_$(size) = 1
             elsif type = "octets"
-                    >    $(name:c)       = $(size)OCTET          ; $(field.?'':)
+                    >    $(name:c)       = $(size)OCTET          ; $(string.trim (field.)?'':left)
             else
-                    >    $(name:c)       = $(type)               ; $(field.?'':)
+                    >    $(name:c)       = $(type)               ; $(string.trim (field.)?'':left)
                     class.use_$(type) = 1
             endif
         endfor
@@ -66,12 +66,12 @@ function generate_bnf
                 >
                 for field
                     if field.type = "number"
-                        >    $(name:c)       = number-$(size)        ; $(field.?'':)
+                        >    $(name:c)       = number-$(size)        ; $(string.trim (field.)?'':left)
                         class.use_number_$(size) = 1
                     elsif field.type = "octets"
-                        >    $(name:c)       = $(size)OCTET          ; $(field.?'':)
+                        >    $(name:c)       = $(size)OCTET          ; $(string.trim (field.)?'':left)
                     else
-                        >    $(name:c)       = $(field.type)         ; $(field.?'':)
+                        >    $(name:c)       = $(field.type)         ; $(string.trim (field.)?'':left)
                         class.use_$(field.type) = 1
                     endif
                 endfor

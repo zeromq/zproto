@@ -11,6 +11,24 @@ if [ $? -eq 0 ]; then
     if [ "$1" == "-q" ]; then
         ./zproto_selftest
         exit
+    elif [ "$1" == "-d" ]; then
+        for entry in `./zproto_selftest 2>&1 >/dev/null`
+        do
+            message=`cut -d "-" -f1 <<< "$entry"`
+            digest=`cut -d "-" -f2 <<< "$entry"`
+
+            sed -i "/name\s*=\s*\"${message}\"/{
+                   \$!{ :start
+                      N         # append the next line when not on the last line
+                      s/\(.*digest\s*=\s*\"\)[^\"]*/\1${digest}/
+                      t done    # If replaced successfully goto done otherwise go to next line
+                      b start
+                      :done
+                    }
+                 }" zproto_example.xml
+        done
+        echo "updated digests in zproto_example.xml"
+        exit
     else
         $VG ./zproto_selftest
     fi
