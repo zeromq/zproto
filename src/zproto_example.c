@@ -1482,14 +1482,14 @@ zproto_example_test (bool verbose)
     zproto_example_set_id (self, ZPROTO_EXAMPLE_TYPES);
 
     zproto_example_set_sequence (self, 123);
-    zproto_example_set_client_forename (self, "Life is short but Now lasts for ever");
-    zproto_example_set_client_surname (self, "Life is short but Now lasts for ever");
-    zproto_example_set_client_mobile (self, "Life is short but Now lasts for ever");
-    zproto_example_set_client_email (self, "Life is short but Now lasts for ever");
-    zproto_example_set_supplier_forename (self, "Life is short but Now lasts for ever");
-    zproto_example_set_supplier_surname (self, "Life is short but Now lasts for ever");
-    zproto_example_set_supplier_mobile (self, "Life is short but Now lasts for ever");
-    zproto_example_set_supplier_email (self, "Life is short but Now lasts for ever");
+    zproto_example_set_client_forename (self, "Lucius Junius");
+    zproto_example_set_client_surname (self, "Brutus");
+    zproto_example_set_client_mobile (self, "01234567890");
+    zproto_example_set_client_email (self, "brutus@example.com");
+    zproto_example_set_supplier_forename (self, "Leslie");
+    zproto_example_set_supplier_surname (self, "Lamport");
+    zproto_example_set_supplier_mobile (self, "01987654321");
+    zproto_example_set_supplier_email (self, "lamport@example.com");
     //  Send twice
     zproto_example_send (self, output);
     zproto_example_send (self, output);
@@ -1498,14 +1498,14 @@ zproto_example_test (bool verbose)
         zproto_example_recv (self, input);
         assert (zproto_example_routing_id (self));
         assert (zproto_example_sequence (self) == 123);
-        assert (streq (zproto_example_client_forename (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_client_surname (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_client_mobile (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_client_email (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_supplier_forename (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_supplier_surname (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_supplier_mobile (self), "Life is short but Now lasts for ever"));
-        assert (streq (zproto_example_supplier_email (self), "Life is short but Now lasts for ever"));
+        assert (streq (zproto_example_client_forename (self), "Lucius Junius"));
+        assert (streq (zproto_example_client_surname (self), "Brutus"));
+        assert (streq (zproto_example_client_mobile (self), "01234567890"));
+        assert (streq (zproto_example_client_email (self), "brutus@example.com"));
+        assert (streq (zproto_example_supplier_forename (self), "Leslie"));
+        assert (streq (zproto_example_supplier_surname (self), "Lamport"));
+        assert (streq (zproto_example_supplier_mobile (self), "01987654321"));
+        assert (streq (zproto_example_supplier_email (self), "lamport@example.com"));
     }
 
     zproto_example_destroy (&self);

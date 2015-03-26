@@ -186,7 +186,7 @@ them from other fields:
 <message
     name = "TYPES"
     id = "4"
-    digest = "CC660A16CEA7C4D6B864E61279F301E8A30D6620"
+    digest = "DEE674A1BCAC455B7CD1801F4008C65D0A37B2EA"
     >
     <field name = "client" type = "person">
         Client contact
