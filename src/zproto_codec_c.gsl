@@ -25,7 +25,7 @@ set_defaults ()
 .output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
-    
+
     Codec header for $(class.name).
 
     ** WARNING *************************************************************
@@ -108,7 +108,7 @@ $(CLASS.EXPORT_MACRO)int
 //  Send the $(class.name) to the output socket, does not destroy it
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_send ($(class.name)_t *self, zsock_t *output);
-    
+
 //  Print contents of message to stdout
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_print ($(class.name)_t *self);
@@ -455,7 +455,7 @@ int
 $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 {
     assert (input);
-    
+
     if (zsock_type (input) == ZMQ_ROUTER) {
         zframe_destroy (&self->routing_id);
         self->routing_id = zframe_recv (input);
@@ -477,7 +477,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 
 .if switches.digest ?= 1
     zdigest_t * digest = zdigest_new ();
-    
+
 .endif
     uint16_t signature;
     GET_NUMBER2 (signature);
@@ -701,7 +701,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
     bool send_$(class.msg) = false;
 .endif
     size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
 .for class.message where count (field)
         case $(CLASS.NAME)_$(MESSAGE.NAME):
@@ -778,7 +778,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
     }
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+
 .for class.message where count (field, type = "frame")
     //  Now send any frame fields, in order
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
@@ -881,7 +881,7 @@ $(class.name)_print ($(class.name)_t *self)
 .       endif
 .   endfor
             break;
-            
+
 .endfor
     }
 }

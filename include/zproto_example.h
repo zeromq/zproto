@@ -1,6 +1,6 @@
 /*  =========================================================================
     zproto_example - zproto example protocol
-    
+
     Codec header for zproto_example.
 
     ** WARNING *************************************************************
@@ -113,7 +113,7 @@ int
 //  Send the zproto_example to the output socket, does not destroy it
 int
     zproto_example_send (zproto_example_t *self, zsock_t *output);
-    
+
 //  Print contents of message to stdout
 void
     zproto_example_print (zproto_example_t *self);
