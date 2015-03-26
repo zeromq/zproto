@@ -16,7 +16,16 @@ if [ $? -eq 0 ]; then
         do
             message=`cut -d "-" -f1 <<< "$entry"`
             digest=`cut -d "-" -f2 <<< "$entry"`
-            sed -i -e "s/\(message.*\"${message}\".*digest\s*=\s*\"\)[^\"]*/\1${digest}/" zproto_example.xml
+
+            sed -i "/name\s*=\s*\"${message}\"/{
+                   \$!{ :start
+                      N         # append the next line when not on the last line
+                      s/\(.*digest\s*=\s*\"\)[^\"]*/\1${digest}/
+                      t done    # If replaced successfully goto done otherwise go to next line
+                      b start
+                      :done
+                    }
+                 }" zproto_example.xml
         done
         echo "updated digests in zproto_example.xml"
         exit
