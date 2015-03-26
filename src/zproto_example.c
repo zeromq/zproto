@@ -317,8 +317,6 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
     self->needle = (byte *) zmq_msg_data (&frame);
     self->ceiling = self->needle + zmq_msg_size (&frame);
 
-    zdigest_t * digest = zdigest_new ();
-    
     uint16_t signature;
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | 0)) {
@@ -332,10 +330,6 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
 
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
-            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
-            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
-            fprintf(stderr, "LOG-%s\n", zdigest_string (digest));
-
             GET_NUMBER2 (self->sequence);
             {
                 uint16_t version;
@@ -355,10 +349,6 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             break;
 
         case ZPROTO_EXAMPLE_STRUCTURES:
-            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
-            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
-            fprintf(stderr, "STRUCTURES-%s\n", zdigest_string (digest));
-
             GET_NUMBER2 (self->sequence);
             {
                 size_t list_size;
@@ -389,10 +379,6 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             break;
 
         case ZPROTO_EXAMPLE_BINARY:
-            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
-            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
-            fprintf(stderr, "BINARY-%s\n", zdigest_string (digest));
-
             GET_NUMBER2 (self->sequence);
             GET_OCTETS (self->flags, 4);
             {
@@ -430,10 +416,6 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             break;
 
         case ZPROTO_EXAMPLE_TYPES:
-            zdigest_update (digest, (byte *) zmq_msg_data (&frame), zmq_msg_size (&frame));
-            // This is a hacky way of sending digests to the "./selftest -d" script through stderr
-            fprintf(stderr, "TYPES-%s\n", zdigest_string (digest));
-
             GET_NUMBER2 (self->sequence);
             GET_STRING (self->client_forename);
             GET_STRING (self->client_surname);
@@ -450,14 +432,12 @@ zproto_example_recv (zproto_example_t *self, zsock_t *input)
             goto malformed;
     }
     //  Successful return
-    zdigest_destroy (&digest);
     zmq_msg_close (&frame);
     return 0;
 
     //  Error returns
     malformed:
         zsys_warning ("zproto_example: zproto_example malformed message, fail");
-        zdigest_destroy (&digest);
         zmq_msg_close (&frame);
         return -1;              //  Invalid message
 }
@@ -1371,7 +1351,6 @@ int
 zproto_example_test (bool verbose)
 {
     printf (" * zproto_example:");
-    printf ("\n");
 
     //  Silence an "unused" warning by "using" the verbose variable
     if (verbose) {;}
