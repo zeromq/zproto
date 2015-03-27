@@ -3,7 +3,7 @@
 // DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
 //
 // The correct places for commits are:
-//  - The XML model used for this code generation: zproto_example_go.xml
+//  - The XML model used for this code generation: zproto_example.xml
 //  - The code generation script that built this file: zproto_codec_go
 package example
 
@@ -13,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 
-	zmq "github.com/pebbe/zmq4"
+	"github.com/zeromq/goczmq"
 )
 
 const (
@@ -37,7 +37,7 @@ type Transit interface {
 	Marshal() ([]byte, error)
 	Unmarshal(...[]byte) error
 	String() string
-	Send(*zmq.Socket) error
+	Send(*goczmq.Sock) error
 	SetRoutingID([]byte)
 	RoutingID() []byte
 	SetSequence(uint16)
@@ -80,31 +80,37 @@ func Unmarshal(frames ...[]byte) (t Transit, err error) {
 }
 
 // Recv receives marshaled data from a 0mq socket.
-func Recv(socket *zmq.Socket) (t Transit, err error) {
-	return recv(socket, 0)
+func Recv(sock *goczmq.Sock) (t Transit, err error) {
+	return recv(sock, 0)
 }
 
 // RecvNoWait receives marshaled data from 0mq socket. It won't wait for input.
-func RecvNoWait(socket *zmq.Socket) (t Transit, err error) {
-	return recv(socket, zmq.DONTWAIT)
+func RecvNoWait(sock *goczmq.Sock) (t Transit, err error) {
+	return recv(sock, goczmq.DONTWAIT)
 }
 
 // recv receives marshaled data from 0mq socket.
-func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
-	// Read all frames
-	frames, err := socket.RecvMessageBytes(flag)
+func recv(sock *goczmq.Sock, flag int) (t Transit, err error) {
+	var frames [][]byte
+
+	if flag == goczmq.DONTWAIT {
+		frames, err = sock.RecvMessageNoWait()
+	} else {
+		frames, err = sock.RecvMessage()
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	sType, err := socket.GetType()
+	sType := sock.GetType()
 	if err != nil {
 		return nil, err
 	}
 
 	var routingID []byte
 	// If message came from a router socket, first frame is routingID
-	if sType == zmq.ROUTER {
+	if sType == goczmq.ROUTER {
 		if len(frames) <= 1 {
 			return nil, errors.New("no routingID")
 		}
@@ -117,7 +123,7 @@ func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 		return nil, err
 	}
 
-	if sType == zmq.ROUTER {
+	if sType == goczmq.ROUTER {
 		t.SetRoutingID(routingID)
 	}
 	return t, err
@@ -224,14 +230,14 @@ func getLongString(buffer *bytes.Buffer) string {
 
 // putBytes marshals []byte into the buffer.
 func putBytes(buffer *bytes.Buffer, data []byte) {
-	size := uint64(len(data))
+	size := uint32(len(data))
 	binary.Write(buffer, binary.BigEndian, size)
 	binary.Write(buffer, binary.BigEndian, data)
 }
 
 // getBytes unmarshals []byte from the buffer.
 func getBytes(buffer *bytes.Buffer) []byte {
-	var size uint64
+	var size uint32
 	binary.Read(buffer, binary.BigEndian, &size)
 	data := make([]byte, size)
 	binary.Read(buffer, binary.BigEndian, &data)

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/zeromq/goczmq"
+	zmq "github.com/pebbe/zmq4"
 )
 
 // Binary struct
@@ -52,15 +52,8 @@ func (b *Binary) Marshal() ([]byte, error) {
 
 	// PublicKey is a block of []byte with one byte length
 	bufferSize += 1 + len(b.PublicKey)
-
-	// Identifier is a block of []byte with one byte length
-	bufferSize += 1 + len(b.Identifier)
-
-	// Address is a block of []byte with one byte length
-	bufferSize += 1 + len(b.Address)
-
-	// Content is a block of []byte with one byte length
-	bufferSize += 1 + len(b.Content)
+	// ZUUID_LEN == 16
+	bufferSize += 16
 
 	// Now serialize the message
 	tmpBuf := make([]byte, bufferSize)
@@ -77,11 +70,8 @@ func (b *Binary) Marshal() ([]byte, error) {
 
 	putBytes(buffer, b.PublicKey)
 
-	putBytes(buffer, b.Identifier)
-
-	putBytes(buffer, b.Address)
-
-	putBytes(buffer, b.Content)
+	// ZUUID_LEN == 16
+	binary.Write(buffer, binary.BigEndian, b.Identifier[:16])
 
 	return buffer.Bytes(), nil
 }
@@ -120,46 +110,49 @@ func (b *Binary) Unmarshal(frames ...[]byte) error {
 
 	b.PublicKey = getBytes(buffer)
 	// Identifier
-
-	b.Identifier = getBytes(buffer)
+	// ZUUID_LEN == 16
+	b.Identifier = make([]byte, 16)
+	binary.Read(buffer, binary.BigEndian, &b.Identifier)
 	// Address
-
-	b.Address = getBytes(buffer)
+	if 0 <= len(frames)-1 {
+		b.Address = frames[0]
+	}
 	// Content
-
-	b.Content = getBytes(buffer)
+	if 1 <= len(frames)-1 {
+		b.Content = frames[1]
+	}
 
 	return nil
 }
 
 // Send sends marshaled data through 0mq socket.
-func (b *Binary) Send(sock *goczmq.Sock) (err error) {
+func (b *Binary) Send(socket *zmq.Socket) (err error) {
 	frame, err := b.Marshal()
 	if err != nil {
 		return err
 	}
 
-	socType := sock.GetType()
+	socType, err := socket.GetType()
 	if err != nil {
 		return err
 	}
 
 	// If we're sending to a ROUTER, we send the routingID first
-	if socType == goczmq.ROUTER {
-		err = sock.SendFrame(b.routingID, goczmq.MORE)
+	if socType == zmq.ROUTER {
+		_, err = socket.SendBytes(b.routingID, zmq.SNDMORE)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Now send the data frame
-	err = sock.SendFrame(frame, goczmq.MORE)
+	_, err = socket.SendBytes(frame, zmq.SNDMORE)
 	if err != nil {
 		return err
 	}
 	// Now send any frame fields, in order
-	err = sock.SendFrame(b.Address, goczmq.MORE)
-	err = sock.SendFrame(b.Content, 0)
+	_, err = socket.SendBytes(b.Address, zmq.SNDMORE)
+	_, err = socket.SendBytes(b.Content, 0)
 
 	return err
 }

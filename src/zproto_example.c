@@ -297,7 +297,7 @@ int
 zproto_example_recv (zproto_example_t *self, zsock_t *input)
 {
     assert (input);
-    
+
     if (zsock_type (input) == ZMQ_ROUTER) {
         zframe_destroy (&self->routing_id);
         self->routing_id = zframe_recv (input);
@@ -521,7 +521,7 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
     PUT_NUMBER1 (self->id);
     bool send_content = false;
     size_t nbr_frames = 1;              //  Total number of frames to send
-    
+
     switch (self->id) {
         case ZPROTO_EXAMPLE_LOG:
             PUT_NUMBER2 (self->sequence);
@@ -601,7 +601,7 @@ zproto_example_send (zproto_example_t *self, zsock_t *output)
     }
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
-    
+
     //  Now send any frame fields, in order
     if (self->id == ZPROTO_EXAMPLE_BINARY) {
         //  If address isn't set, send an empty frame
@@ -652,7 +652,7 @@ zproto_example_print (zproto_example_t *self)
             else
                 zsys_debug ("    data=");
             break;
-            
+
         case ZPROTO_EXAMPLE_STRUCTURES:
             zsys_debug ("ZPROTO_EXAMPLE_STRUCTURES:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
@@ -675,7 +675,7 @@ zproto_example_print (zproto_example_t *self)
             else
                 zsys_debug ("(NULL)");
             break;
-            
+
         case ZPROTO_EXAMPLE_BINARY:
             zsys_debug ("ZPROTO_EXAMPLE_BINARY:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
@@ -697,7 +697,7 @@ zproto_example_print (zproto_example_t *self)
             else
                 zsys_debug ("(NULL)");
             break;
-            
+
         case ZPROTO_EXAMPLE_TYPES:
             zsys_debug ("ZPROTO_EXAMPLE_TYPES:");
             zsys_debug ("    sequence=%ld", (long) self->sequence);
@@ -734,7 +734,7 @@ zproto_example_print (zproto_example_t *self)
             else
                 zsys_debug ("    supplier_email=");
             break;
-            
+
     }
 }
 

@@ -26,11 +26,14 @@ endfunction
 
 function set_defaults ()
     resolve_types ()
+
+    class.package_dir = defined(switches.package_dir) ?? switches.package_dir
+    class.package = defined(switches.package) ?? switches.package
+    class.script = defined(switches.script) ?? switches.script
     
     class.signature ?= 0
     class.package_dir ?= "go"
     class.package ?= "github.com/pebbe/zmq4"
-    class.source_dir ?= "."
 
     for message
         message.name = "$(message.name:c)"
@@ -65,6 +68,9 @@ function set_defaults ()
                 field.gotype = "map[string]string"
             elsif type = "string" | type = "longstr"
                 field.gotype = "string"
+            elsif type = "uuid"
+                field.gotype = "[]byte"
+                message.hex = 1
             elsif type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
                 field.gotype = "[]byte"
             else
@@ -85,7 +91,7 @@ function set_defaults ()
 endfunction
 
 function go_name (name)
-    my.name = "$(name:c)"
+    my.name = "$(my.name:c)"
     my.name = "$(my.Name)"
     return string.replace(my.name,'_')
 endfunction
@@ -97,10 +103,10 @@ function go_package_name ()
     return class.name
 endfunction
 
-function go_package_path ()
-    my.name = string.replace(class.name, "_|/")
+function go_package_path (name)
+    my.name = my.name ? class.name
+    my.name = string.replace(my.name, "_|/")
     my.path = directory.resolve(class.package_dir + "/" + my.name)
-    directory.create(my.path)
     return my.path
 endfunction
 

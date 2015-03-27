@@ -1,6 +1,8 @@
 package example
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"testing"
 
 	zmq "github.com/pebbe/zmq4"
@@ -8,6 +10,13 @@ import (
 
 // Yay! Test function.
 func TestStructures(t *testing.T) {
+
+	var (
+		sndMsg    []byte
+		rcvMsg    []byte
+		rcvDigest string
+		sndDigest string
+	)
 
 	// Create pair of sockets we can send through
 
@@ -41,17 +50,29 @@ func TestStructures(t *testing.T) {
 
 	// Create a Structures message and send it through the wire
 	structures := NewStructures()
-
 	structures.sequence = 123
-
-	structures.Aliases = []string{"Name: Brutus", "Age: 43"}
-
-	structures.Headers = map[string]string{"Name": "Brutus", "Age": "43"}
+	structures.Aliases = []string{
+		"First alias",
+		"Second alias",
+		"Third alias",
+	}
+	structures.Headers = map[string]string{"endpoint": "tcp://localhost:5665"}
 
 	err = structures.Send(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	sndMsg, err = structures.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sndDigest = fmt.Sprintf("%x", sha1.Sum(sndMsg))
+	if "52d9e295862bc3edad2841c412327a50d2c1b857" != sndDigest {
+		fmt.Printf("sndMsg: %x\n", sndMsg)
+		t.Fatalf("expected %q digest for structures, got %s", "52d9e295862bc3edad2841c412327a50d2c1b857", sndDigest)
+	}
+
 	transit, err := Recv(input)
 	if err != nil {
 		t.Fatal(err)
@@ -59,17 +80,32 @@ func TestStructures(t *testing.T) {
 
 	tr := transit.(*Structures)
 
+	rcvMsg, err = tr.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rcvDigest = fmt.Sprintf("%x", sha1.Sum(rcvMsg))
+	if sndDigest != rcvDigest {
+		fmt.Printf("sndMsg: %x\n", sndMsg)
+		fmt.Printf("rcvMsg: %x\n", rcvMsg)
+		t.Fatalf("inconsistent digest after sending and after receiving msg: %q != %q", sndDigest, rcvDigest)
+	}
+	if "52d9e295862bc3edad2841c412327a50d2c1b857" != rcvDigest {
+		t.Fatalf("expected %q digest for structures, got %s", "52d9e295862bc3edad2841c412327a50d2c1b857", rcvDigest)
+	}
+
+	// Tests number
 	if tr.sequence != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}
-
-	for idx, str := range []string{"Name: Brutus", "Age: 43"} {
+	// Tests strings
+	for idx, str := range []string{"First alias","Second alias","Third alias"} {
 		if tr.Aliases[idx] != str {
 			t.Fatalf("expected %s, got %s", str, tr.Aliases[idx])
 		}
 	}
-
-	for key, val := range map[string]string{"Name": "Brutus", "Age": "43"} {
+	// Tests hash
+	for key, val := range map[string]string{"endpoint": "tcp://localhost:5665"} {
 		if tr.Headers[key] != val {
 			t.Fatalf("expected %s, got %s", val, tr.Headers[key])
 		}
