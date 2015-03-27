@@ -145,7 +145,7 @@ func recv(socket *zmq.Socket, flag zmq.Flag) (t Transit, err error) {
 	// Read all frames
 	frames, err := socket.RecvMessageBytes(flag)
 .elsif class.package = "github.com/zeromq/goczmq"
-func recv(sock *goczmq.Sock, flag goczmq.Flag) (t Transit, err error) {
+func recv(sock *goczmq.Sock, flag int) (t Transit, err error) {
 	var frames [][]byte
 
 	if flag == goczmq.DONTWAIT {
