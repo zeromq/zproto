@@ -1,6 +1,8 @@
 package example
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"testing"
 
 	zmq "github.com/pebbe/zmq4"
@@ -8,6 +10,13 @@ import (
 
 // Yay! Test function.
 func TestTypes(t *testing.T) {
+
+	var (
+		sndMsg    []byte
+		rcvMsg    []byte
+		rcvDigest string
+		sndDigest string
+	)
 
 	// Create pair of sockets we can send through
 
@@ -41,29 +50,31 @@ func TestTypes(t *testing.T) {
 
 	// Create a Types message and send it through the wire
 	types := NewTypes()
-
 	types.sequence = 123
-
-	types.ClientForename = "Life is short but Now lasts for ever"
-
-	types.ClientSurname = "Life is short but Now lasts for ever"
-
-	types.ClientMobile = "Life is short but Now lasts for ever"
-
-	types.ClientEmail = "Life is short but Now lasts for ever"
-
-	types.SupplierForename = "Life is short but Now lasts for ever"
-
-	types.SupplierSurname = "Life is short but Now lasts for ever"
-
-	types.SupplierMobile = "Life is short but Now lasts for ever"
-
-	types.SupplierEmail = "Life is short but Now lasts for ever"
+	types.ClientForename = "Lucius Junius"
+	types.ClientSurname = "Brutus"
+	types.ClientMobile = "01234567890"
+	types.ClientEmail = "brutus@example.com"
+	types.SupplierForename = "Leslie"
+	types.SupplierSurname = "Lamport"
+	types.SupplierMobile = "01987654321"
+	types.SupplierEmail = "lamport@example.com"
 
 	err = types.Send(output)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	sndMsg, err = types.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sndDigest = fmt.Sprintf("%x", sha1.Sum(sndMsg))
+	if "dee674a1bcac455b7cd1801f4008c65d0a37b2ea" != sndDigest {
+		fmt.Printf("sndMsg: %x\n", sndMsg)
+		t.Fatalf("expected %q digest for types, got %s", "dee674a1bcac455b7cd1801f4008c65d0a37b2ea", sndDigest)
+	}
+
 	transit, err := Recv(input)
 	if err != nil {
 		t.Fatal(err)
@@ -71,40 +82,55 @@ func TestTypes(t *testing.T) {
 
 	tr := transit.(*Types)
 
+	rcvMsg, err = tr.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rcvDigest = fmt.Sprintf("%x", sha1.Sum(rcvMsg))
+	if sndDigest != rcvDigest {
+		fmt.Printf("sndMsg: %x\n", sndMsg)
+		fmt.Printf("rcvMsg: %x\n", rcvMsg)
+		t.Fatalf("inconsistent digest after sending and after receiving msg: %q != %q", sndDigest, rcvDigest)
+	}
+	if "dee674a1bcac455b7cd1801f4008c65d0a37b2ea" != rcvDigest {
+		t.Fatalf("expected %q digest for types, got %s", "dee674a1bcac455b7cd1801f4008c65d0a37b2ea", rcvDigest)
+	}
+
+	// Tests number
 	if tr.sequence != 123 {
 		t.Fatalf("expected %d, got %d", 123, tr.sequence)
 	}
-
-	if tr.ClientForename != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientForename)
+	// Tests string
+	if tr.ClientForename != "Lucius Junius" {
+		t.Fatalf("expected %s, got %s", "Lucius Junius", tr.ClientForename)
 	}
-
-	if tr.ClientSurname != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientSurname)
+	// Tests string
+	if tr.ClientSurname != "Brutus" {
+		t.Fatalf("expected %s, got %s", "Brutus", tr.ClientSurname)
 	}
-
-	if tr.ClientMobile != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientMobile)
+	// Tests string
+	if tr.ClientMobile != "01234567890" {
+		t.Fatalf("expected %s, got %s", "01234567890", tr.ClientMobile)
 	}
-
-	if tr.ClientEmail != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.ClientEmail)
+	// Tests string
+	if tr.ClientEmail != "brutus@example.com" {
+		t.Fatalf("expected %s, got %s", "brutus@example.com", tr.ClientEmail)
 	}
-
-	if tr.SupplierForename != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierForename)
+	// Tests string
+	if tr.SupplierForename != "Leslie" {
+		t.Fatalf("expected %s, got %s", "Leslie", tr.SupplierForename)
 	}
-
-	if tr.SupplierSurname != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierSurname)
+	// Tests string
+	if tr.SupplierSurname != "Lamport" {
+		t.Fatalf("expected %s, got %s", "Lamport", tr.SupplierSurname)
 	}
-
-	if tr.SupplierMobile != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierMobile)
+	// Tests string
+	if tr.SupplierMobile != "01987654321" {
+		t.Fatalf("expected %s, got %s", "01987654321", tr.SupplierMobile)
 	}
-
-	if tr.SupplierEmail != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.SupplierEmail)
+	// Tests string
+	if tr.SupplierEmail != "lamport@example.com" {
+		t.Fatalf("expected %s, got %s", "lamport@example.com", tr.SupplierEmail)
 	}
 
 	err = tr.Send(input)

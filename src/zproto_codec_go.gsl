@@ -269,14 +269,14 @@ func getLongString(buffer *bytes.Buffer) string {
 
 // putBytes marshals []byte into the buffer.
 func putBytes(buffer *bytes.Buffer, data []byte) {
-	size := uint64(len(data))
+	size := uint32(len(data))
 	binary.Write(buffer, binary.BigEndian, size)
 	binary.Write(buffer, binary.BigEndian, data)
 }
 
 // getBytes unmarshals []byte from the buffer.
 func getBytes(buffer *bytes.Buffer) []byte {
-	var size uint64
+	var size uint32
 	binary.Read(buffer, binary.BigEndian, &size)
 	data := make([]byte, size)
 	binary.Read(buffer, binary.BigEndian, &data)
@@ -360,10 +360,14 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 .        else
 	bufferSize += $(size)
 .        endif
-.    elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+.    elsif type = "uuid"
+	// ZUUID_LEN == 16
+	bufferSize += 16
+.    elsif type = "chunk"
 
 	// $(name:no) is a block of []byte with one byte length
 	bufferSize += 1 + len($(self).$(name:no))
+.    elsif type = "frame" | type = "msg"
 .    elsif type = "string"
 
 	// $(name:no) is a string with 1-byte length
@@ -421,9 +425,14 @@ func ($(self) *$(name:no)) Marshal() ([]byte, error) {
 
 	// $(name:no)
 	binary.Write(buffer, binary.BigEndian, $(self).$(name:no)[:$(size)])
-.    elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+.    elsif type = "uuid"
+
+	// ZUUID_LEN == 16
+	binary.Write(buffer, binary.BigEndian, $(self).$(name:no)[:16])
+.    elsif type = "chunk"
 
 	putBytes(buffer, $(self).$(name:no))
+.    elsif type = "frame" | type = "msg"
 .    elsif type = "string"
 
 	// $(name:no)
@@ -499,9 +508,18 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 
 	$(self).$(name:no) = make($(gotype), $(size))
 	binary.Read(buffer, binary.BigEndian, &$(self).$(name:no))
-.    elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
+.    elsif type = "uuid"
+	// ZUUID_LEN == 16
+	$(self).$(name:no) = make([]byte, 16)
+	binary.Read(buffer, binary.BigEndian, &$(self).$(name:no))
+.    elsif type = "chunk"
 
 	$(self).$(name:no) = getBytes(buffer)
+.    elsif type = "frame" | type = "msg"
+	if $(frames) <= len(frames)-1 {
+		$(self).$(name:no) = frames[$(frames)]
+	}
+.    frames = frames + 1
 .    elsif type = "string"
 	$(self).$(name:no) = getString(buffer)
 .        if defined (field.value)
@@ -532,11 +550,6 @@ func ($(self) *$(name:no)) Unmarshal(frames ...[]byte) error {
 		val := getLongString(buffer)
 		$(self).$(name:no)[key] = val
 	}
-.    elsif type = "frame" | type = "msg"
-	if $(frames) <= len(frames)-1 {
-		$(self).$(name:no) = frames[$(frames)]
-	}
-.    frames = frames + 1
 .    endif
 .endfor
 
@@ -648,6 +661,15 @@ func ($(self) *$(struct:no)) $(fname:no)() $(gotype) {
 package $(go_package_name())
 
 import (
+.if defined (digest)
+	"crypto/sha1"
+.endif
+.if defined(message.hex)
+	"encoding/hex"
+.endif
+.if defined (digest)
+	"fmt"
+.endif
 	"testing"
 
 .if class.package = "github.com/pebbe/zmq4"
@@ -660,6 +682,15 @@ import (
 // Yay! Test function.
 func Test$(name:no)(t *testing.T) {
 
+.if defined (digest)
+	var (
+		sndMsg    []byte
+		rcvMsg    []byte
+		rcvDigest string
+		sndDigest string
+	)
+
+.endif
 	// Create pair of sockets we can send through
 
 	// Output socket
@@ -709,26 +740,47 @@ func Test$(name:no)(t *testing.T) {
 .   struct = "$(name)"
 .   for field where !defined (value)
 .       if type = "number"
-
-	$(struct).$(name:no) = 123
+	$(struct).$(name:no) = $(->test.?123:)
 .       elsif type = "octets"
+.           if defined (->test)
+	$(struct).$(name:no) = []byte("$(->test.)")
+.           else
 .           data = "'z', " * size
 .           data_len = string.length(data)
 .           data = string.substr(data, 0, data_len-3)
-
 	$(struct).$(name:no) = []byte{$(data)}
+.           endif
 .       elsif type = "string" | type = "longstr"
-
-	$(struct).$(name:no) = "Life is short but Now lasts for ever"
+	$(struct).$(name:no) = "$(->test.?"Life is short but Now lasts for ever":)"
 .       elsif type = "strings"
-
+.           if defined (->test)
+	$(struct).$(name:no) = []string{
+.               for test
+		"$(test.)",
+.               endfor
+	}
+.           else
 	$(struct).$(name:no) = []string{"Name: Brutus", "Age: 43"}
+.           endif
 .       elsif type = "hash"
-
-	$(struct).$(name:no) = map[string]string{"Name": "Brutus", "Age": "43"}
-.       elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
-
-	$(struct).$(name:no) = []byte("Captcha Diem")
+.           hash = ""
+.           if defined (->test)
+.               for test
+.                   hash += '"$(test.key:no)": "$(test.:no)"'
+.                   if !last ()
+.                       hash += ","
+.                   endif
+.               endfor
+.           else
+.               hash = '"Name": "Brutus", "Age": "43"'
+.           endif
+	$(struct).$(name:no) = map[string]string{$(hash:no)}
+.       elsif type = "uuid"
+	$(struct).$(name:no), _ = hex.DecodeString("$(->test.?"Captcha Diem":)")
+.       elsif type = "chunk"
+	$(struct).$(name:no) = []byte("$(->test.?"Captcha Diem":)")
+.       elsif type = "frame" | type = "msg"
+	$(struct).$(name:no) = []byte("$(->test.?"Captcha Diem":)")
 .       endif
 .   endfor
 
@@ -736,54 +788,114 @@ func Test$(name:no)(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+.if defined (digest)
+	sndMsg, err = $(struct).Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sndDigest = fmt.Sprintf("%x", sha1.Sum(sndMsg))
+	if "$(digest)" != sndDigest {
+		fmt.Printf("sndMsg: %x\\n", sndMsg)
+		t.Fatalf("expected %q digest for $(struct), got %s", "$(digest)", sndDigest)
+	}
+
+.endif
 	transit, err := Recv(input)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tr := transit.(*$(name:no))
-.   for field where !defined (value)
-.       if type = "number"
 
-	if tr.$(name:no) != 123 {
-		t.Fatalf("expected %d, got %d", 123, tr.$(name:no))
+.if defined (digest)
+	rcvMsg, err = tr.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rcvDigest = fmt.Sprintf("%x", sha1.Sum(rcvMsg))
+	if sndDigest != rcvDigest {
+		fmt.Printf("sndMsg: %x\\n", sndMsg)
+		fmt.Printf("rcvMsg: %x\\n", rcvMsg)
+		t.Fatalf("inconsistent digest after sending and after receiving msg: %q != %q", sndDigest, rcvDigest)
+	}
+	if "$(digest)" != rcvDigest {
+		t.Fatalf("expected %q digest for $(struct), got %s", "$(digest)", rcvDigest)
+	}
+
+.endif
+.   for field where !defined (value)
+	// Tests $(type)
+.       if type = "number"
+	if tr.$(name:no) != $(->test.?123:) {
+		t.Fatalf("expected %d, got %d", $(->test.?123:), tr.$(name:no))
 	}
 .       elsif type = "octets"
+.           if defined (->test)
+.           data = '[]byte("$(->test.)")'
+.           else
 .           data = "'z', " * size
 .           data_len = string.length(data)
 .           data = string.substr(data, 0, data_len-3)
-
+.           data = "[]byte{$(data:no)"
+.           endif
 	if len(tr.$(name:no)) != $(size) {
 		t.Fatalf("mismatch octets size for %s", "$(name:no)")
 	}
-	for idx, b := range []byte{$(data)} {
+	for idx, b := range $(data:no) {
 		if tr.$(name:no)[idx] != b {
 			t.Fatalf("mismatch octets value for %s", "$(name:no)")
 		}
 	}
 .       elsif type = "string" | type = "longstr"
-
-	if tr.$(name:no) != "Life is short but Now lasts for ever" {
-		t.Fatalf("expected %s, got %s", "Life is short but Now lasts for ever", tr.$(name:no))
+	if tr.$(name:no) != "$(->test.?"Life is short but Now lasts for ever":)" {
+		t.Fatalf("expected %s, got %s", "$(->test.?"Life is short but Now lasts for ever":)", tr.$(name:no))
 	}
 .       elsif type = "strings"
-
-	for idx, str := range []string{"Name: Brutus", "Age: 43"} {
+.           strslice = ""
+.           if defined (->test)
+.               for test
+.                   strslice += '"$(test.:no)"'
+.                   if !last ()
+.                       strslice += ","
+.                   endif
+.               endfor
+.           else
+.               strslice = '"Name: Brutus", "Age: 43"'
+.           endif
+	for idx, str := range []string{$(strslice:no)} {
 		if tr.$(name:no)[idx] != str {
 			t.Fatalf("expected %s, got %s", str, tr.$(name:no)[idx])
 		}
 	}
 .       elsif type = "hash"
-
-	for key, val := range map[string]string{"Name": "Brutus", "Age": "43"} {
+.           hash = ""
+.           if defined (->test)
+.               for test
+.                   hash += '"$(test.key:no)": "$(test.:no)"'
+.                   if !last ()
+.                       hash += ","
+.                   endif
+.               endfor
+.           else
+.               hash = '"Name": "Brutus", "Age": "43"'
+.           endif
+	for key, val := range map[string]string{$(hash:no)} {
 		if tr.$(name:no)[key] != val {
 			t.Fatalf("expected %s, got %s", val, tr.$(name:no)[key])
 		}
 	}
-.       elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
-
-	if string(tr.$(name:no)) != "Captcha Diem" {
-		t.Fatalf("expected %s, got %s", "Captcha Diem", tr.$(name:no))
+.       elsif type = "uuid"
+	if hex.EncodeToString(tr.$(name:no)) != "$(->test.?"Captcha Diem":)" {
+		t.Fatalf("expected %s, got %s", "$(->test.?"Captcha Diem":)", tr.$(name:no))
+	}
+.       elsif type = "chunk"
+	if string(tr.$(name:no)) != "$(->test.?"Captcha Diem":)" {
+		t.Fatalf("expected %s, got %s", "$(->test.?"Captcha Diem":)", tr.$(name:no))
+	}
+.       elsif type = "frame" | type = "msg"
+	if string(tr.$(name:no)) != "$(->test.?"Captcha Diem":)" {
+		t.Fatalf("expected %s, got %s", "$(->test.?"Captcha Diem":)", tr.$(name:no))
 	}
 .       endif
 .   endfor

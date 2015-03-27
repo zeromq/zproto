@@ -68,6 +68,9 @@ function set_defaults ()
                 field.gotype = "map[string]string"
             elsif type = "string" | type = "longstr"
                 field.gotype = "string"
+            elsif type = "uuid"
+                field.gotype = "[]byte"
+                message.hex = 1
             elsif type = "frame" | type = "msg" | type = "chunk" | type = "uuid"
                 field.gotype = "[]byte"
             else
