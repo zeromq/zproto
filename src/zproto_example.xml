@@ -113,7 +113,7 @@ zproto supports lists and hashes of strings:
 <message
     name = "STRUCTURES"
     id = "2"
-    digest = "BC804854A96B9CC28E74400A9586B8BE1F638384"
+    digest = "52D9E295862BC3EDAD2841C412327A50D2C1B857"
     >
     <field name = "aliases" type = "strings">
         List of strings
@@ -123,8 +123,7 @@ zproto supports lists and hashes of strings:
     </field>
     <field name = "headers" type = "hash">
         Other random properties
-        <test key = "endpoint">tcp://localhost</test>
-        <test key = "port">5665</test>
+        <test key = "endpoint">tcp://localhost:5665</test>
     </field>
 This message contains a list and a hash.
 </message>
