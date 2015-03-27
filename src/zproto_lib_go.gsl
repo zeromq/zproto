@@ -88,7 +88,7 @@ function set_defaults ()
 endfunction
 
 function go_name (name)
-    my.name = "$(name:c)"
+    my.name = "$(my.name:c)"
     my.name = "$(my.Name)"
     return string.replace(my.name,'_')
 endfunction
