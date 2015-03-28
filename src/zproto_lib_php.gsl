@@ -72,6 +72,9 @@ function set_defaults ()
 
     directory.create(directory.resolve(class.package_dir))
     directory.create(directory.resolve(class.package_dir + "/" + php_basename()))
+    directory.create(directory.resolve(class.package_dir + "/" + class.test_dir))
+    directory.create(directory.resolve(class.package_dir + "/vendor"))
+    directory.create(directory.resolve(class.package_dir + "/" + class.test_dir + "/" + php_basename()))
 
 endfunction
 

@@ -33,82 +33,28 @@
 
 namespace Zproto\Example;
 
-use Zproto\Example;
-
 /**
- * Deliver a multi-part message.
+ * This message contains a list and a hash.
  */
-class Binary extends Example
+class StructuresTest extends \PHPUnit_Framework_TestCase
 {
-    /**
-     * Message ID
-     */
-    const ID = 3;
-
-    /**
-     * @var number $sequence
-     */
-    public $sequence;
-
-    /**
-     * @var string $flags A set of flags
-     */
-    public $flags;
-
-    /**
-     * @var string $publicKey Our public key
-     */
-    public $publicKey;
-
-    /**
-     * @var string $identifier Unique identity
-     */
-    public $identifier;
-
-    /**
-     * @var string $address Return address as frame
-     */
-    public $address;
-
-    /**
-     * @var string $content Message to be delivered
-     */
-    public $content;
-
-    /**
-     * Unserializes a BINARY message
-     *
-     * @access public
-     * @return void
-     */
-    public function unserialize()
+    public function testStructures()
     {
-        parent::unserialize();
+        $structures = new Structures();
+        $structures->sequence = 123;
+        $structures->aliases  = ["First alias","Second alias","Third alias"];
+        $structures->headers  = ["endpoint" => "tcp://localhost:5665"];
 
-        $this->sequence   = $this->getNumber2();
-        $this->flags      = $this->getOctets(4);
-        $this->publicKey  = $this->getBytes();
-        $this->identifier = $this->getUuid();
+        $msg = $structures->serialize();
+        $this->assertSame("52d9e295862bc3edad2841c412327a50d2c1b857", sha1($msg));
 
-        // Cleanup
-        $this->needle = 0;
-        // 0xAAA0 is the signature of the messages
-        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
-    }
+        $structuresRcvd = new Structures($msg);
+        $structuresRcvd->unserialize();
 
-    /**
-     * Serializes a BINARY message
-     *
-     * @access public
-     * @return serialized binary data
-     */
-    public function serialize()
-    {
-        $this->putNumber2($this->sequence);
-        $this->putOctets($this->flags, 4);
-        $this->putBytes($this->publicKey);
-        $this->putUuid($this->identifier);
+        $msg = $structuresRcvd->serialize();
+        $this->assertSame("52d9e295862bc3edad2841c412327a50d2c1b857", sha1($msg));
 
-        return $this->buffer;
+        $this->assertEquals($structures, $structuresRcvd);
+
     }
 }

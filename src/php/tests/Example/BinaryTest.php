@@ -33,82 +33,29 @@
 
 namespace Zproto\Example;
 
-use Zproto\Example;
-
 /**
  * Deliver a multi-part message.
  */
-class Binary extends Example
+class BinaryTest extends \PHPUnit_Framework_TestCase
 {
-    /**
-     * Message ID
-     */
-    const ID = 3;
-
-    /**
-     * @var number $sequence
-     */
-    public $sequence;
-
-    /**
-     * @var string $flags A set of flags
-     */
-    public $flags;
-
-    /**
-     * @var string $publicKey Our public key
-     */
-    public $publicKey;
-
-    /**
-     * @var string $identifier Unique identity
-     */
-    public $identifier;
-
-    /**
-     * @var string $address Return address as frame
-     */
-    public $address;
-
-    /**
-     * @var string $content Message to be delivered
-     */
-    public $content;
-
-    /**
-     * Unserializes a BINARY message
-     *
-     * @access public
-     * @return void
-     */
-    public function unserialize()
+    public function testBinary()
     {
-        parent::unserialize();
+        $binary = new Binary();
+        $binary->sequence   = 123;
+        $binary->flags      = "b38c";
+        $binary->publicKey  = "89f5ffe70d747869dfe8";
+        $binary->identifier = hex2bin("3a60e6850a1e4cc15f3bfd4b42bc6b3e");
 
-        $this->sequence   = $this->getNumber2();
-        $this->flags      = $this->getOctets(4);
-        $this->publicKey  = $this->getBytes();
-        $this->identifier = $this->getUuid();
+        $msg = $binary->serialize();
+        $this->assertSame("740caf04158436b4a81b844135a8a1dc9e4f8a54", sha1($msg));
 
-        // Cleanup
-        $this->needle = 0;
-        // 0xAAA0 is the signature of the messages
-        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
-    }
+        $binaryRcvd = new Binary($msg);
+        $binaryRcvd->unserialize();
 
-    /**
-     * Serializes a BINARY message
-     *
-     * @access public
-     * @return serialized binary data
-     */
-    public function serialize()
-    {
-        $this->putNumber2($this->sequence);
-        $this->putOctets($this->flags, 4);
-        $this->putBytes($this->publicKey);
-        $this->putUuid($this->identifier);
+        $msg = $binaryRcvd->serialize();
+        $this->assertSame("740caf04158436b4a81b844135a8a1dc9e4f8a54", sha1($msg));
 
-        return $this->buffer;
+        $this->assertEquals($binary, $binaryRcvd);
+
     }
 }

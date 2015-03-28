@@ -33,82 +33,33 @@
 
 namespace Zproto\Example;
 
-use Zproto\Example;
-
 /**
- * Deliver a multi-part message.
+ * Log an event.
  */
-class Binary extends Example
+class LogTest extends \PHPUnit_Framework_TestCase
 {
-    /**
-     * Message ID
-     */
-    const ID = 3;
-
-    /**
-     * @var number $sequence
-     */
-    public $sequence;
-
-    /**
-     * @var string $flags A set of flags
-     */
-    public $flags;
-
-    /**
-     * @var string $publicKey Our public key
-     */
-    public $publicKey;
-
-    /**
-     * @var string $identifier Unique identity
-     */
-    public $identifier;
-
-    /**
-     * @var string $address Return address as frame
-     */
-    public $address;
-
-    /**
-     * @var string $content Message to be delivered
-     */
-    public $content;
-
-    /**
-     * Unserializes a BINARY message
-     *
-     * @access public
-     * @return void
-     */
-    public function unserialize()
+    public function testLog()
     {
-        parent::unserialize();
+        $log = new Log();
+        $log->sequence = 123;
+        $log->level    = 2;
+        $log->event    = 3;
+        $log->node     = 45536;
+        $log->peer     = 65535;
+        $log->time     = 1427261426;
+        $log->host     = "localhost";
+        $log->data     = "This is the message to log";
 
-        $this->sequence   = $this->getNumber2();
-        $this->flags      = $this->getOctets(4);
-        $this->publicKey  = $this->getBytes();
-        $this->identifier = $this->getUuid();
+        $msg = $log->serialize();
+        $this->assertSame("b90f4926d4662b319c0ec113794b0f27d9336a23", sha1($msg));
 
-        // Cleanup
-        $this->needle = 0;
-        // 0xAAA0 is the signature of the messages
-        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
-    }
+        $logRcvd = new Log($msg);
+        $logRcvd->unserialize();
 
-    /**
-     * Serializes a BINARY message
-     *
-     * @access public
-     * @return serialized binary data
-     */
-    public function serialize()
-    {
-        $this->putNumber2($this->sequence);
-        $this->putOctets($this->flags, 4);
-        $this->putBytes($this->publicKey);
-        $this->putUuid($this->identifier);
+        $msg = $logRcvd->serialize();
+        $this->assertSame("b90f4926d4662b319c0ec113794b0f27d9336a23", sha1($msg));
 
-        return $this->buffer;
+        $this->assertEquals($log, $logRcvd);
+
     }
 }

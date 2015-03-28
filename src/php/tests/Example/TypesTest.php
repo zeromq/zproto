@@ -33,82 +33,34 @@
 
 namespace Zproto\Example;
 
-use Zproto\Example;
-
 /**
- * Deliver a multi-part message.
+ * Demonstrate custom-defined types
  */
-class Binary extends Example
+class TypesTest extends \PHPUnit_Framework_TestCase
 {
-    /**
-     * Message ID
-     */
-    const ID = 3;
-
-    /**
-     * @var number $sequence
-     */
-    public $sequence;
-
-    /**
-     * @var string $flags A set of flags
-     */
-    public $flags;
-
-    /**
-     * @var string $publicKey Our public key
-     */
-    public $publicKey;
-
-    /**
-     * @var string $identifier Unique identity
-     */
-    public $identifier;
-
-    /**
-     * @var string $address Return address as frame
-     */
-    public $address;
-
-    /**
-     * @var string $content Message to be delivered
-     */
-    public $content;
-
-    /**
-     * Unserializes a BINARY message
-     *
-     * @access public
-     * @return void
-     */
-    public function unserialize()
+    public function testTypes()
     {
-        parent::unserialize();
+        $types = new Types();
+        $types->sequence         = 123;
+        $types->clientForename   = "Lucius Junius";
+        $types->clientSurname    = "Brutus";
+        $types->clientMobile     = "01234567890";
+        $types->clientEmail      = "brutus@example.com";
+        $types->supplierForename = "Leslie";
+        $types->supplierSurname  = "Lamport";
+        $types->supplierMobile   = "01987654321";
+        $types->supplierEmail    = "lamport@example.com";
 
-        $this->sequence   = $this->getNumber2();
-        $this->flags      = $this->getOctets(4);
-        $this->publicKey  = $this->getBytes();
-        $this->identifier = $this->getUuid();
+        $msg = $types->serialize();
+        $this->assertSame("dee674a1bcac455b7cd1801f4008c65d0a37b2ea", sha1($msg));
 
-        // Cleanup
-        $this->needle = 0;
-        // 0xAAA0 is the signature of the messages
-        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
-    }
+        $typesRcvd = new Types($msg);
+        $typesRcvd->unserialize();
 
-    /**
-     * Serializes a BINARY message
-     *
-     * @access public
-     * @return serialized binary data
-     */
-    public function serialize()
-    {
-        $this->putNumber2($this->sequence);
-        $this->putOctets($this->flags, 4);
-        $this->putBytes($this->publicKey);
-        $this->putUuid($this->identifier);
+        $msg = $typesRcvd->serialize();
+        $this->assertSame("dee674a1bcac455b7cd1801f4008c65d0a37b2ea", sha1($msg));
 
-        return $this->buffer;
+        $this->assertEquals($types, $typesRcvd);
+
     }
 }

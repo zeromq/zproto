@@ -57,7 +57,7 @@ class $(php_basename())
     {
         // puts/serializes the message signature if $msg is null
         if ($msg == NULL) {
-            // 0xAAA1 is the signature of Elastic Noggin Archive messages
+            // 0xAAA$(class.signature) is the signature of the messages
             $this->buffer = pack('C*', 0xAA, 0xA0 | $(class.signature), static::ID);
         } else {
             $this->buffer = $msg;
@@ -146,6 +146,18 @@ class $(php_basename())
     protected function getString()
     {
         $len = ord($this->buffer());
+
+        return $this->buffer($len);
+    }
+
+    /**
+     * Unserializes a long string. A serialized long string consists of 4-byte length
+     * followed by the string itself.
+     */
+    protected function getLongString()
+    {
+        $len = $this->getNumber4();
+
         return $this->buffer($len);
     }
 
@@ -157,8 +169,19 @@ class $(php_basename())
      */
     protected function putBytes($string)
     {
-        $this->putNumber8(strlen($string));
+        $this->putNumber4(strlen($string));
         $this->buffer .= $string;
+    }
+
+    /**
+     * Serializes octets.
+     *
+     * @param string $string The string being serialized
+     * @param int    $len    The length of the string
+     */
+    protected function putOctets($string, $len)
+    {
+        $this->buffer .= substr($string, 0, $len);
     }
 
     /**
@@ -168,7 +191,16 @@ class $(php_basename())
      */
     protected function getBytes()
     {
-        $len = $this->getNumber8();
+        $len = $this->getNumber4();
+
+        return $this->buffer($len);
+    }
+
+    /**
+     * Unserializes octets.
+     */
+    protected function getOctets($len)
+    {
         return $this->buffer($len);
     }
 
@@ -177,7 +209,9 @@ class $(php_basename())
      */
     protected function getNumber()
     {
-        return unpack('C', $this->buffer(1));
+        $res = unpack('Cnum', $this->buffer(1));
+
+        return $res['num'];
     }
 
     /**
@@ -185,7 +219,9 @@ class $(php_basename())
      */
     protected function getNumber2()
     {
-        return unpack('n', $this->buffer(2));
+        $res = unpack('nnum', $this->buffer(2));
+
+        return $res['num'];
     }
 
     /**
@@ -193,7 +229,9 @@ class $(php_basename())
      */
     protected function getNumber4()
     {
-        return unpack('N', $this->buffer(4));
+        $res = unpack('Nnum', $this->buffer(4));
+
+        return $res['num'];
     }
 
     /**
@@ -223,6 +261,29 @@ class $(php_basename())
         }
 
         return $hash;
+    }
+
+    /**
+     * Unserializes an array of strings.
+     */
+    protected function getStrings()
+    {
+        $strings = [];
+        $size = $this->getNumber4();
+
+        for ($i = 0; $i < $size; $i++) {
+            $strings[] = $this->getLongString();
+        }
+
+        return $strings;
+    }
+
+    /**
+     * Unserializes a UUID.
+     */
+    protected function getUuid()
+    {
+        return $this->buffer(16);
     }
 
     /**
@@ -268,7 +329,7 @@ class $(php_basename())
     /**
      * Serializes a hash.
      *
-     * @param number $has The hash being serialized
+     * @param array $hash The hash being serialized
      */
     protected function putHash(array $hash)
     {
@@ -280,6 +341,29 @@ class $(php_basename())
     }
 
     /**
+     * Serializes an array of string.
+     *
+     * @param array $strings The array of string
+     */
+    protected function putStrings(array $strings)
+    {
+        $this->putNumber4(count($strings));
+        foreach ($strings as $str) {
+            $this->putLongString($str);
+        }
+    }
+
+    /**
+     * Serializes a UUID.
+     *
+     * @param string $uuid
+     */
+    protected function putUuid($uuid)
+    {
+        $this->buffer .= $uuid;
+    }
+
+    /**
      * Buffer returns a bytes array size of $size started at $this->needle
      *
      * @param int $size Number of bytes
@@ -287,7 +371,7 @@ class $(php_basename())
     protected function buffer($size = 1)
     {
         // Make sure buffer is initialized
-        if (!isset($this->buffer[$this->needle+($size-1)])) {
+        if (!isset($this->buffer[(int) $this->needle+((int) $size-1)])) {
             throw new \\Exception('Malformed message');
         }
 
@@ -345,7 +429,11 @@ class $(php_name(message.name)) extends $(php_basename())
     /**
      * $(phpdoc:block,no)$(phpdocdesc:no,block)
      */
+.       if defined(value)
+    public \$$(php_lcfirst(name)) = $((type = "number") ?? value ? "$(value:no)");
+.       else
     public \$$(php_lcfirst(name));
+.       endif
 
 .    endfor
     /**
@@ -360,17 +448,30 @@ class $(php_name(message.name)) extends $(php_basename())
 
 .    for field
 .        if field.type = "number"
-        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->get$(Phptype)$(size)();
+        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->get$(Phptype)$((size = 1) ?? '' ? size)();
 .        elsif field.type = "chunk"
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getBytes();
 .        elsif field.type = "hash"
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getHash();
+.        elsif field.type = "strings"
+        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getStrings();
 .        elsif field.type = "longstr"
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getLongString();
+.        elsif field.type = "uuid"
+        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getUuid();
+.        elsif field.type = "octets"
+        \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->getOctets($(size));
+.        elsif field.type = "frame" | field.type = "msg"
+.            # TODO(armen): Implement
 .        else
         \$this->$(php_lcfirst(name)%-$(field_maxlen)s) = \$this->get$(Phptype)();
 .        endif
 .    endfor
+
+        // Cleanup
+        $this->needle = 0;
+        // 0xAAA$(class.signature) is the signature of the messages
+        $this->buffer = pack('C*', 0xAA, 0xA0 | $(class.signature), static::ID);
     }
 
     /**
@@ -383,13 +484,21 @@ class $(php_name(message.name)) extends $(php_basename())
     {
 .    for field
 .        if field.type = "number"
-        \$this->put$(Phptype)$(size)(\$this->$(php_lcfirst(name)));
+        \$this->put$(Phptype)$((size = 1) ?? '' ? size)(\$this->$(php_lcfirst(name)));
 .        elsif field.type = "chunk"
         \$this->putBytes(\$this->$(php_lcfirst(name)));
 .        elsif field.type = "hash"
         \$this->putHash(\$this->$(php_lcfirst(name)));
+.        elsif field.type = "strings"
+        \$this->putStrings(\$this->$(php_lcfirst(name)));
 .        elsif field.type = "longstr"
         \$this->putLongString(\$this->$(php_lcfirst(name)));
+.        elsif field.type = "uuid"
+        \$this->putUuid(\$this->$(php_lcfirst(name)));
+.        elsif field.type = "octets"
+        \$this->putOctets(\$this->$(php_lcfirst(name)), $(size));
+.        elsif field.type = "frame" | field.type = "msg"
+.            # TODO(armen): Implement
 .        else
         \$this->put$(Phptype)(\$this->$(php_lcfirst(name)));
 .        endif
@@ -399,3 +508,139 @@ class $(php_name(message.name)) extends $(php_basename())
     }
 }
 .endfor
+.for message
+.output "$(class.package_dir:no)/$(class.test_dir:no)/$(php_basename())/$(php_name(message.name))Test.php"
+<?php
+
+/**
+ * Library $(php_basename()) is 100% generated. If you edit this file, you will
+ * lose your changes at the next build cycle.
+ * DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
+ *
+ * The correct places for commits are:
+ *  - The XML model used for this code generation: $(filename)
+ *  - The code generation script that built this file: $(script)
+.   for class.license
+.       if first()
+ *
+.       endif
+ *  $(string.trim (license.):block                                             )
+.   endfor
+ */
+
+namespace $(php_namespace())\\$(php_basename());
+
+/**
+.    if defined(message.)
+ * $(string.trim (message.):block                                              )
+.    else
+ * The $(php_name(message.name)) serializes a $(message.name:cobol,upper) message in $(class.title:no).
+.    endif
+ */
+class $(php_name(message.name))Test extends \\PHPUnit_Framework_TestCase
+{
+    public function test$(php_name(message.name))()
+    {
+        \$$(name) = new $(php_name(message.name))();
+.   obj = name
+.   for field where !defined (value)
+.       if type = "number"
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = $(->test.?123:);
+.       elsif type = "octets"
+.           if defined (->test)
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = "$(->test.)";
+.           else
+.               data = "z" * size
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = "$(data)";
+.           endif
+.       elsif type = "string" | type = "longstr"
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = "$(->test.?"Life is short but Now lasts for ever":)";
+.       elsif type = "strings"
+.           strs = ""
+.           if defined (->test)
+.               for test
+.                   strs += '"$(test.:no)"'
+.                   if !last ()
+.                       strs += ","
+.                   endif
+.               endfor
+.           else
+.               strs = '"Name: Brutus", "Age: 43"'
+.           endif
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = [$(strs:no)];
+.       elsif type = "hash"
+.           hash = ""
+.           if defined (->test)
+.               for test
+.                   hash += '"$(test.key:no)" => "$(test.:no)"'
+.                   if !last ()
+.                       hash += ","
+.                   endif
+.               endfor
+.           else
+.               hash = '"Name" => "Brutus", "Age" => "43"'
+.           endif
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = [$(hash:no)];
+.       elsif type = "uuid"
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = hex2bin("$(->test.?"Captcha Diem":)");
+.       elsif type = "chunk"
+        \$$(obj)->$(php_lcfirst(name)%-$(field_maxlen)s) = "$(->test.?"Captcha Diem":)";
+.       elsif type = "frame" | type = "msg"
+.            # TODO(armen): Implement
+.       endif
+.   endfor
+.   if defined (digest)
+
+        $msg = \$$(name)->serialize();
+.       # For debug: echo "$(php_name(message.name)) ".bin2hex(\$msg).PHP_EOL;
+        $this->assertSame("$(digest)", sha1(\$msg));
+
+        \$$(name)Rcvd = new $(php_name(message.name))($msg);
+        \$$(name)Rcvd->unserialize();
+
+        $msg = \$$(name)Rcvd->serialize();
+        $this->assertSame("$(digest)", sha1(\$msg));
+
+        $this->assertEquals(\$$(name), \$$(name)Rcvd);
+
+.   endif
+    }
+}
+.endfor
+.output "$(class.package_dir:no)/phpunit.xml"
+<phpunit
+    backupGlobals               = "false"
+    backupStaticAttributes      = "false"
+    colors                      = "false"
+    convertErrorsToExceptions   = "true"
+    convertNoticesToExceptions  = "true"
+    convertWarningsToExceptions = "true"
+    processIsolation            = "false"
+    stopOnFailure               = "false"
+    syntaxCheck                 = "true"
+    bootstrap                   = "vendor/autoload.php"
+    >
+
+    <testsuites>
+        <testsuite name="$(class.Title) Test Suite">
+            <directory>$(class.test_dir)/</directory>
+        </testsuite>
+    </testsuites>
+
+</phpunit>
+.output "$(class.package_dir:no)/composer.json"
+{
+    "name" : "$(php_basename())",
+    "license": "MPL",
+    "description": "$(class.Title)",
+    "version": "1.0.0",
+    "prefer-stable" : true,
+    "autoload": {
+        "psr-4": {
+            "$(php_namespace())\\\\": "."
+        }
+    },
+    "require": {
+        "php": ">=5.4.30"
+    }
+}
