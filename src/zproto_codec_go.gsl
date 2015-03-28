@@ -766,7 +766,7 @@ func Test$(name:no)(t *testing.T) {
 .           hash = ""
 .           if defined (->test)
 .               for test
-.                   hash += '"$(test.key:no)": "$(test.:no)"'
+.                   hash += '"$(test.name:no)": "$(test.:no)"'
 .                   if !last ()
 .                       hash += ","
 .                   endif
@@ -872,7 +872,7 @@ func Test$(name:no)(t *testing.T) {
 .           hash = ""
 .           if defined (->test)
 .               for test
-.                   hash += '"$(test.key:no)": "$(test.:no)"'
+.                   hash += '"$(test.name:no)": "$(test.:no)"'
 .                   if !last ()
 .                       hash += ","
 .                   endif

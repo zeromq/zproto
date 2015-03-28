@@ -1191,7 +1191,7 @@ $(class.name)_test (bool verbose)
     zhash_t *$(message.name)_$(name) = zhash_new ();
 .           if defined (->test)
 .               for test
-    zhash_insert ($(message.name)_$(name), "$(test.key)", "$(test.)");
+    zhash_insert ($(message.name)_$(name), "$(test.name)", "$(test.)");
 .               endfor
 .           else
     zhash_insert ($(message.name)_$(name), "Name", "Brutus");
@@ -1257,10 +1257,10 @@ $(class.name)_test (bool verbose)
 .               for test
 .                   if first ()
         assert (streq ((char *) zhash_first ($(name)), "$(test.)"));
-        assert (streq ((char *) zhash_cursor ($(name)), "$(test.key)"));
+        assert (streq ((char *) zhash_cursor ($(name)), "$(test.name)"));
 .                   else
         assert (streq ((char *) zhash_next ($(name)), "$(test.)"));
-        assert (streq ((char *) zhash_cursor ($(name)), "$(test.key)"));
+        assert (streq ((char *) zhash_cursor ($(name)), "$(test.name)"));
 .                   endif
 .               endfor
 .           else

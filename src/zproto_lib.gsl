@@ -72,8 +72,10 @@ function resolve_types ()
                         field.name = original_field.name + " " + type_field.name
                         field.type = type_field.type
                         field.size = type_field.size? 0
-                        field. = type_field.?''
-                        copy original_field->test (key = type_field.name) to field
+                        field.     = type_field.?''
+                        for original_field.test where test.name = type_field.name
+                            copy test to field
+                        endfor
                     endnew
                 endfor
                 delete original_field
