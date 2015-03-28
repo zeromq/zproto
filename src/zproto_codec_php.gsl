@@ -572,7 +572,7 @@ class $(php_name(message.name))Test extends \\PHPUnit_Framework_TestCase
 .           hash = ""
 .           if defined (->test)
 .               for test
-.                   hash += '"$(test.key:no)" => "$(test.:no)"'
+.                   hash += '"$(test.name:no)" => "$(test.:no)"'
 .                   if !last ()
 .                       hash += ","
 .                   endif

@@ -37,27 +37,57 @@
 
     LOG - Log an event.
         sequence            number 2    
-        version             number 2    Version
-        level               number 1    Log severity level
-        event               number 1    Type of event
-        node                number 2    Sending node
-        peer                number 2    Refers to this peer
-        time                number 8    Log date/time
-        host                string      Originating hostname
-        data                longstr     Actual log message
+        version             number 2    
+        Version
+    
+        level               number 1    
+        Log severity level
+        
+        event               number 1    
+        Type of event
+        
+        node                number 2    
+        Sending node
+        
+        peer                number 2    
+        Refers to this peer
+        
+        time                number 8    
+        Log date/time
+        
+        host                string      
+        Originating hostname
+        
+        data                longstr     
+        Actual log message
+        
 
     STRUCTURES - This message contains a list and a hash.
         sequence            number 2    
-        aliases             strings     List of strings
-        headers             hash        Other random properties
+        aliases             strings     
+        List of strings
+        
+        headers             hash        
+        Other random properties
+        
 
     BINARY - Deliver a multi-part message.
         sequence            number 2    
-        flags               octets [4]  A set of flags
-        public_key          chunk       Our public key
-        identifier          uuid        Unique identity
-        address             frame       Return address as frame
-        content             msg         Message to be delivered
+        flags               octets [4]  
+        A set of flags
+        
+        public_key          chunk       
+        Our public key
+        
+        identifier          uuid        
+        Unique identity
+        
+        address             frame       
+        Return address as frame
+        
+        content             msg         
+        Message to be delivered
+        
 
     TYPES - Demonstrate custom-defined types
         sequence            number 2    

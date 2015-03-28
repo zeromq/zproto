@@ -125,7 +125,7 @@ zproto supports lists and hashes of strings:
     </field>
     <field name = "headers" type = "hash">
         Other random properties
-        <test key = "endpoint">tcp://localhost:5665</test>
+        <test name = "endpoint">tcp://localhost:5665</test>
     </field>
 This message contains a list and a hash.
 </message>
@@ -191,17 +191,17 @@ them from other fields:
     >
     <field name = "client" type = "person">
         Client contact
-        <test key = "forename">Lucius Junius</test>
-        <test key = "surname">Brutus</test>
-        <test key = "mobile">01234567890</test>
-        <test key = "email">brutus@example.com</test>
+        <test name = "forename">Lucius Junius</test>
+        <test name = "surname">Brutus</test>
+        <test name = "mobile">01234567890</test>
+        <test name = "email">brutus@example.com</test>
     </field>
     <field name = "supplier" type = "person">
         Supplier contact
-        <test key = "forename">Leslie</test>
-        <test key = "surname">Lamport</test>
-        <test key = "mobile">01987654321</test>
-        <test key = "email">lamport@example.com</test>
+        <test name = "forename">Leslie</test>
+        <test name = "surname">Lamport</test>
+        <test name = "mobile">01987654321</test>
+        <test name = "email">lamport@example.com</test>
     </field>
 Demonstrate custom-defined types
 </message>
