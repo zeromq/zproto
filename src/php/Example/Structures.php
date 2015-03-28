@@ -71,8 +71,13 @@ class Structures extends Example
         parent::unserialize();
 
         $this->sequence = $this->getNumber2();
-        $this->aliases  = $this->getArray();
+        $this->aliases  = $this->getStrings();
         $this->headers  = $this->getHash();
+
+        // Cleanup
+        $this->needle = 0;
+        // 0xAAA0 is the signature of the messages
+        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
     }
 
     /**
@@ -84,7 +89,7 @@ class Structures extends Example
     public function serialize()
     {
         $this->putNumber2($this->sequence);
-        $this->putArray($this->aliases);
+        $this->putStrings($this->aliases);
         $this->putHash($this->headers);
 
         return $this->buffer;

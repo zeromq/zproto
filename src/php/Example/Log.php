@@ -53,7 +53,7 @@ class Log extends Example
     /**
      * @var number $version Version
      */
-    public $version;
+    public $version = 3;
 
     /**
      * @var number $level Log severity level
@@ -102,13 +102,18 @@ class Log extends Example
 
         $this->sequence = $this->getNumber2();
         $this->version  = $this->getNumber2();
-        $this->level    = $this->getNumber1();
-        $this->event    = $this->getNumber1();
+        $this->level    = $this->getNumber();
+        $this->event    = $this->getNumber();
         $this->node     = $this->getNumber2();
         $this->peer     = $this->getNumber2();
         $this->time     = $this->getNumber8();
         $this->host     = $this->getString();
         $this->data     = $this->getLongString();
+
+        // Cleanup
+        $this->needle = 0;
+        // 0xAAA0 is the signature of the messages
+        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
     }
 
     /**
@@ -121,8 +126,8 @@ class Log extends Example
     {
         $this->putNumber2($this->sequence);
         $this->putNumber2($this->version);
-        $this->putNumber1($this->level);
-        $this->putNumber1($this->event);
+        $this->putNumber($this->level);
+        $this->putNumber($this->event);
         $this->putNumber2($this->node);
         $this->putNumber2($this->peer);
         $this->putNumber8($this->time);

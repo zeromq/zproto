@@ -109,6 +109,11 @@ class Types extends Example
         $this->supplierSurname  = $this->getString();
         $this->supplierMobile   = $this->getString();
         $this->supplierEmail    = $this->getString();
+
+        // Cleanup
+        $this->needle = 0;
+        // 0xAAA0 is the signature of the messages
+        $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
     }
 
     /**

@@ -57,7 +57,7 @@ class Example
     {
         // puts/serializes the message signature if $msg is null
         if ($msg == NULL) {
-            // 0xAAA1 is the signature of Elastic Noggin Archive messages
+            // 0xAAA0 is the signature of the messages
             $this->buffer = pack('C*', 0xAA, 0xA0 | 0, static::ID);
         } else {
             $this->buffer = $msg;
@@ -146,6 +146,18 @@ class Example
     protected function getString()
     {
         $len = ord($this->buffer());
+
+        return $this->buffer($len);
+    }
+
+    /**
+     * Unserializes a long string. A serialized long string consists of 4-byte length
+     * followed by the string itself.
+     */
+    protected function getLongString()
+    {
+        $len = $this->getNumber4();
+
         return $this->buffer($len);
     }
 
@@ -157,8 +169,19 @@ class Example
      */
     protected function putBytes($string)
     {
-        $this->putNumber8(strlen($string));
+        $this->putNumber4(strlen($string));
         $this->buffer .= $string;
+    }
+
+    /**
+     * Serializes octets.
+     *
+     * @param string $string The string being serialized
+     * @param int    $len    The length of the string
+     */
+    protected function putOctets($string, $len)
+    {
+        $this->buffer .= substr($string, 0, $len);
     }
 
     /**
@@ -168,7 +191,16 @@ class Example
      */
     protected function getBytes()
     {
-        $len = $this->getNumber8();
+        $len = $this->getNumber4();
+
+        return $this->buffer($len);
+    }
+
+    /**
+     * Unserializes octets.
+     */
+    protected function getOctets($len)
+    {
         return $this->buffer($len);
     }
 
@@ -177,7 +209,9 @@ class Example
      */
     protected function getNumber()
     {
-        return unpack('C', $this->buffer(1));
+        $res = unpack('Cnum', $this->buffer(1));
+
+        return $res['num'];
     }
 
     /**
@@ -185,7 +219,9 @@ class Example
      */
     protected function getNumber2()
     {
-        return unpack('n', $this->buffer(2));
+        $res = unpack('nnum', $this->buffer(2));
+
+        return $res['num'];
     }
 
     /**
@@ -193,7 +229,9 @@ class Example
      */
     protected function getNumber4()
     {
-        return unpack('N', $this->buffer(4));
+        $res = unpack('Nnum', $this->buffer(4));
+
+        return $res['num'];
     }
 
     /**
@@ -223,6 +261,29 @@ class Example
         }
 
         return $hash;
+    }
+
+    /**
+     * Unserializes an array of strings.
+     */
+    protected function getStrings()
+    {
+        $strings = [];
+        $size = $this->getNumber4();
+
+        for ($i = 0; $i < $size; $i++) {
+            $strings[] = $this->getLongString();
+        }
+
+        return $strings;
+    }
+
+    /**
+     * Unserializes a UUID.
+     */
+    protected function getUuid()
+    {
+        return $this->buffer(16);
     }
 
     /**
@@ -268,7 +329,7 @@ class Example
     /**
      * Serializes a hash.
      *
-     * @param number $has The hash being serialized
+     * @param array $hash The hash being serialized
      */
     protected function putHash(array $hash)
     {
@@ -280,6 +341,29 @@ class Example
     }
 
     /**
+     * Serializes an array of string.
+     *
+     * @param array $strings The array of string
+     */
+    protected function putStrings(array $strings)
+    {
+        $this->putNumber4(count($strings));
+        foreach ($strings as $str) {
+            $this->putLongString($str);
+        }
+    }
+
+    /**
+     * Serializes a UUID.
+     *
+     * @param string $uuid
+     */
+    protected function putUuid($uuid)
+    {
+        $this->buffer .= $uuid;
+    }
+
+    /**
      * Buffer returns a bytes array size of $size started at $this->needle
      *
      * @param int $size Number of bytes
@@ -287,7 +371,7 @@ class Example
     protected function buffer($size = 1)
     {
         // Make sure buffer is initialized
-        if (!isset($this->buffer[$this->needle+($size-1)])) {
+        if (!isset($this->buffer[(int) $this->needle+((int) $size-1)])) {
             throw new \Exception('Malformed message');
         }
 

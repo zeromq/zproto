@@ -1,0 +1,15 @@
+{
+    "name" : "Example",
+    "license": "MPL",
+    "description": "Zproto Example Protocol",
+    "version": "1.0.0",
+    "prefer-stable" : true,
+    "autoload": {
+        "psr-4": {
+            "Zproto\\": "."
+        }
+    },
+    "require": {
+        "php": ">=5.4.30"
+    }
+}
