@@ -1210,7 +1210,7 @@ $(class.name)_test (bool verbose)
 .       elsif type = "msg"
     zmsg_t *$(message.name)_$(name) = zmsg_new ();
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
-    zmsg_addstr ($(class.name)_$(name) (self), "$(->test.?"Hello, World":)");
+    zmsg_addstr ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)");
 .       endif
 .   endfor
     //  Send twice
@@ -1248,9 +1248,7 @@ $(class.name)_test (bool verbose)
         assert (streq ((char *) zlist_next ($(name)), "Age: 43"));
 .           endif
         zlist_destroy (&$(name));
-        if (instance == 1) {
-            zlist_destroy (&$(message.name)_$(name));
-        }
+        zlist_destroy (&$(message.name)_$(name));
 .       elsif type = "hash"
         zhash_t *$(name) = $(class.name)_get_$(name) (self);
 .           if defined (->test)
@@ -1269,31 +1267,23 @@ $(class.name)_test (bool verbose)
         assert (streq ((char *) zhash_cursor ($(name)), "Name"));
 .           endif
         zhash_destroy (&$(name));
-        if (instance == 1) {
-            zhash_destroy (&$(message.name)_$(name));
-        }
+        zhash_destroy (&$(message.name)_$(name));
 .       elsif type = "chunk"
         assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.):)) == 0);
-        if (instance == 1) {
-            zchunk_destroy (&$(message.name)_$(name));
-        }
+        zchunk_destroy (&$(message.name)_$(name));
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)"));
-        if (instance == 1) {
-            zframe_destroy (&$(message.name)_$(name));
-        }
+        zframe_destroy (&$(message.name)_$(name));
 .       elsif type = "msg"
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
-        assert (streq (zmsg_popstr ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)"));
-        if (instance == 1) {
-            zmsg_destroy (&$(message.name)_$(name));
-        }
+        char *content = zmsg_popstr ($(class.name)_$(name) (self));
+        assert (streq (content, "$(->test.?"Captcha Diem":)"));
+        zstr_free (&content);
+        zmsg_destroy (&$(message.name)_$(name));
 .       elsif type = "uuid"
         zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
         assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
-        if (instance == 1) {
-            zuuid_destroy (&$(message.name)_$(name)_dup);
-        }
+        zuuid_destroy (&$(message.name)_$(name)_dup);
 .       endif
 .   endfor
     }
