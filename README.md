@@ -501,6 +501,11 @@ Your client code (the actions) gets a small API to work with:
     static void
     engine_set_timeout (client_t *client, size_t timeout);
 
+    //  Set connected to true/false. The client must call this if it wants
+    //  to provide the API with the connected status.
+    static void
+    engine_set_connected (client_t *client, bool connected);
+
     //  Poll socket for activity, invoke handler on any received message.
     //  Handler must be a CZMQ zloop_fn function; receives server as arg.
     static void

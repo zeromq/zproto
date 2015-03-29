@@ -320,6 +320,12 @@ $(CLASS.EXPORT_MACRO)zactor_t *
 $(CLASS.EXPORT_MACRO)zsock_t *
     $(class.name)_msgpipe ($(class.name)_t *self);
 
+//  Return true if client is currently connected, else false. Note that the
+//  client will automatically re-connect if the server dies and restarts after
+//  a successful first connection.
+$(CLASS.EXPORT_MACRO)bool
+    $(class.name)_connected ($(class.name)_t *self);
+
 .for class.method where name <> "constructor" & name <> "destructor"
 //  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
@@ -463,6 +469,7 @@ typedef struct {
     zloop_t *loop;              //  Listen to pipe and dealer
     $(proto)_t *message;        //  Message received or sent
     client_args_t args;         //  Method arguments structure
+    bool connected;             //  True if client is connected
     bool terminated;            //  True if client is shutdown
     bool fsm_stopped;           //  "terminate" action called
     size_t timeout;             //  inactivity timeout, msecs
@@ -642,6 +649,18 @@ engine_handle_socket (client_t *client, zsock_t *sock, zloop_reader_fn handler)
         }
         else
             zloop_reader_end (self->loop, sock);
+    }
+}
+
+//  Set connected to true/false. The client must call this if it wants
+//  to provide the API with the connected status.
+
+static void
+engine_set_connected (client_t *client, bool connected)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        self->connected = connected;
     }
 }
 
@@ -839,6 +858,9 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 
     if (streq (method, "$TERM"))
         self->terminated = true;    //  Shutdown the engine
+    else
+    if (streq (method, "$CONNECTED"))
+        zsock_send (self->cmdpipe, "i", self->connected);
 .for class.method where immediate = 0
     else
     if (streq (method, "$(NAME)")) {
@@ -996,6 +1018,7 @@ $(class.name) (zsock_t *cmdpipe, void *msgpipe)
 struct _$(class.name)_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
+    bool connected;             //  Client currently connected or not
 .for class.recv
     char *command;              //  Last received protocol command
 .endfor
@@ -1100,6 +1123,22 @@ $(class.name)_msgpipe ($(class.name)_t *self)
     return self->msgpipe;
 }
 .if count (class.reply)
+
+
+//  ---------------------------------------------------------------------------
+//  Return true if client is currently connected, else false. Note that the
+//  client will automatically re-connect if the server dies and restarts after
+//  a successful first connection.
+
+bool
+$(class.name)_connected ($(class.name)_t *self)
+{
+    assert (self);
+    bool connected;
+    zsock_send (self->actor, "s", "$CONNECTED");
+    zsock_recv (self->actor, "i", &connected);
+    return connected;
+}
 
 
 //  ---------------------------------------------------------------------------
