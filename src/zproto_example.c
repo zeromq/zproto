@@ -1411,7 +1411,7 @@ zproto_example_test (bool verbose)
     zlist_append (structures_aliases, "Third alias");
     zproto_example_set_aliases (self, &structures_aliases);
     zhash_t *structures_headers = zhash_new ();
-    zhash_insert (structures_endpoint, "endpoint", "tcp://localhost:5665");
+    zhash_insert (structures_headers, "endpoint", "tcp://localhost:5665");
     zproto_example_set_headers (self, &structures_headers);
     //  Send twice
     zproto_example_send (self, output);
@@ -1428,8 +1428,8 @@ zproto_example_test (bool verbose)
         zlist_destroy (&aliases);
         zlist_destroy (&structures_aliases);
         zhash_t *headers = zproto_example_get_headers (self);
-        assert (streq ((char *) zhash_first (endpoint), "tcp://localhost:5665"));
-        assert (streq ((char *) zhash_cursor (endpoint), "endpoint"));
+        assert (streq ((char *) zhash_first (headers), "tcp://localhost:5665"));
+        assert (streq ((char *) zhash_cursor (headers), "endpoint"));
         zhash_destroy (&headers);
         zhash_destroy (&structures_headers);
     }
