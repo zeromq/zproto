@@ -1283,7 +1283,9 @@ $(class.name)_test (bool verbose)
 .       elsif type = "uuid"
         zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
         assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
-        zuuid_destroy (&$(message.name)_$(name)_dup);
+        if (instance == 1) {
+            zuuid_destroy (&$(message.name)_$(name)_dup);
+        }
 .       endif
 .   endfor
     }
