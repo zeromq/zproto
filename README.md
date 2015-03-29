@@ -493,11 +493,18 @@ Your client code (the actions) gets a small API to work with:
     static void
     engine_set_wakeup_event (client_t *self, size_t delay, event_t event);
 
-    //  Set timeout for next protocol read. By default, will wait forever
-    //  or until the process is interrupted. The timeout is in milliseconds.
-    //  The state machine must handle the "expired" event.
+    //  Set heartbeat timeout. By default, the timeout is zero, meaning
+    //  infinite. Setting a non-zero timeout causes the state machine to
+    //  receive an "expired" event if is no incoming traffic for that many
+    //  milliseconds. This cycles over and over until/unless the code sets
+    //  a zero timeout. The state machine must handle the "expired" event.
     static void
     engine_set_timeout (client_t *client, size_t timeout);
+
+    //  Set connected to true/false. The client must call this if it wants
+    //  to provide the API with the connected status.
+    static void
+    engine_set_connected (client_t *client, bool connected);
 
     //  Poll socket for activity, invoke handler on any received message.
     //  Handler must be a CZMQ zloop_fn function; receives server as arg.
@@ -583,7 +590,7 @@ In your client code, you have a client_t structure. Note that the client_t struc
 
 ### Client Expiry Timer
 
-If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the timeout, use engine_set_timeout ().
+If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the timeout, use engine_set_timeout (). The expired event will repeat whenever there is no activity from the server, until you set a timeout of zero (which ends it).
 
 ### Method Framework
 

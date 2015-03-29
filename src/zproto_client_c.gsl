@@ -320,6 +320,12 @@ $(CLASS.EXPORT_MACRO)zactor_t *
 $(CLASS.EXPORT_MACRO)zsock_t *
     $(class.name)_msgpipe ($(class.name)_t *self);
 
+//  Return true if client is currently connected, else false. Note that the
+//  client will automatically re-connect if the server dies and restarts after
+//  a successful first connection.
+$(CLASS.EXPORT_MACRO)bool
+    $(class.name)_connected ($(class.name)_t *self);
+
 .for class.method where name <> "constructor" & name <> "destructor"
 //  $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
@@ -463,6 +469,7 @@ typedef struct {
     zloop_t *loop;              //  Listen to pipe and dealer
     $(proto)_t *message;        //  Message received or sent
     client_args_t args;         //  Method arguments structure
+    bool connected;             //  True if client is connected
     bool terminated;            //  True if client is shutdown
     bool fsm_stopped;           //  "terminate" action called
     size_t timeout;             //  inactivity timeout, msecs
@@ -603,9 +610,11 @@ engine_set_wakeup_event (client_t *client, size_t delay, event_t event)
     }
 }
 
-//  Set timeout for next protocol read. By default, will wait forever
-//  or until the process is interrupted. The timeout is in milliseconds.
-//  The state machine must handle the "expired" event.
+//  Set heartbeat timeout. By default, the timeout is zero, meaning
+//  infinite. Setting a non-zero timeout causes the state machine to
+//  receive an "expired" event if is no incoming traffic for that many
+//  milliseconds. This cycles over and over until/unless the code sets
+//  a zero timeout. The state machine must handle the "expired" event.
 
 static void
 engine_set_timeout (client_t *client, size_t timeout)
@@ -614,6 +623,10 @@ engine_set_timeout (client_t *client, size_t timeout)
         s_client_t *self = (s_client_t *) client;
         self->timeout = timeout;
 .if count (class.event, name = "expired")
+        if (self->expiry_timer) {
+            zloop_timer_end (self->loop, self->expiry_timer);
+            self->expiry_timer = 0;
+        }
         if (self->timeout)
             self->expiry_timer = zloop_timer (
                 self->loop, self->timeout, 1, s_client_handle_timeout, self);
@@ -636,6 +649,18 @@ engine_handle_socket (client_t *client, zsock_t *sock, zloop_reader_fn handler)
         }
         else
             zloop_reader_end (self->loop, sock);
+    }
+}
+
+//  Set connected to true/false. The client must call this if it wants
+//  to provide the API with the connected status.
+
+static void
+engine_set_connected (client_t *client, bool connected)
+{
+    if (client) {
+        s_client_t *self = (s_client_t *) client;
+        self->connected = connected;
     }
 }
 
@@ -798,7 +823,13 @@ s_client_handle_timeout (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, expired_event);
-    return self->terminated? -1: 0;
+    if (self->terminated)
+        return -1;
+
+    if (self->timeout > 0)
+        self->expiry_timer = zloop_timer (
+            loop, self->timeout, 1, s_client_handle_timeout, self);
+    return 0;
 }
 
 .endif
@@ -827,6 +858,9 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 
     if (streq (method, "$TERM"))
         self->terminated = true;    //  Shutdown the engine
+    else
+    if (streq (method, "$CONNECTED"))
+        zsock_send (self->cmdpipe, "i", self->connected);
 .for class.method where immediate = 0
     else
     if (streq (method, "$(NAME)")) {
@@ -984,6 +1018,7 @@ $(class.name) (zsock_t *cmdpipe, void *msgpipe)
 struct _$(class.name)_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
+    bool connected;             //  Client currently connected or not
 .for class.recv
     char *command;              //  Last received protocol command
 .endfor
@@ -1091,6 +1126,22 @@ $(class.name)_msgpipe ($(class.name)_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  Return true if client is currently connected, else false. Note that the
+//  client will automatically re-connect if the server dies and restarts after
+//  a successful first connection.
+
+bool
+$(class.name)_connected ($(class.name)_t *self)
+{
+    assert (self);
+    bool connected;
+    zsock_send (self->actor, "s", "$CONNECTED");
+    zsock_recv (self->actor, "i", &connected);
+    return connected;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Get valid reply from actor; discard replies that does not match. Current
 //  implementation filters on first frame of message. Blocks until a valid
 //  reply is received, and properties can be loaded from it. Returns 0 if
@@ -1166,7 +1217,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .   endif
 {
     assert (self);
-.   if defined (method.return) & byref
+.   if defined (method.return) & byref ?= 1
     $(ctype) $(return);
 .   endif
 
@@ -1197,7 +1248,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .       endif
 .   endif
 .   if defined (method.return)
-.       if byref
+.       if byref ?= 1
     $(return) = self->$(return);
     self->$(return) = NULL;     // Transfer ownership of $(return)
 .       endif
