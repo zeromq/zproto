@@ -1198,7 +1198,7 @@ $(class.name)_test (bool verbose)
 .           endif
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "chunk" | type = "frame"
-    z$(type)_t *$(message.name)_$(name) = z$(type)_new ("$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.):));
+    z$(type)_t *$(message.name)_$(name) = z$(type)_new ("$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.?"Captcha Diem"):));
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "uuid"
     zuuid_t *$(message.name)_$(name) = zuuid_new ();
@@ -1269,7 +1269,7 @@ $(class.name)_test (bool verbose)
         zhash_destroy (&$(name));
         zhash_destroy (&$(message.name)_$(name));
 .       elsif type = "chunk"
-        assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.):)) == 0);
+        assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.?"Captcha Diem"):)) == 0);
         zchunk_destroy (&$(message.name)_$(name));
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)"));
