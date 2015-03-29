@@ -493,9 +493,11 @@ Your client code (the actions) gets a small API to work with:
     static void
     engine_set_wakeup_event (client_t *self, size_t delay, event_t event);
 
-    //  Set timeout for next protocol read. By default, will wait forever
-    //  or until the process is interrupted. The timeout is in milliseconds.
-    //  The state machine must handle the "expired" event.
+    //  Set heartbeat timeout. By default, the timeout is zero, meaning
+    //  infinite. Setting a non-zero timeout causes the state machine to
+    //  receive an "expired" event if is no incoming traffic for that many
+    //  milliseconds. This cycles over and over until/unless the code sets
+    //  a zero timeout. The state machine must handle the "expired" event.
     static void
     engine_set_timeout (client_t *client, size_t timeout);
 

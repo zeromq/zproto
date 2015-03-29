@@ -603,9 +603,11 @@ engine_set_wakeup_event (client_t *client, size_t delay, event_t event)
     }
 }
 
-//  Set timeout for next protocol read. By default, will wait forever
-//  or until the process is interrupted. The timeout is in milliseconds.
-//  The state machine must handle the "expired" event.
+//  Set heartbeat timeout. By default, the timeout is zero, meaning
+//  infinite. Setting a non-zero timeout causes the state machine to
+//  receive an "expired" event if is no incoming traffic for that many
+//  milliseconds. This cycles over and over until/unless the code sets
+//  a zero timeout. The state machine must handle the "expired" event.
 
 static void
 engine_set_timeout (client_t *client, size_t timeout)
@@ -798,7 +800,13 @@ s_client_handle_timeout (zloop_t *loop, int timer_id, void *argument)
 {
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, expired_event);
-    return self->terminated? -1: 0;
+    if (self->terminated)
+        return -1;
+
+    if (self->timeout > 0)
+        self->expiry_timer = zloop_timer (
+            loop, self->timeout, 1, s_client_handle_timeout, self);
+    return 0;
 }
 
 .endif
