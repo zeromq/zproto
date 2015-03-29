@@ -1217,7 +1217,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .   endif
 {
     assert (self);
-.   if defined (method.return) & byref
+.   if defined (method.return) & byref ?= 1
     $(ctype) $(return);
 .   endif
 
@@ -1248,7 +1248,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .       endif
 .   endif
 .   if defined (method.return)
-.       if byref
+.       if byref ?= 1
     $(return) = self->$(return);
     self->$(return) = NULL;     // Transfer ownership of $(return)
 .       endif

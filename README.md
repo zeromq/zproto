@@ -590,7 +590,7 @@ In your client code, you have a client_t structure. Note that the client_t struc
 
 ### Client Expiry Timer
 
-If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the timeout, use engine_set_timeout ().
+If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the timeout, use engine_set_timeout (). The expired event will repeat whenever there is no activity from the server, until you set a timeout of zero (which ends it).
 
 ### Method Framework
 
