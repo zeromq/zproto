@@ -1180,7 +1180,7 @@ $(class.name)_test (bool verbose)
     zlist_t *$(message.name)_$(name) = zlist_new ();
 .           if defined (->test)
 .               for test
-    zlist_append ($(message.name)_$(name), "$(test.)");
+    zlist_append ($(message.name)_$(field.name), "$(test.)");
 .               endfor
 .           else
     zlist_append ($(message.name)_$(name), "Name: Brutus");
@@ -1191,10 +1191,10 @@ $(class.name)_test (bool verbose)
     zhash_t *$(message.name)_$(name) = zhash_new ();
 .           if defined (->test)
 .               for test
-    zhash_insert ($(message.name)_$(name), "$(test.name)", "$(test.)");
+    zhash_insert ($(message.name)_$(field.name), "$(test.name)", "$(test.)");
 .               endfor
 .           else
-    zhash_insert ($(message.name)_$(name), "Name", "Brutus");
+    zhash_insert ($(message.name)_$(field.name), "Name", "Brutus");
 .           endif
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "chunk" | type = "frame"
@@ -1237,9 +1237,9 @@ $(class.name)_test (bool verbose)
 .           if defined (->test)
 .               for test
 .                   if first ()
-        assert (streq ((char *) zlist_first ($(name)), "$(test.)"));
+        assert (streq ((char *) zlist_first ($(field.name)), "$(test.)"));
 .                   else
-        assert (streq ((char *) zlist_next ($(name)), "$(test.)"));
+        assert (streq ((char *) zlist_next ($(field.name)), "$(test.)"));
 .                   endif
 .               endfor
 .           else
@@ -1254,11 +1254,11 @@ $(class.name)_test (bool verbose)
 .           if defined (->test)
 .               for test
 .                   if first ()
-        assert (streq ((char *) zhash_first ($(name)), "$(test.)"));
-        assert (streq ((char *) zhash_cursor ($(name)), "$(test.name)"));
+        assert (streq ((char *) zhash_first ($(field.name)), "$(test.)"));
+        assert (streq ((char *) zhash_cursor ($(field.name)), "$(test.name)"));
 .                   else
-        assert (streq ((char *) zhash_next ($(name)), "$(test.)"));
-        assert (streq ((char *) zhash_cursor ($(name)), "$(test.name)"));
+        assert (streq ((char *) zhash_next ($(field.name)), "$(test.)"));
+        assert (streq ((char *) zhash_cursor ($(field.name)), "$(test.name)"));
 .                   endif
 .               endfor
 .           else
