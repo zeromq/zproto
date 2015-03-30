@@ -1426,16 +1426,12 @@ zproto_example_test (bool verbose)
         assert (streq ((char *) zlist_next (aliases), "Second alias"));
         assert (streq ((char *) zlist_next (aliases), "Third alias"));
         zlist_destroy (&aliases);
-        if (instance == 1) {
-            zlist_destroy (&structures_aliases);
-        }
+        zlist_destroy (&structures_aliases);
         zhash_t *headers = zproto_example_get_headers (self);
         assert (streq ((char *) zhash_first (endpoint), "tcp://localhost:5665"));
         assert (streq ((char *) zhash_cursor (endpoint), "endpoint"));
         zhash_destroy (&headers);
-        if (instance == 1) {
-            zhash_destroy (&structures_headers);
-        }
+        zhash_destroy (&structures_headers);
     }
     zproto_example_set_id (self, ZPROTO_EXAMPLE_BINARY);
 
@@ -1463,23 +1459,19 @@ zproto_example_test (bool verbose)
         assert (zproto_example_sequence (self) == 123);
         assert (memcmp (zproto_example_flags (self), "b38c", ZPROTO_EXAMPLE_FLAGS_SIZE) == 0);
         assert (memcmp (zchunk_data (zproto_example_public_key (self)), "89f5ffe70d747869dfe8", 20) == 0);
-        if (instance == 1) {
-            zchunk_destroy (&binary_public_key);
-        }
+        zchunk_destroy (&binary_public_key);
         zuuid_t *acutal_identifier = zproto_example_identifier (self);
         assert (zuuid_eq (binary_identifier_dup, zuuid_data (acutal_identifier)));
         if (instance == 1) {
             zuuid_destroy (&binary_identifier_dup);
         }
         assert (zframe_streq (zproto_example_address (self), "0206f99f6137d9fe380f"));
-        if (instance == 1) {
-            zframe_destroy (&binary_address);
-        }
+        zframe_destroy (&binary_address);
         assert (zmsg_size (zproto_example_content (self)) == 1);
-        assert (streq (zmsg_popstr (zproto_example_content (self)), "728a92c6749235ba7002"));
-        if (instance == 1) {
-            zmsg_destroy (&binary_content);
-        }
+        char *content = zmsg_popstr (zproto_example_content (self));
+        assert (streq (content, "728a92c6749235ba7002"));
+        zstr_free (&content);
+        zmsg_destroy (&binary_content);
     }
     zproto_example_set_id (self, ZPROTO_EXAMPLE_TYPES);
 
