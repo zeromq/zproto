@@ -117,7 +117,6 @@ func TestBinary(t *testing.T) {
 	if string(tr.Content) != "728a92c6749235ba7002" {
 		t.Fatalf("expected %s, got %s", "728a92c6749235ba7002", tr.Content)
 	}
-
 	err = tr.Send(input)
 	if err != nil {
 		t.Fatal(err)

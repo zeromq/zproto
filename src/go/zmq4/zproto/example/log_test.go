@@ -127,7 +127,6 @@ func TestLog(t *testing.T) {
 	if tr.Data != "This is the message to log" {
 		t.Fatalf("expected %s, got %s", "This is the message to log", tr.Data)
 	}
-
 	err = tr.Send(input)
 	if err != nil {
 		t.Fatal(err)
