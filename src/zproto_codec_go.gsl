@@ -899,7 +899,6 @@ func Test$(name:no)(t *testing.T) {
 	}
 .       endif
 .   endfor
-
 	err = tr.Send(input)
 	if err != nil {
 		t.Fatal(err)

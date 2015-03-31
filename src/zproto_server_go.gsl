@@ -1,0 +1,892 @@
+.template 0
+#   zproto_server_go.gsl
+#
+#   Generates a server class for a protocol specification
+#   This manages ROUTER server talking to DEALER clients
+#
+include "zproto_lib.gsl"
+include "zproto_lib_go.gsl"
+resolve_includes ()
+set_defaults ()
+
+#   Load message structures for this engine
+global.proto = xml.load_file (class.protocol_class + ".xml")
+class.proto = go_package_name(class.protocol_class)
+
+# Lowercase state/event/action names
+for class.state
+    state.name = "$(name)"
+    for event
+        event.name = "$(name)"
+        if defined (event.next)
+            event.next = "$(next)"
+        endif
+        for action
+            action.name = "$(name)"
+        endfor
+    endfor
+endfor
+
+#   Lowercase protocol message names and normalize spaces/hyphens
+for proto.message
+    message.name = "$(name:c)"
+endfor
+
+#  Collect all events and actions at class level
+for class.state
+    state.name = "$(name)"
+    state.goname = "$(go_pname(name))State"
+    for event where name <> "*"
+        event.name = "$(name:c)"
+        event.goname = "$(go_pname(name))Event"
+        #   Mark event as external if it a protocol message
+        if count (proto.message, message.name = event.name)
+            event.external = 1
+        endif
+        #   Copy event to class if not yet defined there
+        if count (class.event, name = -1.name) = 0
+            copy event to class
+        endif
+    endfor
+    for event
+        for action where count (class.action, name = -1.name) = 0
+            copy action to class
+        endfor
+    endfor
+    for [before]
+        for action where count (class.action, name = -1.name) = 0
+            copy action to class
+        endfor
+    endfor
+    for [after]
+        for action where count (class.action, name = -1.name) = 0
+            copy action to class
+        endfor
+    endfor
+endfor
+
+#   Process super states recursively
+function resolve_inheritance (state)
+    if my.state.inherit?"" <> ""
+        for class.state as superstate where name = my.state.inherit
+            resolve_inheritance (superstate)
+            for event where count (my.state.event, name = -1.name) = 0
+                copy event to my.state
+            endfor
+        else
+            echo "E: superstate $(inherit) isn't defined"
+        endfor
+        my.state.inherit = ""
+    endif
+endfunction
+
+for class.state
+    resolve_inheritance (state)
+endfor
+
+#   Collect prototypes that we need
+for class.action
+    if name <> "send" \
+    &  name <> "terminate"
+        new class.prototype
+            prototype.name = "$(go_pname(action.name))"
+            prototype.gotype = ""
+            prototype.exists = 0
+            prototype.receiver = "c *client"
+        endnew
+    endif
+endfor
+
+.endtemplate
+.output "$(go_package_path())/engine.go"
+// engine.go file is 100% generated. If you edit this file, you will lose
+// your changes at the next build cycle.
+// DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
+//
+// The correct places for commits are:
+//  - The XML model used for this code generation: $(filename)
+//  - The code generation script that built this file: $(script)
+
+package $(go_package_name())
+
+import (
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net"
+	"net/url"
+	"os"
+	"strconv"
+	"time"
+
+	$(proto) "$(class.protocol_package ? go_package(class.protocol_class))"
+	"github.com/jtacoma/go-zpl"
+	zmq "$(class.package)"
+)
+
+// State machine constants
+type state int
+
+const (
+.for class.state
+.   if first()
+	$(goname:no) state = iota + 1
+.   else
+	$(goname:no)
+.   endif
+.endfor
+)
+
+// Events
+type event int
+
+const (
+	nullEvent event = iota
+	terminateEvent
+.for class.event
+	$(goname:no)
+.endfor
+)
+
+const (
+	pipeInterval = time.Second * 1
+	confInterval = time.Second * 1
+
+	// Port range 0xc000~0xffff is defined by IANA for dynamic or private ports
+	// We use this when choosing a port for dynamic binding
+	dynPortFrom uint16 = 0xc000
+	dynPortTo   uint16 = 0xffff
+)
+
+// Names for state machine logging and error reporting
+var stateName = []string{
+	"(NONE)",
+.for class.state
+	"$(name)",
+.endfor
+}
+
+var eventName = map[event]string{
+	nullEvent:      "(NONE)",
+	terminateEvent: "terminate",
+.for class.event
+.   if defined (event.external)
+	$(goname:no):   "$(NAME)",
+.   else
+	$(goname:no):   "$(name)",
+.   endif
+.endfor
+}
+
+type cmd struct {
+	method string
+	arg    interface{}
+}
+
+const (
+	cmdSave    = "SAVE"
+	cmdSet     = "SET"
+	cmdVerbose = "VERBOSE"
+	cmdPort    = "PORT"
+	cmdLoad    = "LOAD"
+	cmdBind    = "BIND"
+	cmdTerm    = "$TERM"
+)
+
+type Resp struct {
+	Method  string
+	Payload interface{}
+	Err     error
+}
+
+// Context for the whole server task. This embeds the application-level
+// server context so we can access to methods and properties defined in
+// application-level server.
+type server struct {
+	myServer // Application-level server context
+
+	pipe           chan interface{}       // Channel to back to caller API
+	resp           chan interface{}       // Channel to back to caller API (For responses)
+	router         *zmq.Socket            // Socket to talk to clients
+	routerEndpoint string                 // Router endpoint
+	port           uint16                 // Server port bound to
+	loop           *zmq.Reactor           // Reactor for server sockets
+	message        $(proto).Transit       // Message in and out
+	clients        map[string]*client     // Clients we're connected to
+	config         map[string]interface{} // Configuration tree
+	configInfo     os.FileInfo            // Configuration file info
+	clientID       uint                   // Client identifier counter
+	timeout        time.Duration          // Default client expiry timeout
+	verbose        bool                   // Verbose logging enabled?
+	logPrefix      string                 // Default log prefix
+}
+
+// Context for each connected client. This embeds the application-level
+// client context so we can access to methods and properties defined in
+// application-level client.
+type client struct {
+	myClient // Application-level client context
+
+	server    *server // Reference to parent server
+	hashKey   string  // Key into server.clients map
+	routingID []byte  // Routing_id back to client
+	uniqueID  uint    // Client identifier in server
+	state     state   // Current state
+	event     event   // Current event
+	nextEvent event   // Next event
+	exception event   // Exception event, if any
+	ticket    uint64  // Reactor ticket for client timeouts
+	logPrefix string  // Log prefix string
+
+	// TODO(armen): Implement wakeup timer
+	// wakeupEvent event   // Wake up with this event
+}
+
+func newServer(logPrefix string) (*server, error) {
+	s := &server{
+		pipe:      make(chan interface{}),
+		resp:      make(chan interface{}, 10), // Response channel is a buffered channel
+		loop:      zmq.NewReactor(),
+		clients:   make(map[string]*client),
+		config:    make(map[string]interface{}),
+		logPrefix: logPrefix,
+	}
+	var err error
+	s.router, err = zmq.NewSocket(zmq.ROUTER)
+	if err != nil {
+		return nil, err
+	}
+	// By default the socket will discard outgoing messages above the
+	// HWM of 1,000. This isn't helpful for high-volume streaming. We
+	// will use a unbounded queue here. If applications need to guard
+	// against queue overflow, they should use a credit-based flow
+	// control scheme.
+	err = s.router.SetSndhwm(0)
+	if err != nil {
+		return nil, err
+	}
+	err = s.router.SetRcvhwm(0)
+	if err != nil {
+		return nil, err
+	}
+
+	s.addChanHandler(s.pipe, func(msg interface{}) error { return s.handlePipe(msg) })
+	s.addTicker(time.Tick(confInterval), func(i interface{}) error { return s.watchConfig() })
+
+	rand.Seed(time.Now().UTC().UnixNano())
+	s.clientID = uint(rand.Intn(1000))
+
+	// Initialize application server context
+	err = s.init()
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (s *server) destroy() {
+	for _, client := range s.clients {
+		client.destroy()
+	}
+	s.terminate()
+	if s.routerEndpoint != "" {
+		s.router.Unbind(s.routerEndpoint)
+		s.router.Close()
+	}
+}
+
+// Execute 'event' on all clients known to the server
+func (s *server) broadcastEvent(e event) {
+	for _, client := range s.clients {
+		client.execute(e)
+	}
+}
+
+// Adds the socket to the loop
+func (s *server) addSocketHandler(socket *zmq.Socket, events zmq.State, handler func(zmq.State) error) {
+	s.loop.AddSocket(socket, events, handler)
+}
+
+// Removes the socket from the loop
+func (s *server) removeSocketHandler(socket *zmq.Socket) {
+	s.loop.RemoveSocket(socket)
+}
+
+// Adds the channel to the loop
+func (s *server) addChanHandler(ch <-chan interface{}, handler func(interface{}) error) uint64 {
+	return s.loop.AddChannel(ch, 1, handler)
+}
+
+// Removes the channel from the loop
+func (s *server) removeChanHandler(id uint64) {
+	s.loop.RemoveChannel(id)
+}
+
+// Adds the ticker to the loop
+func (s *server) addTicker(ch <-chan time.Time, handler func(interface{}) error) uint64 {
+	return s.loop.AddChannelTime(ch, 1, handler)
+}
+
+// Removes the ticker from the loop
+func (s *server) removeTicker(id uint64) {
+	s.loop.RemoveChannel(id)
+}
+
+// Creates a new client
+func (s *server) newClient() *client {
+
+	s.clientID++
+
+	c := &client{
+		server:    s,
+		routingID: s.message.RoutingID(),
+		hashKey:   fmt.Sprintf("%x", s.message.RoutingID()),
+		uniqueID:  s.clientID,
+		logPrefix: fmt.Sprintf("%d:%s", s.clientID, s.logPrefix),
+	}
+
+.if count (class.event, name = "expired")
+	// If expiry timers are being used, create client timeout handler
+	if s.timeout != 0 {
+		c.ticket = s.addTicker(time.Tick(s.timeout), func(i interface{}) error { return c.handleTimeout() })
+	}
+.endif
+
+	// Give application chance to initialize and set next event
+.for class.state where item () = 1
+	c.state = $(go_pname(name))State
+.endfor
+	c.event = nullEvent
+	c.init()
+
+	return c
+}
+
+// Process message from pipe
+func (s *server) handlePipe(i interface{}) (err error) {
+
+	msg := i.(*cmd)
+
+.if switches.trace ?= 1
+	log.Printf("API message: %#v", msg)
+
+.endif
+	switch msg.method {
+	case cmdVerbose:
+		s.verbose = true
+
+	case cmdTerm:
+		// Shutdown the engine by sending an error to the reactor
+		return errors.New("Terminating")
+
+	case cmdBind:
+		s.routerEndpoint = msg.arg.(string)
+		s.port, err = bind(s.router, s.routerEndpoint)
+		if err != nil {
+.if switches.trace ?= 1
+			log.Println(err)
+.endif
+			return err
+		}
+
+		s.addSocketHandler(s.router, zmq.POLLIN, func(e zmq.State) error { return s.handleProtocol() })
+
+	case cmdPort:
+		select {
+		case s.pipe <- &Resp{Method: cmdPort, Payload: s.port}:
+		case <-time.Tick(100 * time.Millisecond):
+.if switches.trace ?= 1
+			log.Printf("Dropping response of %q", msg.method)
+.endif
+		}
+
+	case cmdLoad:
+		filename := msg.arg.(string)
+
+		info, err := os.Stat(filename)
+		if err != nil {
+			return err
+		}
+
+		if s.configInfo != nil &&
+			s.configInfo.ModTime() == info.ModTime() &&
+			s.configInfo.Size() == info.Size() {
+			// The config file hasn't been changed
+			return nil
+		}
+
+		s.configInfo = info
+		data, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return err
+		}
+		err = zpl.Unmarshal(data, &s.config)
+		if err != nil {
+			return err
+		}
+
+	case cmdSet:
+		args := msg.arg.([]string)
+		if len(args) < 2 {
+			return errors.New("Not enough arguments for set command")
+		}
+
+		// path := args[0]
+		// value := args[1]
+		// TODO(armen): Implement the set command
+
+	case cmdSave:
+		// TODO(armen): Implement Save command
+
+	default:
+		r, err := s.method(msg)
+		if err != nil {
+			return err
+		}
+		if r != nil {
+			select {
+			case s.resp <- r:
+			default:
+.if switches.trace ?= 1
+				log.Printf("Dropping response of %q", msg.method)
+.endif
+			}
+		}
+	}
+
+.if switches.trace ?= 1
+	log.Println("End API message")
+
+.endif
+	return nil
+}
+
+// Handle a protocol message from the client
+func (s *server) handleProtocol() (err error) {
+	s.message, err = $(proto).Recv(s.router)
+	if err != nil {
+		return err
+	}
+	routingID := fmt.Sprintf("%x", s.message.RoutingID())
+
+	if _, ok := s.clients[routingID]; !ok {
+		s.clients[routingID] = s.newClient()
+	}
+	c := s.clients[routingID]
+
+.if switches.trace ?= 1
+	log.Printf("%d: Client message\\n%s", c.uniqueID, s.message);
+
+.endif
+.if count (class.event, name = "expired")
+	// Any input from client counts as activity
+	if c.ticket != 0 {
+		c.server.removeTicker(c.ticket)
+		c.ticket = s.addTicker(time.Tick(s.timeout), func(i interface{}) error { return c.handleTimeout() })
+	}
+
+.endif
+	// Pass to client state machine
+	c.execute(c.protocolEvent())
+
+	return nil
+}
+
+// Watch server config file and reload if changed
+func (s *server) watchConfig() error {
+	return nil
+}
+
+.if count (class.event, name = "expired")
+// Reactor callback when client ticket expires
+func (c *client) handleTimeout() error {
+	c.execute(expiredEvent)
+	c.server.removeTicker(c.ticket)
+	c.ticket = 0
+	return nil
+}
+
+.endif
+func (c *client) protocolEvent() event {
+	switch c.server.message.(type) {
+.   for proto.message where count (class.event, event.name = message.name) = 1
+	case *$(proto).$(go_name(name)):
+		return $(go_pname(name))Event
+.   endfor
+	default:
+		// Invalid $(proto) message
+		return terminateEvent
+	}
+}
+.macro output_action_body ()
+.       for action
+				if c.exception == 0 {
+.           if name = "send"
+					// send $(go_name(message))
+					if c.server.verbose {
+						log.Printf("%s:         $ $(name) $(go_name(message))", c.logPrefix)
+					}
+.               if switches.trace ?= 1
+					log.Printf("%s: Send to client\\n%s", c.logPrefix, c.server.message)
+.               endif
+					// Set the message if it's not already set by previous actions
+					if c.server.message == nil {
+						c.server.message = msg.New$(go_name(message))()
+					}
+					c.server.message.SetRoutingID(c.routingID)
+					if err := c.server.message.Send(c.server.router); err != nil {
+						c.server.message = nil
+						return err
+					}
+					c.server.message = nil
+.           elsif name = "terminate"
+					// terminate
+					if c.server.verbose {
+						log.Printf("%s:         $ $(name)", c.logPrefix)
+					}
+					c.nextEvent = terminateEvent
+.           else
+					// $(name)
+					if c.server.verbose {
+						log.Printf("%s:         $ $(name)", c.logPrefix)
+					}
+
+					if err := c.$(go_pname(name))(); err != nil {
+						return err
+					}
+.           endif
+				}
+.       endfor
+.endmacro
+.macro output_state_change ()
+.       if defined (event.next)
+.           for state.[after]
+.               output_action_body ()
+.           endfor
+				if c.exception == 0 {
+					c.state = $(go_pname(next))State
+				}
+.           my.next_state = class->state ("$(name:c)" = "$(event.next:c)")
+.           for my.next_state.[before]
+.               output_action_body ()
+.           endfor
+.       endif
+.endmacro
+
+// Execute state machine as long as we have events
+func (c *client) execute(e event) error {
+	c.nextEvent = e
+	// TODO(armen): Cancel wakeup timer, if any was pending
+
+	for c.nextEvent > nullEvent {
+		c.event = c.nextEvent
+		c.nextEvent = nullEvent
+		c.exception = nullEvent
+
+		if c.server.verbose {
+			log.Printf("%s: %s:", c.logPrefix, stateName[c.state])
+			log.Printf("%s:     %s", c.logPrefix, eventName[c.event])
+		}
+
+		switch c.state {
+.for class.state
+		case $(go_pname(name))State:
+.   for event where name <> "*"
+.   if index () = 1
+			switch c.event {
+.   endif
+			case $(go_pname(name))Event:
+.       output_action_body ()
+.       output_state_change ()
+.   endfor
+.   for event where name = "*"
+.       if item () > 1
+			default:
+.       endif
+				// Handle unexpected protocol events
+.       output_action_body ()
+.       output_state_change ()
+			}
+.   else
+				if c.exception != 0 {
+					// Handle unexpected internal events
+					log.Printf("%s: unhandled event %s in %s", c.logPrefix, eventName[c.event], stateName[c.state])
+				}
+			}
+.   endfor
+.endfor
+		}
+		// If we had an exception event, interrupt normal programming
+		if c.exception != 0 {
+			if c.server.verbose {
+				log.Printf("%s:         ! %s", c.logPrefix, eventName[c.exception])
+			}
+
+			c.nextEvent = c.exception
+		}
+		if c.nextEvent == terminateEvent {
+			c.server.clients[c.hashKey].destroy()
+			delete(c.server.clients, c.hashKey)
+			break
+		} else if c.server.verbose {
+			log.Printf("%s:         > %s", c.logPrefix, stateName[c.state])
+		}
+	}
+
+	return nil
+}
+
+func (c *client) destroy() {
+.if count (class.event, name = "expired")
+	if c.ticket != 0 {
+		c.server.removeTicker(c.ticket)
+		c.ticket = 0
+	}
+
+.endif
+	c.logPrefix = "*** TERMINATED ***"
+	c.terminate()
+}
+
+// Set the next event, needed in at least one action in an internal
+// state; otherwise the state machine will wait for a message on the
+// router socket and treat that as the event.
+func (c *client) setNextEvent(e event) {
+	c.nextEvent = e
+}
+
+// Binds a zeromq socket to an ephemeral port and returns the port
+// If the port number is specified in the endpoint returns the specified
+// port number and if port number isn't supported for the endpoint
+// returns 0 for the port number.
+func bind(s *zmq.Socket, endpoint string) (port uint16, err error) {
+
+	e, err := url.Parse(endpoint)
+	if err != nil {
+		return 0, err
+	}
+
+	if e.Scheme == "inproc" {
+		err = s.Bind(endpoint)
+		return 0, err
+	}
+	_, p, err := net.SplitHostPort(e.Host)
+	if err != nil {
+		return 0, err
+	}
+
+	if p == "*" {
+		for i := dynPortFrom; i <= dynPortTo; i++ {
+			rand.Seed(time.Now().UTC().UnixNano())
+			port = uint16(rand.Intn(int(dynPortTo-dynPortFrom))) + dynPortFrom
+			endpoint = fmt.Sprintf("%s:%d", endpoint, port)
+			err = s.Bind(endpoint)
+			if err == nil {
+				break
+			} else if err.Error() == "no such device" {
+.if switches.trace ?= 1
+				log.Printf("no such device: %s", endpoint)
+.endif
+				break
+			} else if i-dynPortFrom > 100 {
+.if switches.trace ?= 1
+				log.Println(err)
+.endif
+				err = errors.New("Unable to bind to an ephemeral port")
+				break
+			}
+		}
+
+		return port, err
+	}
+
+	pp, err := strconv.ParseUint(p, 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	port = uint16(pp)
+	err = s.Bind(endpoint)
+
+	return port, err
+}
+.output "$(go_package_path())/api.go"
+// api.go file is 100% generated. If you edit this file, you will lose
+// your changes at the next build cycle.
+// DO NOT MAKE ANY CHANGES YOU WISH TO KEEP.
+//
+// The correct places for commits are:
+//  - The XML model used for this code generation: $(filename)
+//  - The code generation script that built this file: $(script)
+
+package $(go_package_name())
+
+import (
+	"errors"
+.if switches.trace ?= 1
+	"log"
+.endif
+	"time"
+)
+
+type $(go_name(class.name)) struct {
+	server *server
+}
+
+// New creates a new $(go_name(class.name)) instance.
+func New(logPrefix string) (*$(go_name(class.name)), error) {
+.if switches.trace ?= 1
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+.endif
+	var err error
+
+	$(go_short(class.name)) := &$(go_name(class.name)){}
+	$(go_short(class.name)).server, err = newServer(logPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+.if switches.trace ?= 1
+		log.Println("Started Reactor.Run")
+.endif
+.if switches.trace ?= 1
+		err := $(go_short(class.name)).server.loop.Run(pipeInterval / 10)
+		log.Printf("Reactor.Run: %s", err.Error())
+.else
+		$(go_short(class.name)).server.loop.Run(pipeInterval / 10)
+.endif
+
+		$(go_short(class.name)).server.destroy()
+	}()
+
+	return $(go_short(class.name)), nil
+}
+
+// Resp returns the response channel. Resp channel should be used to
+// receive responses from the server.
+func ($(go_short(class.name)) *$(go_name(class.name))) Resp() chan interface{} {
+	return $(go_short(class.name)).server.resp
+}
+
+// SendCmd sends a command to the server.
+func ($(go_short(class.name)) *$(go_name(class.name))) SendCmd(method string, arg interface{}, timeout time.Duration) error {
+
+	select {
+	case $(go_short(class.name)).server.pipe <- &cmd{method: method, arg: arg}:
+	case <-time.Tick(timeout):
+.if switches.trace ?= 1
+		log.Printf("SendCmd(%s): Unable to send the command to the engine: %#v", method, arg)
+.endif
+		return errors.New("Unable to send the command to the engine")
+	}
+
+	return nil
+}
+
+// RecvResp returns a response from the pipe channel (the server).
+func ($(go_short(class.name)) *$(go_name(class.name))) RecvResp(timeout time.Duration) (interface{}, error) {
+
+	select {
+	case m := <-$(go_short(class.name)).server.pipe:
+		r := m.(*Resp)
+		if r.Err != nil {
+			return nil, r.Err
+		}
+		return r.Payload, nil
+
+	case <-time.Tick(timeout):
+		return nil, errors.New("Unable to receive a response from the engine")
+	}
+
+	return nil, nil
+}
+
+// Run starts the server and waits for connections. Note that this is blocking
+// and will wait until a signal is received or a handler returns with an error.
+func ($(go_short(class.name)) *$(go_name(class.name))) Run() error {
+	return $(go_short(class.name)).server.loop.Run(pipeInterval / 5)
+}
+.#  Generate source file first time only
+.source_file = "$(go_package_path())/$(go_package_name()).go"
+.if !file.exists (source_file)
+.   output source_file
+// $(string.trim (class.):justify,block                                              )
+package $(go_package_name())
+
+// myServer defines the context for each running server. Store
+// whatever properties and structures you need for the server.
+// myServer will be embedded in engine's server struct.
+type myServer struct {
+	// TODO: Add any properties you need here
+}
+
+// myClient defines the state for each client connection. myClient
+// will be embedded in engine's client struct. Note that all the actions
+// are defined on client not this type but since this type is embedded
+// in client they can access all the properties you defined here.
+type myClient struct {
+	// TODO: Add specific properties for your application
+}
+
+// Allocate properties and structures for a new server instance.
+func (s *server) init() error {
+	return nil
+}
+
+// Free properties and structures for a server instance
+func (s *server) terminate() error {
+	// Destroy properties here
+	return nil
+}
+
+// Process server API method, return reply message if any
+func (s *server) method(msg *cmd) (*Resp, error) {
+	return nil, nil
+}
+
+// Allocate properties and structures for a new client connection and
+// optionally c.setNextEvent(event).
+func (c *client) init() error {
+	return nil
+}
+
+// Free properties and structures for a client connection
+func (c *client) terminate() error {
+	// Destroy properties here
+	return nil
+}
+.endif
+.close
+.template 0
+
+#   Append missing prototypes to source file
+input = file.open (source_file)
+xline = file.read (input)
+while defined (xline)
+    #   Look for function declarations
+    if regexp.match ("^func \\(.*\\) (\\w+)\\(", xline, token)
+        for class.prototype where name = token
+            prototype.exists = 1
+        endfor
+    endif
+    xline = file.read (input)?
+endwhile
+file.close (input)
+
+append source_file
+for class.prototype where exists = 0
+    echo "Generating stub for $(name)..."
+    >
+    >// $(name:no)
+    if gotype
+    >func ($(receiver:no)) $(name:no)() (error, $(gotype))) {
+    else
+    >func ($(receiver:no)) $(name:no)() error {
+    endif
+    >	return nil
+    >}
+endfor
+.endtemplate

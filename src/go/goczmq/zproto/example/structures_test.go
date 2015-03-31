@@ -104,7 +104,6 @@ func TestStructures(t *testing.T) {
 			t.Fatalf("expected %s, got %s", val, tr.Headers[key])
 		}
 	}
-
 	err = tr.Send(input)
 	if err != nil {
 		t.Fatal(err)

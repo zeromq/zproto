@@ -126,7 +126,6 @@ func TestTypes(t *testing.T) {
 	if tr.SupplierEmail != "lamport@example.com" {
 		t.Fatalf("expected %s, got %s", "lamport@example.com", tr.SupplierEmail)
 	}
-
 	err = tr.Send(input)
 	if err != nil {
 		t.Fatal(err)
