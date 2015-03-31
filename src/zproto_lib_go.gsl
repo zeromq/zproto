@@ -27,13 +27,13 @@ endfunction
 function set_defaults ()
     resolve_types ()
 
-    class.package_dir = defined(switches.package_dir) ?? switches.package_dir
-    class.package = defined(switches.package) ?? switches.package
-    class.script = defined(switches.script) ?? switches.script
-    
     class.signature ?= 0
     class.package_dir ?= "go"
     class.package ?= "github.com/pebbe/zmq4"
+
+    class.package_dir = defined(switches.package_dir) ?? switches.package_dir ? class.package_dir
+    class.package = defined(switches.package) ?? switches.package ? class.package
+    class.script = defined(switches.script) ?? switches.script ? class.script
 
     for message
         message.name = "$(message.name:c)"
@@ -96,11 +96,24 @@ function go_name (name)
     return string.replace(my.name,'_')
 endfunction
 
-function go_package_name ()
-    if string.matchpat(class.name, "*_*")
-        return string.substr(class.name, string.locate_last(class.name, "_") + 1)
+# Go private name
+function go_pname (name)
+    my.name = go_name(my.name)
+    my.first = string.substr(my.name, 0, 0)
+    my.rest = string.substr(my.name, 1)
+    return "$(my.first)$(my.rest:no)"
+endfunction
+
+function go_short (name)
+    return string.substr("$(my.name)", 0, 0)
+endfunction
+
+function go_package_name (name)
+    my.name = my.name ? class.name
+    if string.matchpat(my.name, "*_*")
+        return string.substr(my.name, string.locate_last(my.name, "_") + 1)
     endif
-    return class.name
+    return my.name
 endfunction
 
 function go_package_path (name)
@@ -108,6 +121,12 @@ function go_package_path (name)
     my.name = string.replace(my.name, "_|/")
     my.path = directory.resolve(class.package_dir + "/" + my.name)
     return my.path
+endfunction
+
+function go_package (name)
+    my.name = my.name ? class.name
+    my.name = string.replace(my.name, "_|/")
+    return my.name
 endfunction
 
 .endtemplate

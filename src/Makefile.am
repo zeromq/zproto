@@ -16,6 +16,7 @@ zproto_DATA = \
 	zproto_codec_clj.gsl \
 	zproto_server_c.gsl \
 	zproto_server_clj.gsl \
+	zproto_server_go.gsl \
 	zproto_client_c.gsl \
 	zproto_bnf.gsl \
 	zproto_lib.gsl \
