@@ -675,6 +675,7 @@ s_satisfy_pedantic_compilers (void)
     engine_set_timeout (NULL, 0);
     engine_set_wakeup_event (NULL, 0, NULL_event);
     engine_handle_socket (NULL, 0, NULL);
+    engine_set_connected (NULL, 0);
 }
 
 
