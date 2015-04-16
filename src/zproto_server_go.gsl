@@ -702,9 +702,8 @@ func bind(s *zmq.Socket, endpoint string) (port uint16, err error) {
 			if err == nil {
 				break
 			} else if err.Error() == "no such device" {
-.if switches.trace ?= 1
-				log.Printf("no such device: %s", endpoint)
-.endif
+				port = 0
+				err = fmt.Errorf("no such device: %s", endpoint)
 				break
 			} else if i-dynPortFrom > 100 {
 .if switches.trace ?= 1
