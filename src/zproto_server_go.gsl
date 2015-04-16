@@ -697,7 +697,7 @@ func bind(s *zmq.Socket, endpoint string) (port uint16, err error) {
 		for i := dynPortFrom; i <= dynPortTo; i++ {
 			rand.Seed(time.Now().UTC().UnixNano())
 			port = uint16(rand.Intn(int(dynPortTo-dynPortFrom))) + dynPortFrom
-			endpoint = fmt.Sprintf("tcp://%s:%d", ip, port)
+			endpoint = fmt.Sprintf("%s://%s:%d", e.Scheme, ip, port)
 			err = s.Bind(endpoint)
 			if err == nil {
 				break
