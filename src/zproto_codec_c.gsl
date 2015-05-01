@@ -106,7 +106,7 @@ $(CLASS.EXPORT_MACRO)void
 //  as many frames as needed. Returns 0 if OK, -1 if there was an error.
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_recv ($(class.name)_t *self, zmsg_t *input);
-    
+
 //  Serialize and append the $(class.name) to the specified message
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_send ($(class.name)_t *self, zmsg_t *output);
@@ -534,8 +534,8 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
         goto malformed;         //  Interrupted
     }
     //  Get and check protocol signature
-    self->needle = (byte *) zframe_data (&frame);
-    self->ceiling = self->needle + zframe_size (&frame);
+    self->needle = zframe_data (frame);
+    self->ceiling = self->needle + zframe_size (frame);
 
     uint16_t signature;
     GET_NUMBER2 (signature);
@@ -669,7 +669,7 @@ $(class.name)_send ($(class.name)_t *self, zmsg_t *output)
 .   calculate_frame_size ()
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
-    self->needle = (byte *) zframe_data (&frame);
+    self->needle = zframe_data (frame);
     PUT_NUMBER2 (0xAAA0 | $(class.signature));
     PUT_NUMBER1 (self->id);
 .if defined (class.msg)
@@ -1427,7 +1427,13 @@ $(class.name)_test (bool verbose)
     $(class.name)_t *self = $(class.name)_new ();
     assert (self);
     $(class.name)_destroy (&self);
+.if class.virtual ?= 1
+    zmsg_t *output = zmsg_new ();
+    assert (output);
 
+    zmsg_t *input = zmsg_new ();
+    assert (input);
+.else
     //  Create pair of sockets we can send through
     //  We must bind before connect if we wish to remain compatible with ZeroMQ < v4
     zsock_t *output = zsock_new (ZMQ_DEALER);
@@ -1439,6 +1445,8 @@ $(class.name)_test (bool verbose)
     assert (input);
     rc = zsock_connect (input, "inproc://selftest-$(class.name)");
     assert (rc == 0);
+.endif
+
 
     //  Encode/send/decode and verify each message type
     int instance;
@@ -1576,8 +1584,13 @@ $(class.name)_test (bool verbose)
 .endfor
 
     $(class.name)_destroy (&self);
+.if class.virtual ?= 1
+    zmsg_destroy (&input);
+    zmsg_destroy (&output);
+.else
     zsock_destroy (&input);
     zsock_destroy (&output);
+.endif
     //  @end
 
     printf ("OK\\n");
