@@ -536,6 +536,8 @@ is_$(class.name) (zmsg_t *msg)
         return false;
 
     zframe_t *frame = zmsg_first (msg);
+    if (frame == NULL)
+        return false;
 
     //  Get and check protocol signature
     $(class.name)_t *self = $(class.name)_new (0);
