@@ -106,7 +106,7 @@ $(CLASS.EXPORT_MACRO)void
 //  as many frames as needed. Returns 0 if OK, -1 if there was an error.
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_recv ($(class.name)_t *self, zmsg_t *input);
-    
+
 //  Serialize and append the $(class.name) to the specified message
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_send ($(class.name)_t *self, zmsg_t *output);
@@ -244,26 +244,20 @@ struct _$(class.name)_t {
     byte *ceiling;                      //  Valid upper limit for read pointer
 .for class.field
 .   if type = "number" & !defined (field.value)
-    // $(string.trim (field.)?name:left,block)
-    $(ctype) $(name);
+    $(ctype) $(name);                   //  $(string.trim (field.)?name:left,block)
 .   elsif type = "octets"
-    // $(string.trim (field.)?name:left,block)
-    byte $(name) [$(size)];
+    byte $(name) [$(size)];             //  $(string.trim (field.)?name:left,block)
 .   elsif type = "string" & !defined (field.value)
-    // $(string.trim (field.)?name:left,block)
-    char $(name) [256];
+    char $(name) [256];                 //  $(string.trim (field.)?name:left,block)
 .   elsif type = "longstr"
-    // $(string.trim (field.)?name:left,block)
-    char *$(name);
+    char *$(name);                      //  $(string.trim (field.)?name:left,block)
 .   elsif type = "strings"
-    // $(string.trim (field.)?name:left,block)
-    zlist_t *$(name);
+    zlist_t *$(name);                   //  $(string.trim (field.)?name:left,block)
 .   elsif type = "hash"
-    // $(string.trim (field.)?name:left,block)
-    zhash_t *$(name);
+    zhash_t *$(name);                   //  $(string.trim (field.)?name:left,block)
     size_t $(name)_bytes;               //  Size of hash content
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
-    // $(string.trim (field.)?name:left,block)
+    //  $(string.trim (field.)?name:left,block)
     z$(type)_t *$(name);
 .   endif
 .endfor
@@ -1113,7 +1107,13 @@ $(class.name)_print ($(class.name)_t *self)
 .           endif
 .       elsif type = "octets"
             zsys_debug ("    $(name)=[ ... ]");
-.       elsif type = "string" | type = "longstr"
+.       elsif type = "string"
+.           if defined (field.value)
+            zsys_debug ("    $(name)=$(field.value)");
+.           else
+            zsys_debug ("    $(name)='%s'", self->$(name));
+.           endif
+.       elsif type = "longstr"
 .           if defined (field.value)
             zsys_debug ("    $(name)=$(field.value)");
 .           else
