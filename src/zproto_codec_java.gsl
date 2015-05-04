@@ -12,8 +12,8 @@ generate_bnf ()
 set_defaults ()
 .endtemplate
 .global.ClassName = java_class_name($(class.name))
-.global.namespace = "org.zproto"
-.global.name_path = "org/zproto"
+.global.namespace ?= switches.namespace? "org.zproto"
+.global.name_path ?= switches.name_path? "org/zproto"
 .global.topdir ?= "$(switches.topdir)/main" ? "main"
 .directory.create ("$(topdir)/java/$(name_path)")
 .output "$(topdir)/java/$(name_path)/$(ClassName).java"
