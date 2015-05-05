@@ -14,9 +14,9 @@ set_defaults ()
 .global.ClassName = java_class_name($(class.name))
 .global.namespace ?= switches.namespace? "org.zproto"
 .global.name_path ?= switches.name_path? "org/zproto"
-.global.topdir ?= "$(switches.topdir)/main" ? "main"
-.directory.create ("$(topdir)/java/$(name_path)")
-.output "$(topdir)/java/$(name_path)/$(ClassName).java"
+.global.topdir ?= switches.topdir? "."
+.directory.create ("$(topdir)/main/java/$(name_path)")
+.output "$(topdir)/main/java/$(name_path)/$(ClassName).java"
 /*  =========================================================================
     $(ClassName) - $(class.title:)
 
@@ -401,7 +401,7 @@ public class $(ClassName) implements java.io.Closeable
 .       elsif type = "string"
             //  $(name) is a string with 1-byte length
 .           if defined (field.value)
-            frameSize += 1 + "$(field.value:)".length());
+            frameSize += 1 + "$(field.value:)".length();
 .           else
             frameSize ++;
             frameSize += ($(name) != null) ? $(name).length() : 0;
@@ -982,8 +982,8 @@ public class $(ClassName) implements java.io.Closeable
 .   endif
 .endfor
 }
-
-.output "$(topdir)/java/$(name_path)/Test$(ClassName).java"
+.directory.create ("$(topdir)/test/java/$(name_path)")
+.output "$(topdir)/test/java/$(name_path)/Test$(ClassName).java"
 package $(namespace);
 
 import static org.junit.Assert.*;
