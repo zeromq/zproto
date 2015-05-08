@@ -141,7 +141,12 @@ function check_field (field)
         my.field.ctype = "zlist_t *"
         my.field.byref = 1
         my.field.destructor = "zlist_destroy"
-    elsif type = "chunk" | type = "frame" | type = "hash" | type = "msg" | type = "uuid"
+    elsif type = "uuid"
+        my.field.txt_pattern = "U"
+        my.field.bin_pattern = "u"
+        my.field.ctype = "z$(type)_t *"
+        my.field.destructor = "z$(type)_destroy"
+    elsif type = "chunk" | type = "frame" | type = "hash" | type = "msg"
         my.field.txt_pattern = "p"
         my.field.bin_pattern = "p"
         my.field.ctype = "z$(type)_t *"
@@ -167,7 +172,7 @@ for class.reply
     for field
         check_field (field)
         assume_property (field, 1)
-        reply.pattern += "$(field.txt_pattern)"
+        reply.pattern += "$(field.txt_pattern:)"
     endfor
 endfor
 
@@ -179,7 +184,7 @@ for class.method
     method.immediate ?= 0
     for field
         check_field (field)
-        method.pattern += "$(field.txt_pattern)"
+        method.pattern += "$(field.txt_pattern:)"
         if field.byref = 0
             method.args += ", $(const)$(ctype)$(name)"
         else
@@ -218,7 +223,7 @@ for class.send
         endfor
         for method.field
             check_field (field)
-            method.pattern += "$(field.bin_pattern)"
+            method.pattern += "$(field.bin_pattern:)"
             if field.byref = 0
                 method.args += ", $(const)$(ctype)$(name)"
             else
@@ -241,7 +246,7 @@ for class.recv
         for method.field
             check_field (field)
             assume_property (field, 0)
-            pattern += "$(field.bin_pattern)"
+            pattern += "$(field.bin_pattern:)"
             #   We must return a single msg type
             if type = "msg"
                 method.return = name
@@ -869,7 +874,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 .       for field where defined (destructor)
         $(destructor) (&self->args.$(name));
 .       endfor
-        zsock_recv (self->cmdpipe, "$(pattern)"\
+        zsock_recv (self->cmdpipe, "$(pattern:)"\
 .       for field
 , &self->args.$(name)\
 .       endfor
@@ -1223,7 +1228,7 @@ $(class.name)_$(name:c) ($(class.name)_t *self$(args))
 .   endif
 
 .   if method.immediate = 0
-    zsock_send (self->actor, "s$(pattern)", "$(NAME)"\
+    zsock_send (self->actor, "s$(pattern:)", "$(NAME)"\
 .       for field
 .           if field.byref = 0
 , $(name)\
