@@ -173,7 +173,14 @@ $(CLASS.EXPORT_MACRO)zlist_t *
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zlist_t **$(name)_p);
 .#
-.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+.   elsif type = "uuid"
+//  Get/set the $(name) field
+$(CLASS.EXPORT_MACRO)z$(type)_t *
+    $(class.name)_$(name) ($(class.name)_t *self);
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type));
+.#
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "msg"
 //  Get a copy of the $(name) field
 $(CLASS.EXPORT_MACRO)z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
@@ -256,9 +263,8 @@ struct _$(class.name)_t {
 .   elsif type = "hash"
     zhash_t *$(name);                   //  $(string.trim (field.)?name:left,block)
     size_t $(name)_bytes;               //  Size of hash content
-.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
-    //  $(string.trim (field.)?name:left,block)
-    z$(type)_t *$(name);
+.   elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
+    z$(type)_t *$(name);                //  $(string.trim (field.)?name:left,block)
 .   endif
 .endfor
 };
@@ -442,7 +448,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .   elsif type = "strings"
         if (self->$(name))
             zlist_destroy (&self->$(name));
-.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+.   elsif type = "uuid" | type = "hash" | type = "chunk" | type = "frame" | type = "msg"
         z$(type)_destroy (&self->$(name));
 .   endif
 .endfor
@@ -483,6 +489,8 @@ $(class.name)_destroy ($(class.name)_t **self_p)
                     $(name) = (char *) zlist_next (self->$(name));
                 }
             }
+.       elsif type = "uuid"
+            frame_size += ZUUID_LEN;    //  $(name)
 .       elsif type = "hash"
             frame_size += 4;            //  Size is 4 octets
             if (self->$(name)) {
@@ -499,8 +507,6 @@ $(class.name)_destroy ($(class.name)_t **self_p)
             frame_size += 4;            //  Size is 4 octets
             if (self->$(name))
                 frame_size += zchunk_size (self->$(name));
-.       elsif type = "uuid"
-            frame_size += ZUUID_LEN;    //  $(name)
 .       elsif type = "frame"
 .       elsif type = "msg"
 .           class.msg = name
@@ -587,6 +593,14 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
                     free (string);
                 }
             }
+.       elsif type = "uuid"
+            if (self->needle + ZUUID_LEN > (self->ceiling)) {
+                zsys_warning ("$(class.name): $(name) is invalid");
+                goto malformed;
+            }
+            zuuid_destroy (&self->$(name));
+            self->$(name) = zuuid_new_from (self->needle);
+            self->needle += ZUUID_LEN;
 .       elsif type = "hash"
             {
                 size_t hash_size;
@@ -614,15 +628,6 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
                 self->$(name) = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
-.       elsif type = "uuid"
-            if (self->needle + ZUUID_LEN > (self->ceiling)) {
-                zsys_warning ("$(class.name): $(name) is invalid");
-                goto malformed;
-            }
-            zuuid_destroy (&self->$(name));
-            self->$(name) = zuuid_new ();
-            zuuid_set (self->$(name), self->needle);
-            self->needle += ZUUID_LEN;
 .       elsif type = "frame"
             zframe_destroy (&self->$(name));
             self->$(name) = zmsg_pop (input);
@@ -876,6 +881,14 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                     free (string);
                 }
             }
+.       elsif type = "uuid"
+            if (self->needle + ZUUID_LEN > (self->ceiling)) {
+                zsys_warning ("$(class.name): $(name) is invalid");
+                goto malformed;
+            }
+            zuuid_destroy (&self->$(name));
+            self->$(name) = zuuid_new_from (self->needle);
+            self->needle += ZUUID_LEN;
 .       elsif type = "hash"
             {
                 size_t hash_size;
@@ -903,15 +916,6 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                 self->$(name) = zchunk_new (self->needle, chunk_size);
                 self->needle += chunk_size;
             }
-.       elsif type = "uuid"
-            if (self->needle + ZUUID_LEN > (self->ceiling)) {
-                zsys_warning ("$(class.name): $(name) is invalid");
-                goto malformed;
-            }
-            zuuid_destroy (&self->$(name));
-            self->$(name) = zuuid_new ();
-            zuuid_set (self->$(name), self->needle);
-            self->needle += ZUUID_LEN;
 .       elsif type = "frame"
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
@@ -1370,8 +1374,25 @@ $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p)
     *$(name)_p = NULL;
 }
 
+.   elsif type = "uuid"
+//  --------------------------------------------------------------------------
+//  Get/set the $(name) field
+zuuid_t *
+$(class.name)_$(name) ($(class.name)_t *self)
+{
+    assert (self);
+    return self->$(name);
+}
 
-.   elsif type = "chunk" | type = "uuid" | type = "frame" | type = "msg"
+void
+$(class.name)_set_$(name) ($(class.name)_t *self, zuuid_t *uuid)
+{
+    assert (self);
+    zuuid_destroy (&self->$(name));
+    self->$(name) = zuuid_dup (uuid);
+}
+
+.   elsif type = "chunk" | type = "frame" | type = "msg"
 //  --------------------------------------------------------------------------
 //  Get the $(name) field without transferring ownership
 
@@ -1454,9 +1475,9 @@ $(class.name)_test (bool verbose)
     byte $(name)_data [$(CLASS.NAME)_$(FIELD.NAME)_SIZE] = "$(->test.)";
     $(class.name)_set_$(name) (self, $(name)_data);
 .           else
-    byte $(name)_data [$(CLASS.NAME)_$(FIELD.NAME)_SIZE];
-    memset ($(name)_data, 123, $(CLASS.NAME)_$(FIELD.NAME)_SIZE);
-    $(class.name)_set_$(name) (self, $(name)_data);
+    byte $(name)_data_$(item ()) [$(CLASS.NAME)_$(FIELD.NAME)_SIZE];
+    memset ($(name)_data_$(item ()), 123, $(CLASS.NAME)_$(FIELD.NAME)_SIZE);
+    $(class.name)_set_$(name) (self, $(name)_data_$(item ()));
 .           endif
 .       elsif type = "string" | type = "longstr"
     $(class.name)_set_$(name) (self, "$(->test.?"Life is short but Now lasts for ever":)");
@@ -1489,8 +1510,7 @@ $(class.name)_test (bool verbose)
 .           if defined (->test)
     zuuid_set_str ($(message.name)_$(name), "$(->test.)");
 .           endif
-    zuuid_t *$(message.name)_$(name)_dup = zuuid_dup ($(message.name)_$(name));
-    $(class.name)_set_$(name) (self, &$(message.name)_$(name));
+    $(class.name)_set_$(name) (self, $(message.name)_$(name));
 .       elsif type = "msg"
     zmsg_t *$(message.name)_$(name) = zmsg_new ();
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
@@ -1565,11 +1585,7 @@ $(class.name)_test (bool verbose)
         zstr_free (&content);
         zmsg_destroy (&$(message.name)_$(name));
 .       elsif type = "uuid"
-        zuuid_t *acutal_$(name) = $(class.name)_$(name) (self);
-        assert (zuuid_eq ($(message.name)_$(name)_dup, zuuid_data (acutal_$(name))));
-        if (instance == 1) {
-            zuuid_destroy (&$(message.name)_$(name)_dup);
-        }
+        assert (zuuid_eq ($(message.name)_$(name), zuuid_data ($(class.name)_$(name) (self))));
 .       endif
 .   endfor
     }
