@@ -111,7 +111,6 @@ class $(ClassName)(object):
     def _put_number1(self, nr):
         d = struct.pack('>b', nr)
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a 1-byte number to the frame
     #  then make it unsigned
@@ -124,7 +123,6 @@ class $(ClassName)(object):
     def _put_number2(self, nr):
         d = struct.pack('>H', nr)
         self.struct_data += d
-        print(self.struct_data)
 
     # Get a 2-byte number from the frame
     def _get_number2(self):
@@ -136,7 +134,6 @@ class $(ClassName)(object):
     def _put_number4(self, nr):
         d = struct.pack('>I', nr)
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a 4-byte number to the frame
     def _get_number4(self):
@@ -148,7 +145,6 @@ class $(ClassName)(object):
     def _put_number8(self, nr):
         d = struct.pack('>Q', nr)
         self.struct_data += d   
-        print(self.struct_data)
 
     #  Get a 8-byte number to the frame
     def _get_number8(self):
@@ -161,7 +157,6 @@ class $(ClassName)(object):
         self._put_number1(len(s))
         d = struct.pack('%is' % len(s), s.encode('UTF-8'))
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a string from the frame
     def _get_string(self):
@@ -175,7 +170,6 @@ class $(ClassName)(object):
         self._put_number4(len(s))
         d = struct.pack('%is' % len(s), s.encode('UTF-8'))
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a long string from the frame
     def _get_long_string(self):
@@ -187,7 +181,6 @@ class $(ClassName)(object):
     #  Put bytes to the frame
     def _put_bytes(self, b):
         self.struct_data += b
-        print(self.struct_data)
 
     #  Get bytes from the frame
     def _get_bytes(self, size):
