@@ -29,17 +29,15 @@ set_defaults ()
 #  * The XML model used for this code generation: $(filename)
 #  * The code generation script that built this file: $(script)
 #  ************************************************************************
-"""
 .   for class.license
-    $(string.trim (license.):block                                         )
+$(string.justify (license., 70, "#  "):block                                         )
 .   endfor
-    =========================================================================
-"""
-
+#  =========================================================================
+#
 #  These are the $(ClassName) messages:
 .for message
 #
-#   $(NAME) - $(string.trim (.?''):left)
+#   $(NAME) - $(string.justify(.?, 70, '#    '))
 .   for field
 .       if type = "number"                      
 #       $(name)             $(type) $(size)     # $(string.trim (field.)?'':left)
