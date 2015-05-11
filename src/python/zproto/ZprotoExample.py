@@ -371,7 +371,6 @@ class ZprotoExample(object):
                 self._put_bytes(self._identifier.bytes)
             else:
                 self._put_chunk(b'0'*16)    #  Empty Chunk
-            # TODO frame
             nbr_frames += 1
             # TODO msg
 

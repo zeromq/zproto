@@ -12,7 +12,6 @@ generate_bnf ()
 set_defaults ()
 .endtemplate
 .global.ClassName = java_class_name($(class.name))
-.global.namespace ?= switches.namespace? "zproto"
 .global.name_path ?= switches.name_path? "zproto"
 .global.topdir ?= switches.topdir? "."
 .directory.create ("$(topdir)/python/$(name_path)")
