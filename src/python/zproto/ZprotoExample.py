@@ -277,15 +277,17 @@ class ZprotoExample(object):
             self._public_key = self._get_bytes(self.getNumber4());
             uuid_bytes = self._get_bytes(16)
             self._identifier = uuid.UUID(bytes=uuid_bytes)
-            # TODO  Get next frame, leave current untouched
-            pass
-            #if (!input.hasReceiveMore ())
-            #    throw new IllegalArgumentException ();
-            #self.address = ZFrame.recvFrame (input);
-            #TODO self.content = new ZMsg();
-            pass
-            #if (input.hasReceiveMore ())
-            #    self.content.add(ZFrame.recvFrame (input));
+            if not len(frames):
+                self._address = b''
+                logger.warn("no more frames in message while retrieving self._address")
+            else:
+                self._address = frames.pop(0)
+            logger.warn("Zmsg requested but we have no support for Zmsg types")
+            if not len(frames):
+                self._content = b''
+                logger.warn("no more frames in message while retrieving self._content")
+            else:
+                self._content = frames.pop(0)
         elif self._id == ZprotoExample.TYPES:
             self._sequence = self._get_number2()
             self._client_forename = self._get_string()
@@ -309,6 +311,7 @@ class ZprotoExample(object):
 
         self.struct_data = b''
         self._needle = 0
+        nbr_frames = 0    # Total number of extra frames
 
         # add signature
         self._put_number2(0xAAA0 | 0)
@@ -358,9 +361,7 @@ class ZprotoExample(object):
         elif self._id == ZprotoExample.BINARY:
             #  sequence is a 2-byte integer
             self._put_number2(self._sequence)
-            # TODO flags is a block of 4 bytes
             self._put_bytes(self._flags)
-            # TODO
             if self._public_key != None:
                 self._put_number4(len(self._public_key))
                 self._put_bytes(self._public_key)
@@ -371,6 +372,7 @@ class ZprotoExample(object):
             else:
                 self._put_chunk(b'0'*16)    #  Empty Chunk
             # TODO frame
+            nbr_frames += 1
             # TODO msg
 
         elif self._id == ZprotoExample.TYPES:
@@ -411,14 +413,19 @@ class ZprotoExample(object):
 
 
         #  Now send the data frame
-        outsocket.send(self.struct_data)
-        # TODO: Now send any frame fields, in order
-        #if (self._id == ZPROTO_EXAMPLE.BINARY):
-        #  If address isn't set, send an empty frame
-        #if (self._address)
-        #    zframe_send (&self->address, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
-        #else
-        #    zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+        if nbr_frames:
+            outsocket.send(self.struct_data, zmq.SNDMORE)
+        else:
+            outsocket.send(self.struct_data)
+            # no more frames so return
+            return
+
+        if self._id == ZprotoExample.BINARY:
+            opt = zmq.SNDMORE
+            nbr_frames -= 1
+            if nbr_frames == 0:
+                opt = 0
+            outsocket.send(self._address, opt)
 
 
     #  --------------------------------------------------------------------------

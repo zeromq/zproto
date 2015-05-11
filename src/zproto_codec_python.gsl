@@ -246,7 +246,6 @@ class $(ClassName)(object):
             self._$(name) = self._get_bytes($(size))
 .           if defined (field.value)
             if self._$(name) != $(field.value:):
-            #??? raise IllegalArgumentException()
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "string"
@@ -280,16 +279,18 @@ class $(ClassName)(object):
             uuid_bytes = self._get_bytes(16)
             self._$(name) = uuid.UUID(bytes=uuid_bytes)
 .       elsif type = "frame"
-            # TODO  Get next frame, leave current untouched
-            pass
-            #if (!input.hasReceiveMore ())
-            #    throw new IllegalArgumentException ();
-            #self.$(name) = ZFrame.recvFrame (input);
+            if not len(frames):
+                self._$(name) = b''
+                logger.warn("no more frames in message while retrieving self._$(name)")
+            else:
+                self._$(name) = frames.pop(0)
 .       elsif type = "msg"
-            #TODO self.$(name) = new ZMsg();
-            pass
-            #if (input.hasReceiveMore ())
-            #    self.$(name).add(ZFrame.recvFrame (input));
+            logger.warn("Zmsg requested but we have no support for Zmsg types")
+            if not len(frames):
+                self._$(name) = b''
+                logger.warn("no more frames in message while retrieving self._$(name)")
+            else:
+                self._$(name) = frames.pop(0)
 .       endif
 .    endfor
 .endfor
@@ -306,6 +307,7 @@ class $(ClassName)(object):
 
         self.struct_data = b''
         self._needle = 0
+        nbr_frames = 0    # Total number of extra frames
 
         # add signature
         self._put_number2(0xAAA0 | $(class.signature))
@@ -326,7 +328,6 @@ class $(ClassName)(object):
             self._put_number$(size)(self._$(name))
 .           endif
 .       elsif type = "octets"
-            # TODO $(name) is a block of $(size) bytes
             self._put_bytes(self._$(name))
 .       elsif type = "string"
 .           if defined (field.value)
@@ -362,7 +363,6 @@ class $(ClassName)(object):
             else:
                 self._put_number4(0)      #  Empty hash
 .       elsif type = "chunk"
-            # TODO
             if self._$(name) != None:
                 self._put_number4(len(self._$(name)))
                 self._put_bytes(self._$(name))
@@ -374,7 +374,7 @@ class $(ClassName)(object):
             else:
                 self._put_chunk(b'0'*16)    #  Empty Chunk
 .       elsif type = "frame"
-            # TODO frame
+            nbr_frames += 1
 .       elsif type = "msg"
             # TODO msg
 .       endif
@@ -383,16 +383,21 @@ class $(ClassName)(object):
 .endfor
 
         #  Now send the data frame
-        outsocket.send(self.struct_data)
+        if nbr_frames:
+            outsocket.send(self.struct_data, zmq.SNDMORE)
+        else:
+            outsocket.send(self.struct_data)
+            # no more frames so return
+            return
+
 .for class.message where count (field, type = "frame")
-        # TODO: Now send any frame fields, in order
-        #if (self._id == $(CLASS.NAME).$(MESSAGE.NAME)):
+        if self._id == $(ClassName).$(MESSAGE.NAME):
 .   for field where type = "frame"
-        #  If $(name) isn't set, send an empty frame
-        #if (self._$(field.name))
-        #    zframe_send (&self->$(field.name), output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0));
-        #else
-        #    zmq_send (zsock_resolve (output), NULL, 0, (--nbr_frames? ZMQ_SNDMORE: 0));
+            opt = zmq.SNDMORE
+            nbr_frames -= 1
+            if nbr_frames == 0:
+                opt = 0
+            outsocket.send(self._$(field.name), opt)
 .   endfor
 .endfor
 .if defined (class.msg)
