@@ -1,0 +1,601 @@
+.template 0
+#   zproto_codec_python.gsl
+#
+#   Generates a codec for a protocol specification
+#
+include "zproto_lib.gsl"
+include "zproto_lib_java.gsl"
+include "zproto_bnf.gsl"
+resolve_includes ()
+expand_headers ()
+generate_bnf ()
+set_defaults ()
+.endtemplate
+.global.ClassName = java_class_name($(class.name))
+.global.name_path ?= switches.name_path? "zproto"
+.global.topdir ?= switches.topdir? "."
+.directory.create ("$(topdir)/python/$(name_path)")
+.output "$(topdir)/python/$(name_path)/$(ClassName).py"
+#!/usr/bin/python
+#  =========================================================================
+#  $(ClassName) - $(class.title:)
+#
+#  ** WARNING *************************************************************
+#  THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+#  your changes at the next build cycle. This is great for temporary printf
+#  statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+#  for commits are:
+#
+#  * The XML model used for this code generation: $(filename)
+#  * The code generation script that built this file: $(script)
+#  ************************************************************************
+.   for class.license
+$(string.justify (license., 70, "#  "):block                                         )
+.   endfor
+#  =========================================================================
+#
+#  These are the $(ClassName) messages:
+.for message
+#
+#   $(NAME) - $(string.justify(.?, 70, '#    '))
+.   for field
+.       if type = "number"                      
+#       $(name)             $(type) $(size)     # $(string.trim (field.)?'':left)
+.       elsif type = "octets"
+#       $(name)             $(type) [$(size)]   # $(string.trim (field.)?'':left)
+.       else
+#       $(name)             $(type)             # $(string.trim (field.)?'':left)
+.       endif
+.   endfor
+.endfor
+
+
+import struct
+import uuid
+import zmq
+import logging
+
+logger = logging.getLogger(__name__)
+
+ZFrame = zmq.Frame
+
+class $(ClassName)(object):
+
+.for define
+    $(CLASS.NAME)_$(DEFINE.NAME:C)  = $(value)
+.endfor
+
+.for message
+    $(MESSAGE.NAME)                 = $(id)
+.endfor
+.for class.field where type = "octets"
+    $(FIELD.NAME)_SIZE              = $(size)
+.endfor
+
+    def __init__(self, id=None, *args, **kwargs):
+        #  Structure of our class
+        self.routingId = None               # Routing_id from ROUTER, if any
+        self._id = id                       # $(ClassName) message ID
+        self._needle = 0                    # Read/write pointer for serialization
+        self.struct_data = b''              # holds the binary data
+
+.for class.field
+.   if type = "number"
+        self._$(name) = 0
+.   elsif type = "octets"
+        self._$(name) = b''
+.   elsif type = "number"
+        self._$name = $(name);
+.   elsif type = "string" | type = "longstr"
+        self._$(name) = ""
+.   elsif type = "strings"
+        self._$(name) = []
+.   elsif type = "hash"
+        self._$(name) = {}
+.   elsif type = "frame" | type = "msg"
+        self._$(name) = None # ZTypes are not implemented
+        #self._$(name) = Z$(Type)()
+.   elsif type = "uuid"
+        self._$(name) = uuid.uuid4()
+.   elsif type = "chunk"
+        self._$(name) = b''
+.   endif
+.endfor
+
+    #  --------------------------------------------------------------------------
+    #  Network data encoding macros
+
+    #  Put a 1-byte number to the frame
+    def _put_number1(self, nr):
+        d = struct.pack('>b', nr)
+        self.struct_data += d
+
+    #  Get a 1-byte number to the frame
+    #  then make it unsigned
+    def _get_number1(self):
+        num = struct.unpack_from('>b', self.struct_data, offset=self._needle)
+        self._needle += struct.calcsize('>b')
+        return num[0]
+
+    #  Put a 2-byte number to the frame
+    def _put_number2(self, nr):
+        d = struct.pack('>H', nr)
+        self.struct_data += d
+
+    # Get a 2-byte number from the frame
+    def _get_number2(self):
+        num = struct.unpack_from('>H', self.struct_data, offset=self._needle)
+        self._needle += struct.calcsize('>H')
+        return num[0]
+
+    #  Put a 4-byte number to the frame
+    def _put_number4(self, nr):
+        d = struct.pack('>I', nr)
+        self.struct_data += d
+
+    #  Get a 4-byte number to the frame
+    def _get_number4(self):
+        num = struct.unpack_from('>I', self.struct_data, offset=self._needle)
+        self._needle += struct.calcsize('>I')
+        return num[0]
+
+    #  Put a 8-byte number to the frame
+    def _put_number8(self, nr):
+        d = struct.pack('>Q', nr)
+        self.struct_data += d   
+
+    #  Get a 8-byte number to the frame
+    def _get_number8(self):
+        num = struct.unpack_from('>Q', self.struct_data, offset=self._needle)
+        self._needle += struct.calcsize('>Q')
+        return num[0]
+
+    #  Put a string to the frame
+    def _put_string(self, s):
+        self._put_number1(len(s))
+        d = struct.pack('%is' % len(s), s.encode('UTF-8'))
+        self.struct_data += d
+
+    #  Get a string from the frame
+    def _get_string(self):
+        s_len = self._get_number1()
+        s = struct.unpack_from(str(s_len) + 's', self.struct_data, offset=self._needle)
+        self._needle += struct.calcsize('s' * s_len)
+        return s[0].decode('UTF-8')
+
+    #  Put a long string to the frame
+    def _put_long_string(self, s):
+        self._put_number4(len(s))
+        d = struct.pack('%is' % len(s), s.encode('UTF-8'))
+        self.struct_data += d
+
+    #  Get a long string from the frame
+    def _get_long_string(self):
+        s_len = self._get_number4()
+        s = struct.unpack_from(str(s_len) + 's', self.struct_data, offset=self._needle)
+        self._needle += struct.calcsize('s' * s_len)
+        return s[0].decode('UTF-8')
+    
+    #  Put bytes to the frame
+    def _put_bytes(self, b):
+        self.struct_data += b
+
+    #  Get bytes from the frame
+    def _get_bytes(self, size):
+        s =  self.struct_data[self._needle:self._needle+size]
+        self._needle += size
+        return s
+    
+
+# Skipped recv from zmsg
+# Skipped senf to zmsg
+
+    #  --------------------------------------------------------------------------
+    #  Receive a $(ClassName) from the socket. Returns new object or
+    #  null if error. Will block if there's no message waiting.
+    def recv (self, insocket):
+        frames = insocket.recv_multipart()
+        if insocket.type == zmq.ROUTER:
+            self.routing_id = frames.pop(0)
+
+        self.struct_data = frames.pop(0)
+        logger.debug("recv data: {0}".format(self.struct_data))
+        if not self.struct_data:
+            logger.debug("Malformed msg")        
+            return
+
+        # Get and check protocol signature
+        self._needle = 0        
+        self._ceiling = len(self.struct_data)
+
+# TODO what is zdigest?
+.if switches.digest ?= 1
+    zdigest_t *digest = zdigest_new ();
+.endif
+        signature = self._get_number2()
+        if signature != (0xAAA0 | $(class.signature)): 
+            logger.debug("Invalid signature {0}".format(signature))
+            return
+   
+        self._id = self._get_number1()
+
+.for class.message where count (field)
+.   if index () > 1
+        elif self._id == $(ClassName).$(MESSAGE.NAME):
+.   else
+        if self._id == $(ClassName).$(MESSAGE.NAME):
+.   endif
+.   for field
+.       if type = "number"
+            self._$(name) = self._get_number$(size)()
+.           if defined (field.value)
+            if self._$(name) != $(field.value:):
+                logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
+.           endif
+.       elsif type = "octets"
+            self._$(name) = self._get_bytes($(size))
+.           if defined (field.value)
+            if self._$(name) != $(field.value:):
+                logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
+.           endif
+.       elsif type = "string"
+            self._$(name) = self._get_string()
+.           if defined (field.value)
+            if self._$(name) != $(field.value:):
+                #??? raise IllegalArgumentException()
+                logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
+.           endif
+.       elsif type = "longstr"
+            self._$(name) = self._get_long_string()
+.           if defined (field.value)
+            if self._$(name) != "$(field.value:)":
+                logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
+.           endif
+.       elsif type = "strings"
+            list_size = self._get_number4()
+            self._$(name) = []
+            for x in range(list_size):
+                self._$(name).append(self._get_long_string());
+.       elsif type = "hash"
+            hash_size = self._get_number4()
+            self._$(name) = {}
+            for x in range(hash_size):
+                key = self._get_string()
+                val = self._get_long_string()
+                self._$(name).update({key: val})
+.       elsif type = "chunk"
+            self._$(name) = self._get_bytes(self.getNumber4());
+.       elsif type = "uuid"
+            uuid_bytes = self._get_bytes(16)
+            self._$(name) = uuid.UUID(bytes=uuid_bytes)
+.       elsif type = "frame"
+            if not len(frames):
+                self._$(name) = b''
+                logger.warn("no more frames in message while retrieving self._$(name)")
+            else:
+                self._$(name) = frames.pop(0)
+.       elsif type = "msg"
+            logger.warn("Zmsg requested but we have no support for Zmsg types")
+            if not len(frames):
+                self._$(name) = b''
+                logger.warn("no more frames in message while retrieving self._$(name)")
+            else:
+                self._$(name) = frames.pop(0)
+.       endif
+.    endfor
+.endfor
+        else:
+            logger.debug("bad message ID")
+
+
+    #  --------------------------------------------------------------------------
+    #  Send the $(ClassName) to the socket, and destroy it
+    def send(self, outsocket):
+        if outsocket.socket_type == zmq.ROUTER:
+            outsocket.send(self.routing_id, zmq.SNDMORE)
+        # TDOD: We could generalize to a ZMsg class? ZMsg msg = new ZMsg();
+
+        self.struct_data = b''
+        self._needle = 0
+        nbr_frames = 0    # Total number of extra frames
+
+        # add signature
+        self._put_number2(0xAAA0 | $(class.signature))
+        self._put_number1(self._id)
+
+.for class.message where count (field)
+.   if index () > 1
+        elif self._id == $(ClassName).$(MESSAGE.NAME):
+.   else
+        if self._id == $(ClassName).$(MESSAGE.NAME):
+.   endif
+.   for field
+.       if type = "number"
+            #  $(name) is a $(size)-byte integer
+.           if defined (field.value)
+            self._put_number$(size)($(value:))
+.           else
+            self._put_number$(size)(self._$(name))
+.           endif
+.       elsif type = "octets"
+            self._put_bytes(self._$(name))
+.       elsif type = "string"
+.           if defined (field.value)
+            self._put_string($(field.value:))
+.           else
+            if self._$(name) != None:
+                self._put_string(self._$(name))
+            else:
+                self._put_number1(0)      #  Empty string
+.           endif
+.       elsif type = "longstr"
+.           if defined (field.value)
+            self._put_long_string($(field.value:))
+.           else
+            if self._$(name) != None:
+                self._put_long_string(self._$(name))
+            else:
+                self._put_number4(0)      #  Empty string
+.           endif
+.       elsif type = "strings"
+            if self._$(name) != None:
+                self._put_number4(len(self._$(name)))
+                for val in self._$(name):
+                    self._put_long_string(val)
+            else:
+                self._put_number4(0);      #  Empty string array
+.       elsif type = "hash"
+            if self._$(name) != None:
+                self._put_number4(len(self._$(name)))
+                for key, val in self._$(name).items():
+                    self._put_string(key)
+                    self._put_long_string(val)
+            else:
+                self._put_number4(0)      #  Empty hash
+.       elsif type = "chunk"
+            if self._$(name) != None:
+                self._put_number4(len(self._$(name)))
+                self._put_bytes(self._$(name))
+            else:
+                self._put_number4(0)
+.       elsif type = "uuid"
+            if self._$(name) != None:
+                self._put_bytes(self._$(name).bytes)
+            else:
+                self._put_chunk(b'0'*16)    #  Empty Chunk
+.       elsif type = "frame"
+            nbr_frames += 1
+.       elsif type = "msg"
+            # TODO msg
+.       endif
+.   endfor
+
+.endfor
+
+        #  Now send the data frame
+        if nbr_frames:
+            outsocket.send(self.struct_data, zmq.SNDMORE)
+        else:
+            outsocket.send(self.struct_data)
+            # no more frames so return
+            return
+
+.for class.message where count (field, type = "frame")
+        if self._id == $(ClassName).$(MESSAGE.NAME):
+.   for field where type = "frame"
+            opt = zmq.SNDMORE
+            nbr_frames -= 1
+            if nbr_frames == 0:
+                opt = 0
+            outsocket.send(self._$(field.name), opt)
+.   endfor
+.endfor
+.if defined (class.msg)
+    #  TODO: Now send the $(class.msg) if necessary
+    if (have_$(class.msg)):
+        if (self.$(class.msg)):
+            frame = zmsg_first (self.$(class.msg))
+            while (frame):
+                zframe_send (&frame, output, ZFRAME_REUSE + (--nbr_frames? ZFRAME_MORE: 0))
+                frame = zmsg_next (self->$(class.msg))
+        else:
+            zmq_send (zsock_resolve (output), NULL, 0, 0)
+.endif
+
+
+    #  --------------------------------------------------------------------------
+    #  Print contents of message to stdout
+
+    def dump(self):
+.for class.message
+        if self.id == $(Classname).$(MESSAGE.NAME):
+            logger.info("$(MESSAGE.NAME):")
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+            logger.info("    $(name)=$(field.value)")
+.           else
+            logger.info("    $(name)=%d" %$(name))
+.           endif
+.       elsif type = "octets"
+            logger.info("    $(name)={0}".format(self._$(name)))
+.       elsif type = "string" | type = "longstr"
+.           if defined (field.value)
+            logger.info("    $(name)=$(field.value)")
+.           else
+            if self._$(name) != None:
+                logger.info("    $(name)='%s'\\n" %self._$(name))
+            else:
+                logger.info("    $(name)=")
+.           endif
+.       elsif type = "strings"
+            logger.info("    $(name)={0}".format(self._$(name)))
+.       elsif type = "hash"
+            logger.info("    $(name)={0}".format(self._$(name)))
+.       elsif type = "frame" | type="msg" | type="uuid" | type="chunk"
+            logger.info("    $(name)={0}".format(self._$(name)))
+.       endif
+.   endfor
+        else:
+            logger.info("(NULL)")
+
+.endfor
+
+    #  --------------------------------------------------------------------------
+    #  Get/set the message routing id
+
+    def routing_id(self):
+        return self._routing_id
+
+    def set_routing_id(self, routing_id):
+        self._routing_id = routing_id
+
+    #  --------------------------------------------------------------------------
+    #  Get/set the $(class.name) id
+
+    def id():
+        return self._id
+
+    def set_id(self, id):
+        self._id = id
+
+    #  --------------------------------------------------------------------------
+    #  Return a printable command string
+    def command(self):
+.for class.message
+        if self._id == $(ClassName).$(MESSAGE.NAME):
+            return "$(MESSAGE.NAME)"
+.endfor
+        return "?";
+
+.for class.field where !defined (value)
+.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
+    #  --------------------------------------------------------------------------
+    #  Get/set the $(name) field
+
+    def $(name)(self):
+        return self._$(name);
+
+    def set_$(name)(self, $(name)):
+        self._$(name) = $(name)
+
+.   elsif type = "strings" | type = "hash"
+    #  --------------------------------------------------------------------------
+    #  Get the $(name) field
+
+    def $(name)(self):
+        return self._$(name)
+
+    def get_$(name)(self):
+        return self._$(name)
+
+    def set_$(name)(self, $(name)):
+        self._$(name) = $(name)
+
+.   elsif type = "uuid" | type = "chunk" | type = "frame" | type = "msg"
+    #  --------------------------------------------------------------------------
+    #  Get the $(name) field
+
+    def $(name)(self):
+        return self._$(name)
+
+    def get_$(name)(self):
+        return self._$(name)
+
+    def set_$(name)(self, $(name)):
+        self._$(name) = $(name)
+.   endif
+.endfor
+
+.directory.create ("$(topdir)/test/python/$(name_path)")
+.output "$(topdir)/test/python/$(name_path)/test_$(ClassName).py"
+
+import unittest
+import struct
+import uuid
+import logging
+import zmq
+from $(ClassName) import $(ClassName)
+
+class $(ClassName)Test(unittest.TestCase):
+
+    def test_create_destroy(self):
+        #  Simple create/destroy test
+        print(" * $(class.name): ");
+        class1 = $(ClassName)()
+        del(class1)
+    
+    def test_sockets(self):
+        #  Create pair of sockets we can send through
+        #  We must bind before connect if we wish to remain compatible with ZeroMQ < v4
+        outsock = zmq.Socket(ctx, zmq.DEALER)
+        outsock.bind("inproc://selftest-$(class.name)")
+
+        insock = zmq.Socket(ctx, zmq.ROUTER)
+        insock.connect("inproc://selftest-$(class.name)")
+
+        #  Encode/send/decode and verify each message type
+.for class.message
+
+        msg = $(ClassName)($(ClassName).$(MESSAGE.NAME))
+.   for field where !defined (value)
+.       if type = "number"
+        msg.set_$(name)(123)
+.       elsif type = "octets"
+        msg.set_$(name)(b'123')
+.       elsif type = "string" | type = "longstr"
+        msg.set_$(name) ("Life is short but Now lasts for ever")
+.       elsif type = "strings"
+        msg.set_$(name)(("Name: %s" %"Brutus","Age: %d" %43))
+.       elsif type = "hash"
+        msg._$(name).update({"Name": "Brutus"})
+        msg._$(name).update({"Age": "43"});
+.       elsif type = "chunk"
+        msg.set_$(name)("Captcha Diem".encode('utf-8'))
+.       elsif type = "frame"
+        msg.set_$(name)(zmq.Frame(b"Captcha Diem"))
+.       elsif type = "uuid"
+        msg.set_$(name)(uuid.UUID(bytes=b'1'*16))
+.       endif
+.   endfor
+        # Send twice?
+        msg.send(outsock);
+        msg.send(outsock);
+        
+
+        msg.recv(insock)
+.   for field where !defined (value)
+.       if type = "number"
+        self.assertEqual (msg.$(name)(), 123)
+.       elsif type = "octets"
+        self.assertEqual(msg.$(name)(), b'123')
+.       elsif type = "string" | type = "longstr"
+        self.assertEqual(msg.$(name)(), "Life is short but Now lasts for ever")
+.       elsif type = "strings"
+        self.assertEqual(len(msg.$(name)()), 2)
+        self.assertEqual(msg.$(name)()[0], "Name: Brutus")
+        self.assertEqual(msg.$(name)()[1], "Age: %d" %43)
+.       elsif type = "hash"
+        self.assertEqual(len(msg.$(name)()), 2)
+        self.assertEqual(msg.$(name)()["Name"], "Brutus")
+        self.assertEqual(msg.$(name)()["Age"], "43")
+.       elsif type = "chunk"
+        self.assertEqual(msg.$(name)(), "Captcha Diem".encode('utf-8'))
+.       elsif type = "frame"
+        self.assertEqual(msg.$(name)().bytes, zmq.Frame(b"Captcha Diem").bytes)
+.       elsif type = "uuid"
+        self.assertEqual(msg.$(name)(), uuid.UUID(bytes=b'1'*16))
+.       endif
+.   endfor
+        #self.destroy ();
+.endfor
+
+        ctx.destroy ();
+        print("OK")
+
+ctx = zmq.Context()
+
+if __name__ == "__main__":
+    logger = logging.getLogger()
+    logging.basicConfig(level=logging.DEBUG)
+    unittest.main()
