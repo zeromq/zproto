@@ -245,9 +245,9 @@ class ZprotoExample(object):
             logger.debug("Invalid signature {0}".format(signature))
             return
    
-        self.id = self._get_number1()
+        self._id = self._get_number1()
 
-        if self.id == ZprotoExample.LOG:
+        if self._id == ZprotoExample.LOG:
             self._sequence = self._get_number2()
             self._version = self._get_number2()
             if self._version != 3:
@@ -259,7 +259,7 @@ class ZprotoExample(object):
             self._time = self._get_number8()
             self._host = self._get_string()
             self._data = self._get_long_string()
-        if self.id == ZprotoExample.STRUCTURES:
+        elif self._id == ZprotoExample.STRUCTURES:
             self._sequence = self._get_number2()
             list_size = self._get_number4()
             self._aliases = []
@@ -271,7 +271,7 @@ class ZprotoExample(object):
                 key = self._get_string()
                 val = self._get_long_string()
                 self._headers.update({key: val})
-        if self.id == ZprotoExample.BINARY:
+        elif self._id == ZprotoExample.BINARY:
             self._sequence = self._get_number2()
             self._flags = self._get_bytes(4)
             self._public_key = self._get_bytes(self.getNumber4());
@@ -286,7 +286,7 @@ class ZprotoExample(object):
             pass
             #if (input.hasReceiveMore ())
             #    self.content.add(ZFrame.recvFrame (input));
-        if self.id == ZprotoExample.TYPES:
+        elif self._id == ZprotoExample.TYPES:
             self._sequence = self._get_number2()
             self._client_forename = self._get_string()
             self._client_surname = self._get_string()
@@ -338,7 +338,7 @@ class ZprotoExample(object):
             else:
                 self._put_number4(0)      #  Empty string
 
-        if self._id == ZprotoExample.STRUCTURES:
+        elif self._id == ZprotoExample.STRUCTURES:
             #  sequence is a 2-byte integer
             self._put_number2(self._sequence)
             if self._aliases != None:
@@ -355,7 +355,7 @@ class ZprotoExample(object):
             else:
                 self._put_number4(0)      #  Empty hash
 
-        if self._id == ZprotoExample.BINARY:
+        elif self._id == ZprotoExample.BINARY:
             #  sequence is a 2-byte integer
             self._put_number2(self._sequence)
             # TODO flags is a block of 4 bytes
@@ -373,7 +373,7 @@ class ZprotoExample(object):
             # TODO frame
             # TODO msg
 
-        if self._id == ZprotoExample.TYPES:
+        elif self._id == ZprotoExample.TYPES:
             #  sequence is a 2-byte integer
             self._put_number2(self._sequence)
             if self._client_forename != None:

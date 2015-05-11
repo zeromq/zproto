@@ -227,10 +227,14 @@ class $(ClassName)(object):
             logger.debug("Invalid signature {0}".format(signature))
             return
    
-        self.id = self._get_number1()
+        self._id = self._get_number1()
 
 .for class.message where count (field)
-        if self.id == $(ClassName).$(MESSAGE.NAME):
+.   if index () > 1
+        elif self._id == $(ClassName).$(MESSAGE.NAME):
+.   else
+        if self._id == $(ClassName).$(MESSAGE.NAME):
+.   endif
 .   for field
 .       if type = "number"
             self._$(name) = self._get_number$(size)()
@@ -308,7 +312,11 @@ class $(ClassName)(object):
         self._put_number1(self._id)
 
 .for class.message where count (field)
+.   if index () > 1
+        elif self._id == $(ClassName).$(MESSAGE.NAME):
+.   else
         if self._id == $(ClassName).$(MESSAGE.NAME):
+.   endif
 .   for field
 .       if type = "number"
             #  $(name) is a $(size)-byte integer
