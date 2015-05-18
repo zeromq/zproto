@@ -297,6 +297,7 @@ public class $(ClassName) implements java.io.Closeable
             switch (self.id) {
 .for class.message
             case $(MESSAGE.NAME):
+              {
 .   for field
 .       if type = "number"
                 self.$(name) = self.getNumber$(size) ();
@@ -355,6 +356,7 @@ public class $(ClassName) implements java.io.Closeable
 .       endif
 .    endfor
                 break;
+              }
 
 .endfor
             default:
