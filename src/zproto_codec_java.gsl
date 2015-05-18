@@ -297,6 +297,7 @@ public class $(ClassName) implements java.io.Closeable
             switch (self.id) {
 .for class.message
             case $(MESSAGE.NAME):
+                {
 .   for field
 .       if type = "number"
                 self.$(name) = self.getNumber$(size) ();
@@ -354,6 +355,7 @@ public class $(ClassName) implements java.io.Closeable
                     self.$(name).add(ZFrame.recvFrame (input));
 .       endif
 .    endfor
+                }
                 break;
 
 .endfor
@@ -391,6 +393,7 @@ public class $(ClassName) implements java.io.Closeable
         switch (id) {
 .for class.message
         case $(MESSAGE.NAME):
+            {
 .   for field
 .       if type = "number"
             //  $(name) is a $(size)-byte integer
@@ -439,6 +442,7 @@ public class $(ClassName) implements java.io.Closeable
             frameSize += 16;
 .       endif
 .   endfor
+            }
             break;
 
 .endfor
@@ -456,6 +460,7 @@ public class $(ClassName) implements java.io.Closeable
         switch (id) {
 .for class.message
         case $(MESSAGE.NAME):
+            {
 .   for field
 .       if type = "number"
 .           if defined (field.value)
@@ -520,6 +525,7 @@ public class $(ClassName) implements java.io.Closeable
               }
 .       endif
 .   endfor
+            }
             break;
 
 .endfor
@@ -531,18 +537,21 @@ public class $(ClassName) implements java.io.Closeable
         switch (id) {
 .for class.message where count (field, type = "frame")
         case $(MESSAGE.NAME):
+            {
 .   for field where type = "frame"
             //  If $(name) isn't set, send an empty frame
             if ($(field.name) == null)
                 $(field.name) = new ZFrame ("".getBytes ());
             msg.add($(field.name));
 .   endfor
+            }
             break;
 .endfor
         }
         switch (id) {
 .for class.message where count (field, type = "msg")
         case $(MESSAGE.NAME):
+            {
 .   for field where type = "msg"
             if( $(field.name) == null )
                 $(field.name) = new ZMsg();
@@ -550,6 +559,7 @@ public class $(ClassName) implements java.io.Closeable
                 msg.add($(field.name)Part);
             }
 .   endfor
+            }
             break;
 .endfor
         }
@@ -682,6 +692,7 @@ public class $(ClassName) implements java.io.Closeable
         switch (this.id) {
 .for class.message
         case $(MESSAGE.NAME):
+            {
 .   for field
 .       if type = "number"
             copy.$(name) = this.$(name);
@@ -697,6 +708,7 @@ public class $(ClassName) implements java.io.Closeable
             copy.$(name) = this.$(name).duplicate ();
 .       endif
 .   endfor
+        }
         break;
 .endfor
         }
@@ -720,6 +732,7 @@ public class $(ClassName) implements java.io.Closeable
         switch (id) {
 .for class.message
         case $(MESSAGE.NAME):
+            {
             System.out.println ("$(MESSAGE.NAME):");
 .   for field
 .       if type = "number"
@@ -779,6 +792,7 @@ public class $(ClassName) implements java.io.Closeable
             System.out.printf ("    }\\n");
 .       endif
 .   endfor
+            }
             break;
 
 .endfor
