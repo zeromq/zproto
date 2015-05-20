@@ -179,6 +179,9 @@ $(CLASS.EXPORT_MACRO)z$(type)_t *
     $(class.name)_$(name) ($(class.name)_t *self);
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t *$(type));
+//  Get the $(name) field and transfer ownership to caller
+$(CLASS.EXPORT_MACRO)z$(type)_t *
+    $(class.name)_get_$(name) ($(class.name)_t *self);
 .#
 .   elsif type = "hash" | type = "chunk" | type = "frame" | type = "msg"
 //  Get a copy of the $(name) field
@@ -1390,6 +1393,16 @@ $(class.name)_set_$(name) ($(class.name)_t *self, zuuid_t *uuid)
     assert (self);
     zuuid_destroy (&self->$(name));
     self->$(name) = zuuid_dup (uuid);
+}
+
+//  Get the $(name) field and transfer ownership to caller
+
+zuuid_t *
+$(class.name)_get_$(name) ($(class.name)_t *self)
+{
+    zuuid_t *$(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
 }
 
 .   elsif type = "chunk" | type = "frame" | type = "msg"
