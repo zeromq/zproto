@@ -677,7 +677,6 @@ $(class.name)_send ($(class.name)_t *self, zmsg_t *output)
 .if defined (class.msg)
     bool have_$(class.msg) = false;
 .endif
-    size_t nbr_frames = 1;              //  Total number of frames to build
 
     switch (self->id) {
 .for class.message where count (field)
@@ -742,10 +741,7 @@ $(class.name)_send ($(class.name)_t *self, zmsg_t *output)
             else
                 memset (self->needle, 0, ZUUID_LEN);
             self->needle += ZUUID_LEN;
-.       elsif type = "frame"
-            nbr_frames++;
 .       elsif type = "msg"
-            nbr_frames += self->$(name)? zmsg_size (self->$(name)): 1;
             have_$(class.msg) = true;
 .       endif
 .   endfor
@@ -761,8 +757,10 @@ $(class.name)_send ($(class.name)_t *self, zmsg_t *output)
     if (self->id == $(CLASS.NAME)_$(MESSAGE.NAME)) {
 .   for field where type = "frame"
         //  If $(name) isn't set, send an empty frame
-        if (self->$(field.name))
-            zmsg_append (output, &self->$(field.name));
+        if (self->$(field.name)) {
+            zframe_t *frame = zframe_dup (self->$(field.name));
+            zmsg_append (output, &frame);
+        }
         else
             zmsg_addstr (output, "");
 .   endfor
@@ -1453,8 +1451,8 @@ $(class.name)_test (bool verbose)
     printf ("\\n");
 .endif
 
-    //  Silence an "unused" warning by "using" the verbose variable
-    if (verbose) {;}
+    if (verbose)
+        printf ("\\n");
 
     //  @selftest
     //  Simple create/destroy test
@@ -1538,13 +1536,27 @@ $(class.name)_test (bool verbose)
     zmsg_addstr ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)");
 .       endif
 .   endfor
+.if class.virtual ?= 1
+    zmsg_destroy (&output);
+    output = zmsg_new ();
+    assert (output);
+.endif
     //  Send twice
     $(class.name)_send (self, output);
     $(class.name)_send (self, output);
 
+.if class.virtual ?= 1
+    zmsg_destroy (&input);
+    input = zmsg_dup (output);
+    assert (input);
+.endif
     for (instance = 0; instance < 2; instance++) {
         $(class.name)_recv (self, input);
+.if class.virtual ?= 1
+        assert ($(class.name)_routing_id (self) == NULL);
+.else
         assert ($(class.name)_routing_id (self));
+.endif
 .   for field where !defined (value)
 .       if type = "number"
         assert ($(class.name)_$(name) (self) == $(->test.?123:));
@@ -1559,6 +1571,7 @@ $(class.name)_test (bool verbose)
         assert (streq ($(class.name)_$(name) (self), "$(->test.?"Life is short but Now lasts for ever":)"));
 .       elsif type = "strings"
         zlist_t *$(name) = $(class.name)_get_$(name) (self);
+        assert ($(name));
 .           if defined (->test)
 .               for test
 .                   if first ()
