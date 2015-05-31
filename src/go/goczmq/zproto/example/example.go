@@ -86,14 +86,14 @@ func Recv(sock *goczmq.Sock) (t Transit, err error) {
 
 // RecvNoWait receives marshaled data from 0mq socket. It won't wait for input.
 func RecvNoWait(sock *goczmq.Sock) (t Transit, err error) {
-	return recv(sock, goczmq.DONTWAIT)
+	return recv(sock, goczmq.FlagDontWait)
 }
 
 // recv receives marshaled data from 0mq socket.
 func recv(sock *goczmq.Sock, flag int) (t Transit, err error) {
 	var frames [][]byte
 
-	if flag == goczmq.DONTWAIT {
+	if flag == goczmq.FlagDontWait {
 		frames, err = sock.RecvMessageNoWait()
 	} else {
 		frames, err = sock.RecvMessage()
@@ -110,7 +110,7 @@ func recv(sock *goczmq.Sock, flag int) (t Transit, err error) {
 
 	var routingID []byte
 	// If message came from a router socket, first frame is routingID
-	if sType == goczmq.ROUTER {
+	if sType == goczmq.Router {
 		if len(frames) <= 1 {
 			return nil, errors.New("no routingID")
 		}
@@ -123,7 +123,7 @@ func recv(sock *goczmq.Sock, flag int) (t Transit, err error) {
 		return nil, err
 	}
 
-	if sType == goczmq.ROUTER {
+	if sType == goczmq.Router {
 		t.SetRoutingID(routingID)
 	}
 	return t, err

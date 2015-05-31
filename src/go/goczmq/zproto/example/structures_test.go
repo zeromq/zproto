@@ -21,7 +21,7 @@ func TestStructures(t *testing.T) {
 	// Create pair of sockets we can send through
 
 	// Output socket
-	output := goczmq.NewSock(goczmq.DEALER)
+	output := goczmq.NewSock(goczmq.Dealer)
 	defer output.Destroy()
 
 	routingID := "Shout"
@@ -33,7 +33,7 @@ func TestStructures(t *testing.T) {
 	defer output.Unbind("inproc://selftest-structures")
 
 	// Input socket
-	input := goczmq.NewSock(goczmq.ROUTER)
+	input := goczmq.NewSock(goczmq.Router)
 	defer input.Destroy()
 
 	err = input.Connect("inproc://selftest-structures")
