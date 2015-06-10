@@ -936,6 +936,9 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
 .           else
             $(proto)_set_$(name) (self->message, &$(name));
 .           endif
+.           if field.type = "uuid"
+            zuuid_destroy (&$(name));
+.           endif
 .       endfor
             $(proto)_send (self->message, self->dealer);
         }
