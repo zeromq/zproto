@@ -63,7 +63,7 @@ import org.zeromq.ZMsg;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
 
-public class $(ClassName) implements java.io.Closeable
+public class $(ClassName) implements java.lang.AutoCloseable
 {
 .for define
     public static final int $(CLASS.NAME)_$(DEFINE.NAME:C)  = $(value);

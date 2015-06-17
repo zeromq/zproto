@@ -111,7 +111,7 @@ import org.zeromq.ZMsg;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
 
-public class ZprotoExample implements java.io.Closeable
+public class ZprotoExample implements java.lang.AutoCloseable
 {
     public static final int ZPROTO_EXAMPLE_VERSION          = 1;
 
