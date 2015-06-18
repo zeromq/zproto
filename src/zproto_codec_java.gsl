@@ -357,7 +357,6 @@ public class $(ClassName) implements java.lang.AutoCloseable
 .    endfor
                 }
                 break;
-              }
 
 .endfor
             default:
