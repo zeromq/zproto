@@ -485,6 +485,7 @@ typedef struct {
     int expiry_timer;           //  zloop timer for timeouts
     int wakeup_timer;           //  zloop timer for alarms
     event_t wakeup_event;       //  Wake up with this event
+    char log_prefix [41];       //  Log prefix string
 } s_client_t;
 
 static int
@@ -522,6 +523,12 @@ s_client_new (zsock_t *cmdpipe, zsock_t *msgpipe)
         assert ((s_client_t *) &self->client == self);
         self->cmdpipe = cmdpipe;
         self->msgpipe = msgpipe;
+.for class.state where item () = 1
+        self->state = $(name:c)_state;
+.endfor
+        self->event = NULL_event;
+        snprintf (self->log_prefix, sizeof (self->log_prefix) - 1,
+            "%6d:%-33s", randof (1000000), "$(class.name)");
         self->dealer = zsock_new (ZMQ_DEALER);
         if (self->dealer)
             self->message = $(proto)_new ();
@@ -529,10 +536,6 @@ s_client_new (zsock_t *cmdpipe, zsock_t *msgpipe)
             self->loop = zloop_new ();
         if (self->loop) {
             //  Give application chance to initialize and set next event
-.for class.state where item () = 1
-            self->state = $(name:c)_state;
-.endfor
-            self->event = NULL_event;
             self->client.cmdpipe = self->cmdpipe;
             self->client.msgpipe = self->msgpipe;
             self->client.dealer = self->dealer;
@@ -699,7 +702,8 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
             break;
 .   endfor
         default:
-            zsys_error ("$(class.name): unknown command %s, halting", $(proto)_command (message));
+            zsys_error ("%s: unknown command %s, halting",
+                        self->log_prefix, $(proto)_command (message));
             self->terminated = true;
             return NULL_event;
     }
@@ -711,22 +715,23 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
 .           if name = "send"
                         //  send $(MESSAGE:C)
                         if ($(class.name)_verbose)
-                            zsys_debug ("$(class.name):         $ $(name) $(MESSAGE:C)");
+                            zsys_debug ("%s:         $ $(name) $(MESSAGE:C)",
+                                self->log_prefix);
                         $(proto)_set_id (self->message, $(PROTO)_$(MESSAGE:C));
 .               if switches.trace ?= 1
-                        zsys_debug ("$(class.name): Send message to server");
+                        zsys_debug ("%s: Send message to server", self->log_prefix);
                         $(proto)_print (self->message);
 .               endif
                         $(proto)_send (self->message, self->dealer);
 .           elsif name = "terminate"
                         //  terminate
                         if ($(class.name)_verbose)
-                            zsys_debug ("$(class.name):         $ $(name)");
+                            zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         self->fsm_stopped = true;
 .           else
                         //  $(name)
                         if ($(class.name)_verbose)
-                            zsys_debug ("$(class.name):         $ $(name)");
+                            zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         $(name:c) (&self->client);
 .           endif
                     }
@@ -765,8 +770,10 @@ s_client_execute (s_client_t *self, event_t event)
         self->next_event = NULL_event;
         self->exception = NULL_event;
         if ($(class.name)_verbose) {
-            zsys_debug ("$(class.name): %s:", s_state_name [self->state]);
-            zsys_debug ("$(class.name):     %s", s_event_name [self->event]);
+            zsys_debug ("%s: %s:",
+                self->log_prefix, s_state_name [self->state]);
+            zsys_debug ("%s:     %s",
+                self->log_prefix, s_event_name [self->event]);
         }
         switch (self->state) {
 .for class.state
@@ -796,8 +803,10 @@ s_client_execute (s_client_t *self, event_t event)
 .   else
                 else {
                     //  Handle unexpected internal events
-                    zsys_warning ("$(class.name): unhandled event %s in %s",
-                        s_event_name [self->event], s_state_name [self->state]);
+                    zsys_warning ("%s: unhandled event %s in %s",
+                        self->log_prefix,
+                        s_event_name [self->event],
+                        s_state_name [self->state]);
                     assert (false);
                 }
 .   endfor
@@ -807,12 +816,14 @@ s_client_execute (s_client_t *self, event_t event)
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
             if ($(class.name)_verbose)
-                zsys_debug ("$(class.name):         ! %s", s_event_name [self->exception]);
+                zsys_debug ("%s:         ! %s",
+                    self->log_prefix, s_event_name [self->exception]);
             self->next_event = self->exception;
         }
         else
         if ($(class.name)_verbose)
-            zsys_debug ("$(class.name):         > %s", s_state_name [self->state]);
+            zsys_debug ("%s:         > %s",
+                    self->log_prefix, s_state_name [self->state]);
     }
 }
 
@@ -855,7 +866,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (!method)
         return -1;                  //  Interrupted; exit zloop
     if ($(class.name)_verbose)
-        zsys_debug ("$(class.name):     API command=%s", method);
+        zsys_debug ("%s:     API command=%s", self->log_prefix, method);
 
     if (streq (method, "$TERM"))
         self->terminated = true;    //  Shutdown the engine
@@ -880,7 +891,8 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
 .endfor
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
-        zsys_error ("$(class.name): trailing API command frames (%s)", method);
+        zsys_error ("%s: trailing API command frames (%s)",
+            self->log_prefix, method);
         zmsg_t *more = zmsg_recv (self->cmdpipe);
         zmsg_print (more);
         zmsg_destroy (&more);
@@ -904,7 +916,7 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
         if (!method)
             return -1;              //  Interrupted; exit zloop
         if ($(class.name)_verbose)
-            zsys_debug ("$(class.name):     API message=%s", method);
+            zsys_debug ("%s:     API message=%s", self->log_prefix, method);
 
         //  Front-end shuts down msgpipe before cmdpipe, this little
         //  handshake just ensures all traffic on the msgpipe has been
@@ -941,7 +953,7 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
 .endfor
         //  Cleanup pipe if any argument frames are still waiting to be eaten
         if (zsock_rcvmore (self->msgpipe)) {
-            zsys_error ("$(class.name): trailing API message frames (%s)", method);
+            zsys_error ("%s: trailing API message frames (%s)", self->log_prefix, method);
             zmsg_t *more = zmsg_recv (self->msgpipe);
             zmsg_print (more);
             zmsg_destroy (&more);
@@ -1424,7 +1436,7 @@ client_terminate (client_t *self)
 void
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name): ");
+    printf (" * %s: ");
     if (verbose)
         printf ("\\n");
 
