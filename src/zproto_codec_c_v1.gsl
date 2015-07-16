@@ -333,18 +333,18 @@ struct _$(class.name)_t {
     byte *ceiling;                      //  Valid upper limit for read pointer
 .for class.field
 .   if type = "number"
-    $(ctype) $(name);                   //  $(field.?'':)
+    $(ctype) $(name);                   //  $(string.trim (field.)?name:left,block)
 .   elsif type = "octets"
-    byte $(name) [$(size)];             //  $(field.?'':)
+    byte $(name) [$(size)];             //  $(string.trim (field.)?name:left,block)
 .   elsif type = "string" | type = "longstr"
-    char *$(name);                      //  $(field.?'':)
+    char *$(name);                      //  $(string.trim (field.)?name:left,block)
 .   elsif type = "strings"
-    zlist_t *$(name);                   //  $(field.?'':)
+    zlist_t *$(name);                   //  $(string.trim (field.)?name:left,block)
 .   elsif type = "hash"
-    zhash_t *$(name);                   //  $(field.?'':)
-    size_t $(name)_bytes;               //  Size of dictionary content
+    zhash_t *$(name);                   //  $(string.trim (field.)?name:left,block)
+    size_t $(name)_bytes;               //  $(string.trim (field.)?name:left,block)
 .   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
-    z$(type)_t *$(name);                //  $(field.?'':)
+    z$(type)_t *$(name);                //  $(string.trim (field.)?name:left,block)
 .   endif
 .endfor
 };
