@@ -7,8 +7,8 @@ zproto is a set of code generators that can produce:
 * fast and efficient binary codecs for ZeroMQ-based protocols.
 
 * full-featured protocol servers based on high-level state machine models.
- 
-* full-featured protocol clients based on high-level state machine models. 
+
+* full-featured protocol clients based on high-level state machine models.
 
 To use zproto, clone the repository at https://github.com/zeromq/zproto.
 
@@ -29,7 +29,7 @@ To rebuild the codec, first build and install https://github.com/imatix/gsl. The
     cd src
     make code check
 
-To use zproto as the base for your own projects, create a new project with [zproject](http://github.com/zeromq/zproject) which nicely integrates with zproto. 
+To use zproto as the base for your own projects, create a new project with [zproject](http://github.com/zeromq/zproject) which nicely integrates with zproto.
 
 ## The Codec Generator
 
@@ -114,7 +114,7 @@ Where "myserver" is used in logging. Note that a zactor is effectively a backgro
     SAVE configfile
     BIND localendpoint
     $TERM
-    
+
 Rather than run the server as a main program, you write a main program that creates and works with server actors. These run as background services, accepting clients on a ZMQ ROUTER port. The bind method exposes that port to the outside world.
 
 Your input to the code generator is two XML files (without schemas, DTDs, entity encodings!) that defines a set of 'states', and the protocol messages as used to generate the codec. Here is a minimal 'hello_server.xml' example that defines a Hello, World server:
@@ -157,7 +157,7 @@ There are two predefined actions: "send", which sends a specific protocol messag
     </state>
 
     ...
-    
+
     static void
     tell_the_user_hello_too (client_t *self)
     {
@@ -204,7 +204,7 @@ Your server code (the actions) gets a small API to work with:
     //  server/background. You can also configure other abitrary properties.
     static void
     engine_configure (server_t *server, const char *path, const char *value);
-    
+
 ### Message Filtering & Priorities
 
 The generated engine implements a simple yet useful form of message filtering:
@@ -493,13 +493,19 @@ Your client code (the actions) gets a small API to work with:
     static void
     engine_set_wakeup_event (client_t *self, size_t delay, event_t event);
 
-    //  Set heartbeat timeout. By default, the timeout is zero, meaning
-    //  infinite. Setting a non-zero timeout causes the state machine to
-    //  receive an "expired" event if is no incoming traffic for that many
-    //  milliseconds. This cycles over and over until/unless the code sets
-    //  a zero timeout. The state machine must handle the "expired" event.
+    //  Set a heartbeat timer. The interval is in msecs and must be
+    //  non-zero. The state machine must handle the "heartbeat" event.
+    //  The heartbeat happens every interval no matter what traffic the
+    //  client is sending or receiving.
     static void
-    engine_set_timeout (client_t *client, size_t timeout);
+    engine_set_heartbeat (client_t *self, size_t heartbeat);
+
+    //  Set expiry timer. Setting a non-zero expiry causes the state machine
+    //  to receive an "expired" event if is no incoming traffic for that many
+    //  milliseconds. This cycles over and over until/unless the code sets a
+    //  zero expiry. The state machine must handle the "expired" event.
+    static void
+    engine_set_expiry (client_t *client, size_t expiry);
 
     //  Set connected to true/false. The client must call this if it wants
     //  to provide the API with the connected status.
@@ -510,6 +516,10 @@ Your client code (the actions) gets a small API to work with:
     //  Handler must be a CZMQ zloop_fn function; receives server as arg.
     static void
     engine_handle_socket (client_t *client, zsock_t *socket, zloop_reader_fn handler);
+
+### Heartbeating
+
+Use the engine_set_heartbeat method to generate a regular "heartbeat" event when connected, and send a PING each time. The server needs to respond with a PONG. Then, set an expiry timeout of 2 or 3 times the heartbeat interval, and use this to detect a dead server.
 
 ### Superstates
 
@@ -525,14 +535,14 @@ Superstates are a shorthand to reduce the amount of error-prone repetition in a 
         <event name = "GOODBYE OK">
             <action name = "terminate" />
         </event>
-        <event name = "timeout">
+        <event name = "expired">
             <action name = "terminate" />
         </event>
     </state>
 
    <state name = "defaults">
         <!-- Server didn't respond for some time -->
-        <event name = "timeout" next = "reconnecting">
+        <event name = "expired" next = "reconnecting">
             <action name = "use connect timeout" />
             <action name = "send" message = "HELLO" />
         </event>
@@ -590,7 +600,7 @@ In your client code, you have a client_t structure. Note that the client_t struc
 
 ### Client Expiry Timer
 
-If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the timeout, use engine_set_timeout (). The expired event will repeat whenever there is no activity from the server, until you set a timeout of zero (which ends it).
+If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the expiry timeout, use engine_set_expiry (). The expired event will repeat whenever there is no activity from the server, until you set a expiry of zero (which ends it).
 
 ### Method Framework
 
@@ -656,7 +666,7 @@ Each method is implemented as a classic CLASS method, with the public API in the
 
     //  ------------------------------------------------------------------
     //  Subscribe to all messages sent to matching addresses...
-    
+
     int
     mlm_client_subscribe (mlm_client_t *self, const char *stream, const char *pattern)
     {
@@ -694,7 +704,7 @@ This section covers some learned experience designing protocols, using zproto an
 
 The simplest and most robust heartbeat / connection expiry model appears to be the following:
 
-* The server disconnects unresponsive clients after some timeout, which you can set using the SET message and the "server/timeout" property. A good timeout is perhaps 3 to 10 seconds.
+* The server disconnects unresponsive clients after some expiry timeout, which you can set using the SET message and the "server/timeout" property. A good expiry timeout is perhaps 3 to 10 seconds. The minimum allowed is 2000 milliseconds.
 
 * The client heartbeats the server by sending a PING heartbeat every second if there is no other activity. You can do this by calling "engine_set_timeout (self, 1000);" in the client and in expired_event handling, send a PING command (or similar).
 
