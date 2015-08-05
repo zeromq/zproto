@@ -1609,19 +1609,23 @@ $(class.name)_test (bool verbose)
         assert (streq ((char *) zhash_cursor ($(name)), "Name"));
 .           endif
         zhash_destroy (&$(name));
-        zhash_destroy (&$(message.name)_$(name));
+        if (instance == 1)
+            zhash_destroy (&$(message.name)_$(name));
 .       elsif type = "chunk"
         assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.?"Captcha Diem"):)) == 0);
-        zchunk_destroy (&$(message.name)_$(name));
+        if (instance == 1)
+            zchunk_destroy (&$(message.name)_$(name));
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)"));
-        zframe_destroy (&$(message.name)_$(name));
+        if (instance == 1)
+            zframe_destroy (&$(message.name)_$(name));
 .       elsif type = "msg"
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
         char *content = zmsg_popstr ($(class.name)_$(name) (self));
         assert (streq (content, "$(->test.?"Captcha Diem":)"));
         zstr_free (&content);
-        zmsg_destroy (&$(message.name)_$(name));
+        if (instance == 1)
+            zmsg_destroy (&$(message.name)_$(name));
 .       elsif type = "uuid"
         assert (zuuid_eq ($(message.name)_$(name), zuuid_data ($(class.name)_$(name) (self))));
         if (instance == 1)

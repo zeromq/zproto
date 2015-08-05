@@ -860,7 +860,7 @@ s_client_execute (s_client_t *self, event_t event)
     }
 }
 
-.if count (class.event, name = "expired")
+.if count (class.event, name = "heartbeat")
 //  zloop callback when client heartbeat timer expires
 
 static int
