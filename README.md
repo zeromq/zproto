@@ -137,6 +137,21 @@ Your input to the code generator is two XML files (without schemas, DTDs, entity
         </state>
     </class>
 
+You will also need a minimal 'hello_msg.xml' as below. It's name is defined line 5 of 'hello_server.xml', as 'protocol_class'.
+
+    <class
+        name = "hello_msg"
+        signature = "0"
+        title = "hello msg protocol"
+        script = "zproto_codec_c"
+        package_dir = "../include"
+        source_dir = "."
+        >
+
+        <message name = "HELLO" />
+        <message name = "WORLD" />
+    </class>
+
 Names of states, events, and actions are case insensitive. By convention however we use uppercase for protocol events. Protocol events can also contain embedded spaces or hyphens, which are mapped to underscores. In this case, HELLO and WORLD are two messages that must be defined in the hello_msg.xml file.
 
 The generated server manages clients automatically. To build this, do:
