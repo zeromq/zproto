@@ -41,7 +41,7 @@ namespace $(class.namespace)
 	/// <summary>
 	/// $(class.title:)
 	/// </summary>
-	public class $(class.name:Pascal) : IDisposable 
+	public class $(class.name:Pascal)
 	{
 		public class MessageException : Exception
 		{
@@ -56,48 +56,366 @@ namespace $(class.namespace)
 			$(message.name) = $(id),
 .endfor
 		}
+		
+.for message
+		#region $(message.name)
 
-.for class.field where type = "octets"
-		public const int $(field.name)Size = $(size);
+		public class $(message.name)Message
+		{
+.    for field where type = "octets"
+			public const int $(field.name)Size = $(size);
+
+.    endfor
+			public $(message.name)Message()
+			{
+.    for field where type = "octets"
+				$(field.name) = new byte[$(field.name)Size];
+.    endfor
+			}			
+
+.   for field
+.      if type = "number"
+			/// <summary>
+			/// Get/Set the $(name) field
+			/// </summary>
+			public $(cstype) $(name)
+			{
+				get;set;
+			}
+
+.      elsif type = "octets"
+			/// <summary>
+			/// Get/Set the $(name) field
+			/// </summary>
+			public byte[] $(name) 
+			{
+				get; private set;
+			}
+
+.      elsif type = "string"
+			/// <summary>
+			/// Get/Set the $(name) field
+			/// </summary>
+			public string $(name)
+			{
+				get;set;
+			}
+
+.      elsif type = "longstr"
+			/// <summary>
+			/// Get/Set the $(name) field
+			/// </summary>
+			public string $(name)
+			{
+				get;set;
+			}
+
+.      elsif type = "strings"
+			/// <summary>
+			/// /// Get/Set the $(name) list
+			/// </summary>
+			public List<string> $(name)
+			{
+				get;set;
+			}
+
+.      elsif type = "hash"
+			/// <summary>
+			/// Get/Set the $(name) dictionary
+			/// </summary>
+			public Dictionary<string, string> $(name)
+			{
+				get;set;
+			}
+
+.      elsif type = "uuid"
+			/// <summary>
+			/// Get/Set the $(name) field
+			/// </summary>
+			public Guid $(name) 
+			{
+				get;set;
+			}
+
+.      elsif type = "msg"
+			/// <summary>
+			/// /// Get/Set the $(name) NetMQMessage
+			/// </summary>
+			public NetMQMessage $(name) 
+			{
+				get;set;
+			}
+
+.      elsif type = "chunk" 
+			/// <summary>
+			/// Get/Set the $(name) field
+			/// </summary>
+			public byte[] $(name) 
+			{
+				get;set;
+			}
+
+.      elsif type = "frame" 
+			/// <summary>
+			/// Get/Set the $(name) frame
+			/// </summary>
+			public byte[] $(name) 
+			{
+				get;set;
+			}
+
+.      endif
+.   endfor
+
+			internal int GetFrameSize()
+			{
+				int frameSize = 0;
+
+.   for field
+				//  $(name)
+.       if type = "number"
+				frameSize += $(size);    
+.       elsif type = "octets"
+				frameSize += $(size);
+.       elsif type = "string"
+.           if defined (field.value)
+				frameSize += 1 +  "$(value:)".Length;
+.           else
+				frameSize += 1 + $(name).Length;
+.           endif
+.       elsif type = "longstr"
+				frameSize += 4;
+				if ($(name) != null)
+					frameSize += $(name).Length;
+.       elsif type = "strings"
+				frameSize += 4;            //  Size is 4 octets
+				if ($(name) != null) 
+				{
+					foreach(string s in $(name))
+					{
+						frameSize += 4 + s.Length;
+					}                
+				}
+.       elsif type = "hash"
+				frameSize += 4;            //  Size is 4 octets
+				if ($(name) != null) 
+				{                
+					int $(var_name)Size = 0;
+
+					foreach (var pair in $(name))
+					{
+						$(var_name)Size += 1 + pair.Key.Length;
+						$(var_name)Size += 4 + pair.Value.Length;
+					}
+
+					frameSize += $(var_name)Size;
+				}
+            
+.       elsif type = "chunk"
+				frameSize += 4;            //  Size is 4 octets
+				if ($(name) != null)
+					frameSize += $(name).Length;
+.       elsif type = "uuid"
+				frameSize  += 16;
+.       elsif type = "frame"
+.       elsif type = "msg"
+.           class.msg = name
+.           if item () <> count (message.field)
+.               echo "E: in $(message.name:), $(field.name) must come last"
+.           endif
+.       endif
+
+.   endfor
+				return frameSize;
+			}		
+
+			internal void Write($(class.name:Pascal) m)
+			{
+.   for field
+				// $(name)
+.       if type = "number"
+.           if defined (field.value)
+				m.PutNumber$(size)($(value:)); // $(name)
+.           else
+				m.PutNumber$(size)($(name));
+.           endif
+.       elsif type = "octets"
+				m.PutOctets($(name), $(size));
+.       elsif type = "string"
+.           if defined (field.value)
+				m.PutString("$(value:)");
+.           else
+				m.PutString($(name));
+.           endif
+.       elsif type = "longstr"
+				if ($(name) != null) 						
+					m.PutLongString($(name));                						
+				else
+					m.PutNumber4(0);    //  Empty string
+.       elsif type = "strings"
+				if ($(name) != null) 
+				{
+					m.PutNumber4((UInt32)$(name).Count);
+
+					foreach (string s in $(name))
+					{
+						m.PutLongString(s);
+					}                
+				}
+				else
+					m.PutNumber4(0);    //  Empty string array
+.       elsif type = "hash"
+				if ($(name) != null) 
+				{
+					m.PutNumber4((UInt32)$(name).Count);
+               
+					foreach(var pair in $(name))
+					{
+						m.PutString(pair.Key);
+						m.PutLongString(pair.Value);
+					}				
+				}
+				else
+					m.PutNumber4(0);    //  Empty dictionary
+.       elsif type = "chunk"
+				if ($(name) != null)
+				{
+					m.PutNumber4((UInt32)$(name).Length);
+					m.PutOctets($(name), $(name).Length);				
+				}
+				else
+					m.PutNumber4(0);    //  Empty chunk
+.       elsif type = "uuid" 
+				// copy guid           
+				m.PutOctets($(name).ToByteArray(), 16);			
+.       endif
+
+.   endfor
+			}
+
+			internal void Read($(class.name:Pascal) m)
+			{
+				int listSize;
+				int hashSize;
+				int chunkSize;
+				byte[] guidBytes;
+.   for field where defined (value)
+				$(cstype) $(var_name);
+.   endfor
+
+.   for field
+				// $(name)
+.       if type = "number"
+.           if defined (field.value)
+				$(var_name) = m.GetNumber$(size)();                
+				if ($(var_name) != $(value:)) 
+				{
+					throw new MessageException("$(name) is invalid");						
+				}													
+.           else
+				$(name) = m.GetNumber$(size)();
+.           endif
+.       elsif type = "octets"
+				m.GetOctets($(name), $(size));
+.       elsif type = "string"
+.           if defined (field.value)
+				{
+					string $(name:camel) = m.GetString();                
+					if ($(name:camel) != "$(value:)") 
+					{
+						throw new MessageException("$(name) is invalid");
+					}
+				}
+.           else
+				$(name) = m.GetString();
+.           endif
+.       elsif type = "longstr"
+				$(name) = m.GetLongString();            
+.       elsif type = "strings"
+				listSize = (int)m.GetNumber4();                
+				$(name) = new List<string>(listSize);                
+				while (listSize-- > 0) 
+				{
+					string s = m.GetLongString();
+					$(name).Add(s);                   
+				}												
+.       elsif type = "hash"
+				hashSize = (int)m.GetNumber4();                
+				$(name) = new Dictionary<string, string>();                
+				while (hashSize-- > 0)  
+				{
+					string key = m.GetString();
+					string value = m.GetLongString();
+					$(name).Add(key, value);
+				}						
+.       elsif type = "chunk"
+				chunkSize = (int)m.GetNumber4();                
+				if (m.m_offset + chunkSize > m.m_buffer.Length) 
+				{
+					throw new MessageException("$(name) is missing data");
+				}
+                
+				$(name) = new byte[chunkSize];
+				m.GetOctets($(name), chunkSize);                						
+.       elsif type = "uuid"
+				if (m.m_offset + 16 > m.m_buffer.Length) 
+				{
+					throw new MessageException("$(name) is invalid");					
+				}
+            
+				guidBytes = new byte[16];
+				m.GetOctets(guidBytes, 16);
+				$(name) = new Guid(guidBytes);            						
+.       endif
+
+.   endfor
+			}
+		}
+
+		#endregion
+
 .endfor
 
 		private byte[] m_buffer;    //  Read/write buffer for serialization    
 		private int m_offset;
+		private byte[] m_routingId;
 
 		/// <summary>
 		/// Create a new $(class.name:pascal)
 		/// </summary>
 		public $(class.name:Pascal)()
 		{    
-.for class.field where type = "octets"
-			$(field.name) = new byte[$(field.name)Size];
+.for message
+			$(message.name) = new $(message.name)Message();
 .endfor
-		}
+		}			
 
+.for message
+		public $(message.name)Message $(message.name) {get;private set;}
+
+.endfor
+	
 		/// <summary>
-		/// Dispose the $(class.name:pascal)
-		/// </summary>	
-		public void Dispose()
-		{
-			// Free class properties
-			RoutingId = null;       
-.for class.field
-.   if type = "uuid"
-			$(name) = Guid.Empty;            
-.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "strings" | type = "msg"
-			$(name) = null;
-.   endif
-.endfor    
-		}
-
-		#region Message Properties
-
-		/// <summary>
-		/// Get/set the message RoutingId
+		/// Get/set the message RoutingId.
 		/// </summary>
 		public byte[] RoutingId
 		{
-			get;set;
+			get
+			{
+				return m_routingId;
+			}
+			set 
+			{
+				if (value == null)
+			        m_routingId = null;
+			    else
+			    {       
+					if (m_routingId == null || m_routingId.Length != value.Length)
+						m_routingId = new byte[value.Length];
+
+					Buffer.BlockCopy(value, 0, m_routingId, 0, value.Length);
+				}
+			}
 		}
 
 		/// <summary>
@@ -119,120 +437,13 @@ namespace $(class.namespace)
 				{
 .for class.message
 					case MessageId.$(message.name):
-						return "$(message.name)";
-						break;					
+						return "$(message.name)";										
 .endfor
 				}
 				return "?";
 			}
 		}
-
-.for class.field where !defined (value)
-.   if type = "number"
-
-		/// <summary>
-		/// Get/Set the $(name) field
-		/// </summary>
-		public $(cstype) $(name)
-		{
-			get;set;
-		}
-
-.   elsif type = "octets"
-
-		/// <summary>
-		/// Get/Set the $(name) field
-		/// </summary>
-		public byte[] $(name) 
-		{
-			get; private set;
-		}
-
-.   elsif type = "string"
-
-		/// <summary>
-		/// Get/Set the $(name) field
-		/// </summary>
-		public string $(name)
-		{
-			get;set;
-		}
-
-.   elsif type = "longstr"
-
-		/// <summary>
-		/// Get/Set the $(name) field
-		/// </summary>
-		public string $(name)
-		{
-			get;set;
-		}
-
-.   elsif type = "strings"
-
-		/// <summary>
-		/// /// Get/Set the $(name) list
-		/// </summary>
-		public List<string> $(name)
-		{
-			get;set;
-		}
-
-.   elsif type = "hash"
-
-		/// <summary>
-		/// Get/Set the $(name) dictionary
-		/// </summary>
-		public Dictionary<string, string> $(name)
-		{
-			get;set;
-		}
-
-.   elsif type = "uuid"
-
-		/// <summary>
-		/// Get/Set the $(name) field
-		/// </summary>
-		public Guid $(name) 
-		{
-			get;set;
-		}
-
-.   elsif type = "msg"
-
-		/// <summary>
-		/// /// Get/Set the $(name) NetMQMessage
-		/// </summary>
-		public NetMQMessage $(name) 
-		{
-			get;set;
-		}
-
-.   elsif type = "chunk" 
-
-		/// <summary>
-		/// Get/Set the $(name) field
-		/// </summary>
-		public byte[] $(name) 
-		{
-			get;set;
-		}
-
-.   elsif type = "frame" 
-
-		/// <summary>
-		/// Get/Set the $(name) frame
-		/// </summary>
-		public byte[] $(name) 
-		{
-			get;set;
-		}
-
-.   endif
-.endfor
-	
-		#endregion
-		
+			
 		/// <summary>
 		/// Receive a $(class.name:pascal) from the socket.  
 		/// </summary>
@@ -242,10 +453,26 @@ namespace $(class.namespace)
 			   
 			if (input is RouterSocket) 
 			{   			
-				RoutingId = input.Receive(out more);
-				if (!more) 
+				Msg routingIdMsg = new Msg();
+				routingIdMsg.InitEmpty();
+
+				try
 				{
-					throw new MessageException("No routing id");				
+					input.Receive(ref routingIdMsg);
+
+					if (!routingIdMsg.HasMore) 
+					{
+						throw new MessageException("No routing id");				
+					}
+
+					if (m_routingId == null || m_routingId.Length == routingIdMsg.Size)					
+						m_routingId = new byte[routingIdMsg.Size];					
+
+					Buffer.BlockCopy(routingIdMsg.Data, 0, m_routingId, 0, m_routingId.Length);
+				}
+				finally
+				{
+					routingIdMsg.Close();
 				}
 			}
 			else
@@ -258,7 +485,7 @@ namespace $(class.namespace)
 
 			try
 			{
-				input.Receive(ref msg, SendReceiveOptions.None);
+				input.Receive(ref msg);
 
 				m_offset = 0;
 				m_buffer = msg.Data;
@@ -273,115 +500,16 @@ namespace $(class.namespace)
 		
 				//  Get message id and parse per message type
 				Id = (MessageId)GetNumber1();
-
-				int listSize;
-				int hashSize;
-				int chunkSize;
-				byte[] guidBytes;
-.for class.field where defined (value)
-				$(cstype) $(var_name);
-.endfor
-	
+				
 				switch (Id) 
 				{
 .for class.message
 					case MessageId.$(message.name):
-.   for field
-.       if type = "number"
-.           if defined (field.value)
-						$(var_name) = GetNumber$(size)();
-                
-						if ($(var_name) != $(value:)) 
-						{
-							throw new MessageException("$(name) is invalid");						
-						}
-													
-.           else
-						$(name) = GetNumber$(size)();
-.           endif
-.       elsif type = "octets"
-						GetOctets($(name), $(size));
-.       elsif type = "string"
-.           if defined (field.value)
-						{
-							string $(name:camel) = GetString();                
-							if ($(name:camel) != "$(value:)") 
-							{
-								throw new MessageException("$(name) is invalid");
-							}
-						}
-.           else
-						$(name) = GetString();
-.           endif
-.       elsif type = "longstr"
-						$(name) = GetLongString();            
-.       elsif type = "strings"
-						
-						listSize = (int)GetNumber4();                
-						$(name) = new List<string>(listSize);                
-						while (listSize-- > 0) 
-						{
-							string s = GetLongString();
-							$(name).Add(s);                   
-						}		
-										
-.       elsif type = "hash"
-
-						hashSize = (int)GetNumber4();                
-						$(name) = new Dictionary<string, string>();                
-						while (hashSize-- > 0)  
-						{
-							string key = GetString();
-							string value = GetLongString();
-							$(name).Add(key, value);
-						}						
-
-.       elsif type = "chunk"
-						
-						chunkSize = (int)GetNumber4();                
-						if (m_offset + chunkSize > m_buffer.Length) 
-						{
-							throw new MessageException("$(name) is missing data");
-						}
-                
-						$(name) = new byte[chunkSize];
-						GetOctets($(name), chunkSize);                						
-
-.       elsif type = "uuid"
-
-						if (m_offset + 16 > m_buffer.Length) 
-						{
-							throw new MessageException("$(name) is invalid");					
-						}
-            
-						guidBytes = new byte[16];
-						GetOctets(guidBytes, 16);
-						$(name) = new Guid(guidBytes);            
-						
-.       elsif type = "frame"
-						
-						//  Get next frame off socket
-						if (!more)
-						{
-							throw new MessageException("$(name) is missing");
-						}
-            
-						$(name) = input.Receive(out more);
-
-.       elsif type = "msg"
-
-						//  Get zero or more remaining frames            
-						if (more)
-							$(name) = input.ReceiveMessage();
-						else
-							$(name) = new NetMQMessage();
-.       endif
-.   endfor
+						$(message.name).Read(this);
 					break;
 .endfor
 				default:
-					throw new MessageException("Bad message id");            
-					break;
+					throw new MessageException("Bad message id");            					
 				}        
 			}
 			finally
@@ -397,66 +525,14 @@ namespace $(class.namespace)
 		public void Send(IOutgoingSocket output)
 		{    
 			if (output is RouterSocket)
-				output.SendMore(RoutingId);
+				output.SendMoreFrame(RoutingId);
 
 			int frameSize = 2 + 1;          //  Signature and message ID
 			switch (Id) 
 			{
 .for class.message where count (field)
 				case MessageId.$(message.name):
-.   for field
-.       if type = "number"
-					frameSize += $(size);      //  $(name)
-.       elsif type = "octets"
-					frameSize += $(size);      //  $(name)
-.       elsif type = "string"
-.           if defined (field.value)
-					frameSize += 1 +  "$(value:)".Length;
-.           else
-					frameSize += 1 + $(name).Length;
-.           endif
-.       elsif type = "longstr"
-					frameSize += 4;
-					if ($(name) != null)
-						frameSize += $(name).Length;
-.       elsif type = "strings"
-					frameSize += 4;            //  Size is 4 octets
-					if ($(name) != null) 
-					{
-						foreach(string s in $(name))
-						{
-							frameSize += 4 + s.Length;
-						}                
-					}
-.       elsif type = "hash"
-					frameSize += 4;            //  Size is 4 octets
-					if ($(name) != null) 
-					{                
-						int $(var_name)Size = 0;
-
-						foreach (var pair in $(name))
-						{
-							$(var_name)Size += 1 + pair.Key.Length;
-							$(var_name)Size += 4 + pair.Value.Length;
-						}
-
-						frameSize += $(var_name)Size;
-					}
-            
-.       elsif type = "chunk"
-					frameSize += 4;            //  Size is 4 octets
-					if ($(name) != null)
-						frameSize += $(name).Length;
-.       elsif type = "uuid"
-					frameSize  += 16;    //  $(name)
-.       elsif type = "frame"
-.       elsif type = "msg"
-.           class.msg = name
-.           if item () <> count (message.field)
-.               echo "E: in $(message.name:), $(field.name) must come last"
-.           endif
-.       endif
-.   endfor
+					frameSize += $(message.name).GetFrameSize();
 					break;
 .endfor
 			}
@@ -466,7 +542,7 @@ namespace $(class.namespace)
 			msg.InitPool(frameSize);
 
 			try
-			{
+			{		
 				m_offset = 0;
 				m_buffer = msg.Data;
 
@@ -475,119 +551,18 @@ namespace $(class.namespace)
 
 				// put message id
 				PutNumber1((byte)Id);
-.if defined (class.msg)
-				bool send$(class.msg:camel) = false;
-.endif
-				int frames = 1;              //  Total number of frames to send
-    
+	
 				switch (Id) 
 				{
 .for class.message where count (field)
 					case MessageId.$(message.name):
-.   for field
-.       if type = "number"
-.           if defined (field.value)
-						PutNumber$(size)($(value:)); // $(name)
-.           else
-						PutNumber$(size)($(name));
-.           endif
-.       elsif type = "octets"
-						PutOctets($(name), $(size));
-.       elsif type = "string"
-.           if defined (field.value)
-						PutString("$(value:)");
-.           else
-						PutString($(name));
-.           endif
-.       elsif type = "longstr"
-						if ($(name) != null) 						
-							PutLongString($(name));                						
-						else
-							PutNumber4(0);    //  Empty string
-.       elsif type = "strings"
-						
-						if ($(name) != null) 
-						{
-							PutNumber4((UInt32)$(name).Count);
-
-							foreach (string s in $(name))
-							{
-								PutLongString(s);
-							}                
-						}
-						else
-							PutNumber4(0);    //  Empty string array
-
-.       elsif type = "hash"
-						
-						if ($(name) != null) 
-						{
-							PutNumber4((UInt32)$(name).Count);
-                
-							foreach(var pair in $(name))
-							{
-								PutString(pair.Key);
-								PutLongString(pair.Value);
-							}				
-						}
-						else
-							PutNumber4(0);    //  Empty dictionary
-
-.       elsif type = "chunk"
-
-						if ($(name) != null)
-						{
-							PutNumber4((UInt32)$(name).Length);
-							Buffer.BlockCopy($(name), 0, m_buffer, m_offset, $(name).Length);
-							m_offset += $(name).Length;
-						}
-						else
-							PutNumber4(0);    //  Empty chunk
-
-.       elsif type = "uuid" 
-
-						// copy guid           
-						Buffer.BlockCopy($(name).ToByteArray(), 0, m_buffer, m_offset, 16);
-						m_offset += 16;
-.       elsif type = "frame"
-						frames++;
-.       elsif type = "msg"
-						frames += $(name) != null ? $(name).FrameCount : 1;
-						send$(class.msg:Camel) = true;
-.       endif
-.   endfor
+						$(message.name).Write(this);
 					break;
 .endfor
 				}
 
-				//  Now send the data frame				
-				output.Send(ref msg, --frames == 0 ? SendReceiveOptions.None : SendReceiveOptions.SendMore);
-        
-.for class.message where count (field, type = "frame")
-				//  Now send any frame fields, in order
-				if (Id == MessageId.$(message.name)) 
-				{
-.   for field where type = "frame"
-					if (--frames == 0)
-						output.Send($(field.name) != null ? $(field.name) : new byte[0]);
-					else 
-						output.SendMore($(field.name) != null ? $(field.name) : new byte[0]);            		            
-.   endfor
-				}
-.endfor
-.if defined (class.msg)
-				
-				//  Now send the $(class.msg) if necessary
-				if (send$(class.msg:Camel)) 
-				{
-					if ($(class.msg) != null) 
-					{
-						output.SendMessage($(class.msg));            
-					}
-					else
-						output.Send(new byte[0]);            
-				}
-.endif    
+				//  Send the data frame				
+				output.Send(ref msg, false);       
 			}
 			finally
 			{
@@ -602,7 +577,7 @@ namespace $(class.namespace)
 		private void PutOctets(byte[] host, int size) 
 		{ 
 			Buffer.BlockCopy(host, 0, m_buffer, m_offset, size);   
-			m_offset += host.Length; 
+			m_offset += size; 
 		}
 
 		//  Get a block of octets from the frame
@@ -822,26 +797,23 @@ namespace $(class.test_namespace)
 
 .   for field where !defined (value)
 .       if type = "number"
-				m.$(name) = 123;
+				m.$(message.name).$(name) = 123;
 .       elsif type = "octets"
-				FillArray(m.$(name), 123);				    
+				FillArray(m.$(message.name).$(name), 123);				    
 .       elsif type = "string" | type = "longstr"
-    			m.$(name) = "Life is short but Now lasts for ever";
+    			m.$(message.name).$(name) = "Life is short but Now lasts for ever";
 .       elsif type = "strings"
-				m.$(name) = new List<string>();
-				m.$(name).Add("Name: Brutus");
-				m.$(name).Add("Age: 43");    
+				m.$(message.name).$(name) = new List<string>();
+				m.$(message.name).$(name).Add("Name: Brutus");
+				m.$(message.name).$(name).Add("Age: 43");    
 .       elsif type = "hash"
-				m.$(name) = new Dictionary<string,string>();
-				m.$(name).Add("Name", "Brutus");
-				m.$(name).Add("Age", "43");    
-.       elsif type = "chunk" | type = "frame"
-				m.$(name) = Encoding.ASCII.GetBytes("Captcha Diem");
+				m.$(message.name).$(name) = new Dictionary<string,string>();
+				m.$(message.name).$(name).Add("Name", "Brutus");
+				m.$(message.name).$(name).Add("Age", "43");    
 .       elsif type = "uuid"
-				m.$(name) = Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E");
-.       elsif type = "msg"
-				m.$(name) = new NetMQMessage();
-				m.$(name).Append("Hello, World");		
+				m.$(message.name).$(name) = Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E");
+.       elsif type = "chunk"
+				m.$(message.name).$(name) = Encoding.ASCII.GetBytes("Captcha Diem");
 .       endif
 .   endfor
 			};
@@ -851,26 +823,26 @@ namespace $(class.test_namespace)
 				Assert.That(m.Id, Is.EqualTo($(class.name:Pascal).MessageId.$(message.name:Pascal)));
 .   for field where !defined (value)
 .       if type = "number"
-				Assert.That(m.$(name), Is.EqualTo(123));        
+				Assert.That(m.$(message.name).$(name), Is.EqualTo(123));        
 .       elsif type = "octets"
-				Assert.That(m.$(name)[0], Is.EqualTo(123));        
-				Assert.That(m.$(name)[m.$(name).Length-1], Is.EqualTo(123));                
+				Assert.That(m.$(message.name).$(name)[0], Is.EqualTo(123));        
+				Assert.That(m.$(message.name).$(name)[m.$(message.name).$(name).Length-1], Is.EqualTo(123));                
 .       elsif type = "string" | type = "longstr"
-				Assert.That(m.$(name), Is.EqualTo("Life is short but Now lasts for ever"));                
+				Assert.That(m.$(message.name).$(name), Is.EqualTo("Life is short but Now lasts for ever"));                
 .       elsif type = "strings"
-				Assert.That(m.$(name).Count, Is.EqualTo(2));
-				Assert.That(m.$(name)[0], Is.EqualTo("Name: Brutus"));                
-				Assert.That(m.$(name)[1], Is.EqualTo("Age: 43"));                                
+				Assert.That(m.$(message.name).$(name).Count, Is.EqualTo(2));
+				Assert.That(m.$(message.name).$(name)[0], Is.EqualTo("Name: Brutus"));                
+				Assert.That(m.$(message.name).$(name)[1], Is.EqualTo("Age: 43"));                                
 .       elsif type = "hash"
-				Assert.That(m.$(name).Count, Is.EqualTo(2));
-				Assert.That(m.$(name)["Name"], Is.EqualTo("Brutus"));                
-				Assert.That(m.$(name)["Age"], Is.EqualTo("43"));                                
-.       elsif type = "chunk" | type = "frame"
-				Assert.That(m.$(name), Is.EqualTo(Encoding.ASCII.GetBytes("Captcha Diem")));				
+				Assert.That(m.$(message.name).$(name).Count, Is.EqualTo(2));
+				Assert.That(m.$(message.name).$(name)["Name"], Is.EqualTo("Brutus"));                
+				Assert.That(m.$(message.name).$(name)["Age"], Is.EqualTo("43"));                                
+.       elsif type = "chunk"
+				Assert.That(m.$(message.name).$(name), Is.EqualTo(Encoding.ASCII.GetBytes("Captcha Diem")));				
 .       elsif type = "msg"
-				Assert.That(m.$(name).FrameCount, Is.EqualTo(1));        
+				Assert.That(m.$(message.name).$(name).FrameCount, Is.EqualTo(1));        
 .       elsif type = "uuid"
-				Assert.That(m.$(name), Is.EqualTo(Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E")));
+				Assert.That(m.$(message.name).$(name), Is.EqualTo(Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E")));
 .       endif
 .   endfor
 			};
@@ -907,10 +879,7 @@ namespace $(class.test_namespace)
 					// check that message received ok
 					Assert.That(clientMessage.RoutingId, Is.Null);					
 					checkMessage(clientMessage);
-				}
-
-				clientMessage.Dispose();
-				serverMessage.Dispose();
+				}				
 			}			
 		}	
 .endfor

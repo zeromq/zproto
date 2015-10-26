@@ -46,7 +46,7 @@ namespace ZProto
 	/// <summary>
 	/// zproto example protocol csharp
 	/// </summary>
-	public class Example : IDisposable 
+	public class Example
 	{
 		public class MessageException : Exception
 		{
@@ -62,43 +62,696 @@ namespace ZProto
 			Binary = 3,
 			Types = 4,
 		}
+		
+		#region Log
 
-		public const int FlagsSize = 4;
+		public class LogMessage
+		{
+			public LogMessage()
+			{
+			}			
+
+			/// <summary>
+			/// Get/Set the Sequence field
+			/// </summary>
+			public UInt16 Sequence
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Version field
+			/// </summary>
+			public UInt16 Version
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Level field
+			/// </summary>
+			public byte Level
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Event field
+			/// </summary>
+			public byte Event
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Node field
+			/// </summary>
+			public UInt16 Node
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Peer field
+			/// </summary>
+			public UInt16 Peer
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Time field
+			/// </summary>
+			public UInt64 Time
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Host field
+			/// </summary>
+			public string Host
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Data field
+			/// </summary>
+			public string Data
+			{
+				get;set;
+			}
+
+
+			internal int GetFrameSize()
+			{
+				int frameSize = 0;
+
+				//  Sequence
+				frameSize += 2;          
+
+				//  Version
+				frameSize += 2;          
+
+				//  Level
+				frameSize += 1;          
+
+				//  Event
+				frameSize += 1;          
+
+				//  Node
+				frameSize += 2;          
+
+				//  Peer
+				frameSize += 2;          
+
+				//  Time
+				frameSize += 8;          
+
+				//  Host
+				frameSize += 1 + Host.Length;
+
+				//  Data
+				frameSize += 4;
+				if (Data != null)
+					frameSize += Data.Length;
+
+				return frameSize;
+			}		
+
+			internal void Write(Example m)
+			{
+				// Sequence
+				m.PutNumber2(Sequence);
+
+				// Version
+				m.PutNumber2(3); // Version
+
+				// Level
+				m.PutNumber1(Level);
+
+				// Event
+				m.PutNumber1(Event);
+
+				// Node
+				m.PutNumber2(Node);
+
+				// Peer
+				m.PutNumber2(Peer);
+
+				// Time
+				m.PutNumber8(Time);
+
+				// Host
+				m.PutString(Host);
+
+				// Data
+				if (Data != null) 						
+					m.PutLongString(Data);                   						
+				else
+					m.PutNumber4(0);    //  Empty string
+
+			}
+
+			internal void Read(Example m)
+			{
+				int listSize;
+				int hashSize;
+				int chunkSize;
+				byte[] guidBytes;
+				UInt16 version;
+
+				// Sequence
+				Sequence = m.GetNumber2();
+
+				// Version
+				version = m.GetNumber2();                          
+				if (version != 3) 
+				{
+					throw new MessageException("Version is invalid");						
+				}													
+
+				// Level
+				Level = m.GetNumber1();
+
+				// Event
+				Event = m.GetNumber1();
+
+				// Node
+				Node = m.GetNumber2();
+
+				// Peer
+				Peer = m.GetNumber2();
+
+				// Time
+				Time = m.GetNumber8();
+
+				// Host
+				Host = m.GetString();
+
+				// Data
+				Data = m.GetLongString();               
+
+			}
+		}
+
+		#endregion
+
+		#region Structures
+
+		public class StructuresMessage
+		{
+			public StructuresMessage()
+			{
+			}			
+
+			/// <summary>
+			/// Get/Set the Sequence field
+			/// </summary>
+			public UInt16 Sequence
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// /// Get/Set the Aliases list
+			/// </summary>
+			public List<string> Aliases
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Headers dictionary
+			/// </summary>
+			public Dictionary<string, string> Headers
+			{
+				get;set;
+			}
+
+
+			internal int GetFrameSize()
+			{
+				int frameSize = 0;
+
+				//  Sequence
+				frameSize += 2;          
+
+				//  Aliases
+				frameSize += 4;            //  Size is 4 octets
+				if (Aliases != null) 
+				{
+					foreach(string s in Aliases)
+					{
+						frameSize += 4 + s.Length;
+					}                
+				}
+
+				//  Headers
+				frameSize += 4;            //  Size is 4 octets
+				if (Headers != null) 
+				{                
+					int headersSize = 0;
+
+					foreach (var pair in Headers)
+					{
+						headersSize += 1 + pair.Key.Length;
+						headersSize += 4 + pair.Value.Length;
+					}
+
+					frameSize += headersSize;
+				}
+            
+
+				return frameSize;
+			}		
+
+			internal void Write(Example m)
+			{
+				// Sequence
+				m.PutNumber2(Sequence);
+
+				// Aliases
+				if (Aliases != null) 
+				{
+					m.PutNumber4((UInt32)Aliases.Count);
+
+					foreach (string s in Aliases)
+					{
+						m.PutLongString(s);
+					}                
+				}
+				else
+					m.PutNumber4(0);    //  Empty string array
+
+				// Headers
+				if (Headers != null) 
+				{
+					m.PutNumber4((UInt32)Headers.Count);
+               
+					foreach(var pair in Headers)
+					{
+						m.PutString(pair.Key);
+						m.PutLongString(pair.Value);
+					}				
+				}
+				else
+					m.PutNumber4(0);    //  Empty dictionary
+
+			}
+
+			internal void Read(Example m)
+			{
+				int listSize;
+				int hashSize;
+				int chunkSize;
+				byte[] guidBytes;
+
+				// Sequence
+				Sequence = m.GetNumber2();
+
+				// Aliases
+				listSize = (int)m.GetNumber4();                
+				Aliases = new List<string>(listSize);                
+				while (listSize-- > 0) 
+				{
+					string s = m.GetLongString();
+					Aliases.Add(s);                   
+				}												
+
+				// Headers
+				hashSize = (int)m.GetNumber4();                
+				Headers = new Dictionary<string, string>();                
+				while (hashSize-- > 0)  
+				{
+					string key = m.GetString();
+					string value = m.GetLongString();
+					Headers.Add(key, value);
+				}						
+
+			}
+		}
+
+		#endregion
+
+		#region Binary
+
+		public class BinaryMessage
+		{
+			public const int FlagsSize = 4;
+
+			public BinaryMessage()
+			{
+				Flags = new byte[FlagsSize];
+			}			
+
+			/// <summary>
+			/// Get/Set the Sequence field
+			/// </summary>
+			public UInt16 Sequence
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Flags field
+			/// </summary>
+			public byte[] Flags 
+			{
+				get; private set;
+			}
+
+			/// <summary>
+			/// Get/Set the PublicKey field
+			/// </summary>
+			public byte[] PublicKey 
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the Identifier field
+			/// </summary>
+			public Guid Identifier 
+			{
+				get;set;
+			}
+
+
+			internal int GetFrameSize()
+			{
+				int frameSize = 0;
+
+				//  Sequence
+				frameSize += 2;          
+
+				//  Flags
+				frameSize += 4;
+
+				//  PublicKey
+				frameSize += 4;            //  Size is 4 octets
+				if (PublicKey != null)
+					frameSize += PublicKey.Length;
+
+				//  Identifier
+				frameSize  += 16;
+
+				return frameSize;
+			}		
+
+			internal void Write(Example m)
+			{
+				// Sequence
+				m.PutNumber2(Sequence);
+
+				// Flags
+				m.PutOctets(Flags, 4);
+
+				// PublicKey
+				if (PublicKey != null)
+				{
+					m.PutNumber4((UInt32)PublicKey.Length);
+					m.PutOctets(PublicKey, PublicKey.Length);				
+				}
+				else
+					m.PutNumber4(0);    //  Empty chunk
+
+				// Identifier
+				// copy guid           
+				m.PutOctets(Identifier.ToByteArray(), 16);			
+
+			}
+
+			internal void Read(Example m)
+			{
+				int listSize;
+				int hashSize;
+				int chunkSize;
+				byte[] guidBytes;
+
+				// Sequence
+				Sequence = m.GetNumber2();
+
+				// Flags
+				m.GetOctets(Flags, 4);
+
+				// PublicKey
+				chunkSize = (int)m.GetNumber4();                
+				if (m.m_offset + chunkSize > m.m_buffer.Length) 
+				{
+					throw new MessageException("PublicKey is missing data");
+				}
+                
+				PublicKey = new byte[chunkSize];
+				m.GetOctets(PublicKey, chunkSize);              						
+
+				// Identifier
+				if (m.m_offset + 16 > m.m_buffer.Length) 
+				{
+					throw new MessageException("Identifier is invalid");					
+				}
+            
+				guidBytes = new byte[16];
+				m.GetOctets(guidBytes, 16);
+				Identifier = new Guid(guidBytes);         						
+
+			}
+		}
+
+		#endregion
+
+		#region Types
+
+		public class TypesMessage
+		{
+			public TypesMessage()
+			{
+			}			
+
+			/// <summary>
+			/// Get/Set the Sequence field
+			/// </summary>
+			public UInt16 Sequence
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the ClientForename field
+			/// </summary>
+			public string ClientForename
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the ClientSurname field
+			/// </summary>
+			public string ClientSurname
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the ClientMobile field
+			/// </summary>
+			public string ClientMobile
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the ClientEmail field
+			/// </summary>
+			public string ClientEmail
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the SupplierForename field
+			/// </summary>
+			public string SupplierForename
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the SupplierSurname field
+			/// </summary>
+			public string SupplierSurname
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the SupplierMobile field
+			/// </summary>
+			public string SupplierMobile
+			{
+				get;set;
+			}
+
+			/// <summary>
+			/// Get/Set the SupplierEmail field
+			/// </summary>
+			public string SupplierEmail
+			{
+				get;set;
+			}
+
+
+			internal int GetFrameSize()
+			{
+				int frameSize = 0;
+
+				//  Sequence
+				frameSize += 2;          
+
+				//  ClientForename
+				frameSize += 1 + ClientForename.Length;
+
+				//  ClientSurname
+				frameSize += 1 + ClientSurname.Length;
+
+				//  ClientMobile
+				frameSize += 1 + ClientMobile.Length;
+
+				//  ClientEmail
+				frameSize += 1 + ClientEmail.Length;
+
+				//  SupplierForename
+				frameSize += 1 + SupplierForename.Length;
+
+				//  SupplierSurname
+				frameSize += 1 + SupplierSurname.Length;
+
+				//  SupplierMobile
+				frameSize += 1 + SupplierMobile.Length;
+
+				//  SupplierEmail
+				frameSize += 1 + SupplierEmail.Length;
+
+				return frameSize;
+			}		
+
+			internal void Write(Example m)
+			{
+				// Sequence
+				m.PutNumber2(Sequence);
+
+				// ClientForename
+				m.PutString(ClientForename);
+
+				// ClientSurname
+				m.PutString(ClientSurname);
+
+				// ClientMobile
+				m.PutString(ClientMobile);
+
+				// ClientEmail
+				m.PutString(ClientEmail);
+
+				// SupplierForename
+				m.PutString(SupplierForename);
+
+				// SupplierSurname
+				m.PutString(SupplierSurname);
+
+				// SupplierMobile
+				m.PutString(SupplierMobile);
+
+				// SupplierEmail
+				m.PutString(SupplierEmail);
+
+			}
+
+			internal void Read(Example m)
+			{
+				int listSize;
+				int hashSize;
+				int chunkSize;
+				byte[] guidBytes;
+
+				// Sequence
+				Sequence = m.GetNumber2();
+
+				// ClientForename
+				ClientForename = m.GetString();
+
+				// ClientSurname
+				ClientSurname = m.GetString();
+
+				// ClientMobile
+				ClientMobile = m.GetString();
+
+				// ClientEmail
+				ClientEmail = m.GetString();
+
+				// SupplierForename
+				SupplierForename = m.GetString();
+
+				// SupplierSurname
+				SupplierSurname = m.GetString();
+
+				// SupplierMobile
+				SupplierMobile = m.GetString();
+
+				// SupplierEmail
+				SupplierEmail = m.GetString();
+
+			}
+		}
+
+		#endregion
+
 
 		private byte[] m_buffer;    //  Read/write buffer for serialization    
 		private int m_offset;
+		private byte[] m_routingId;
 
 		/// <summary>
 		/// Create a new Example
 		/// </summary>
 		public Example()
 		{    
-			Flags = new byte[FlagsSize];
-		}
+			Log = new LogMessage();
+			Structures = new StructuresMessage();
+			Binary = new BinaryMessage();
+			Types = new TypesMessage();
+		}			
 
+		public LogMessage Log {get;private set;}
+
+		public StructuresMessage Structures {get;private set;}
+
+		public BinaryMessage Binary {get;private set;}
+
+		public TypesMessage Types {get;private set;}
+
+	
 		/// <summary>
-		/// Dispose the Example
-		/// </summary>	
-		public void Dispose()
-		{
-			// Free class properties
-			RoutingId = null;       
-			Aliases = null;
-			Headers = null;
-			PublicKey = null;
-			Identifier = Guid.Empty;         
-			Address = null;
-			Content = null;
-		}
-
-		#region Message Properties
-
-		/// <summary>
-		/// Get/set the message RoutingId
+		/// Get/set the message RoutingId.
 		/// </summary>
 		public byte[] RoutingId
 		{
-			get;set;
+			get
+			{
+				return m_routingId;
+			}
+			set 
+			{
+				if (value == null)
+			        m_routingId = null;
+			    else
+			    {       
+					if (m_routingId == null || m_routingId.Length != value.Length)
+						m_routingId = new byte[value.Length];
+
+					Buffer.BlockCopy(value, 0, m_routingId, 0, value.Length);
+				}
+			}
 		}
 
 		/// <summary>
@@ -119,232 +772,18 @@ namespace ZProto
 				switch (Id) 
 				{
 					case MessageId.Log:
-						return "Log";
-						break;					
+						return "Log";										
 					case MessageId.Structures:
-						return "Structures";
-						break;					
+						return "Structures";										
 					case MessageId.Binary:
-						return "Binary";
-						break;					
+						return "Binary";										
 					case MessageId.Types:
-						return "Types";
-						break;					
+						return "Types";										
 				}
 				return "?";
 			}
 		}
-
-
-		/// <summary>
-		/// Get/Set the Sequence field
-		/// </summary>
-		public UInt16 Sequence
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Level field
-		/// </summary>
-		public byte Level
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Event field
-		/// </summary>
-		public byte Event
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Node field
-		/// </summary>
-		public UInt16 Node
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Peer field
-		/// </summary>
-		public UInt16 Peer
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Time field
-		/// </summary>
-		public UInt64 Time
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Host field
-		/// </summary>
-		public string Host
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Data field
-		/// </summary>
-		public string Data
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// /// Get/Set the Aliases list
-		/// </summary>
-		public List<string> Aliases
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Headers dictionary
-		/// </summary>
-		public Dictionary<string, string> Headers
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Flags field
-		/// </summary>
-		public byte[] Flags 
-		{
-			get; private set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the PublicKey field
-		/// </summary>
-		public byte[] PublicKey 
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Identifier field
-		/// </summary>
-		public Guid Identifier 
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the Address frame
-		/// </summary>
-		public byte[] Address 
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// /// Get/Set the Content NetMQMessage
-		/// </summary>
-		public NetMQMessage Content 
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the ClientForename field
-		/// </summary>
-		public string ClientForename
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the ClientSurname field
-		/// </summary>
-		public string ClientSurname
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the ClientMobile field
-		/// </summary>
-		public string ClientMobile
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the ClientEmail field
-		/// </summary>
-		public string ClientEmail
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the SupplierForename field
-		/// </summary>
-		public string SupplierForename
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the SupplierSurname field
-		/// </summary>
-		public string SupplierSurname
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the SupplierMobile field
-		/// </summary>
-		public string SupplierMobile
-		{
-			get;set;
-		}
-
-
-		/// <summary>
-		/// Get/Set the SupplierEmail field
-		/// </summary>
-		public string SupplierEmail
-		{
-			get;set;
-		}
-
-	
-		#endregion
-		
+			
 		/// <summary>
 		/// Receive a Example from the socket.               
 		/// </summary>
@@ -354,10 +793,26 @@ namespace ZProto
 			   
 			if (input is RouterSocket) 
 			{   			
-				RoutingId = input.Receive(out more);
-				if (!more) 
+				Msg routingIdMsg = new Msg();
+				routingIdMsg.InitEmpty();
+
+				try
 				{
-					throw new MessageException("No routing id");				
+					input.Receive(ref routingIdMsg);
+
+					if (!routingIdMsg.HasMore) 
+					{
+						throw new MessageException("No routing id");				
+					}
+
+					if (m_routingId == null || m_routingId.Length == routingIdMsg.Size)					
+						m_routingId = new byte[routingIdMsg.Size];					
+
+					Buffer.BlockCopy(routingIdMsg.Data, 0, m_routingId, 0, m_routingId.Length);
+				}
+				finally
+				{
+					routingIdMsg.Close();
 				}
 			}
 			else
@@ -370,7 +825,7 @@ namespace ZProto
 
 			try
 			{
-				input.Receive(ref msg, SendReceiveOptions.None);
+				input.Receive(ref msg);
 
 				m_offset = 0;
 				m_buffer = msg.Data;
@@ -385,107 +840,23 @@ namespace ZProto
 		
 				//  Get message id and parse per message type
 				Id = (MessageId)GetNumber1();
-
-				int listSize;
-				int hashSize;
-				int chunkSize;
-				byte[] guidBytes;
-				UInt16 version;
-	
+				
 				switch (Id) 
 				{
 					case MessageId.Log:
-						Sequence = GetNumber2();
-						version = GetNumber2();
-                
-						if (version != 3) 
-						{
-							throw new MessageException("Version is invalid");						
-						}
-													
-						Level = GetNumber1();
-						Event = GetNumber1();
-						Node = GetNumber2();
-						Peer = GetNumber2();
-						Time = GetNumber8();
-						Host = GetString();
-						Data = GetLongString();               
+						Log.Read(this);
 					break;
 					case MessageId.Structures:
-						Sequence = GetNumber2();
-						
-						listSize = (int)GetNumber4();                
-						Aliases = new List<string>(listSize);                
-						while (listSize-- > 0) 
-						{
-							string s = GetLongString();
-							Aliases.Add(s);                   
-						}		
-										
-
-						hashSize = (int)GetNumber4();                
-						Headers = new Dictionary<string, string>();                
-						while (hashSize-- > 0)  
-						{
-							string key = GetString();
-							string value = GetLongString();
-							Headers.Add(key, value);
-						}						
-
+						Structures.Read(this);
 					break;
 					case MessageId.Binary:
-						Sequence = GetNumber2();
-						GetOctets(Flags, 4);
-						
-						chunkSize = (int)GetNumber4();                
-						if (m_offset + chunkSize > m_buffer.Length) 
-						{
-							throw new MessageException("PublicKey is missing data");
-						}
-                
-						PublicKey = new byte[chunkSize];
-						GetOctets(PublicKey, chunkSize);              						
-
-
-						if (m_offset + 16 > m_buffer.Length) 
-						{
-							throw new MessageException("Identifier is invalid");					
-						}
-            
-						guidBytes = new byte[16];
-						GetOctets(guidBytes, 16);
-						Identifier = new Guid(guidBytes);         
-						
-						
-						//  Get next frame off socket
-						if (!more)
-						{
-							throw new MessageException("Address is missing");
-						}
-            
-						Address = input.Receive(out more);
-
-
-						//  Get zero or more remaining frames            
-						if (more)
-							Content = input.ReceiveMessage();
-						else
-							Content = new NetMQMessage();
+						Binary.Read(this);
 					break;
 					case MessageId.Types:
-						Sequence = GetNumber2();
-						ClientForename = GetString();
-						ClientSurname = GetString();
-						ClientMobile = GetString();
-						ClientEmail = GetString();
-						SupplierForename = GetString();
-						SupplierSurname = GetString();
-						SupplierMobile = GetString();
-						SupplierEmail = GetString();
+						Types.Read(this);
 					break;
 				default:
-					throw new MessageException("Bad message id");            
-					break;
+					throw new MessageException("Bad message id");            					
 				}        
 			}
 			finally
@@ -501,67 +872,22 @@ namespace ZProto
 		public void Send(IOutgoingSocket output)
 		{    
 			if (output is RouterSocket)
-				output.SendMore(RoutingId);
+				output.SendMoreFrame(RoutingId);
 
 			int frameSize = 2 + 1;          //  Signature and message ID
 			switch (Id) 
 			{
 				case MessageId.Log:
-					frameSize += 2;            //  Sequence
-					frameSize += 2;            //  Version
-					frameSize += 1;            //  Level
-					frameSize += 1;            //  Event
-					frameSize += 2;            //  Node
-					frameSize += 2;            //  Peer
-					frameSize += 8;            //  Time
-					frameSize += 1 + Host.Length;
-					frameSize += 4;
-					if (Data != null)
-						frameSize += Data.Length;
+					frameSize += Log.GetFrameSize();
 					break;
 				case MessageId.Structures:
-					frameSize += 2;            //  Sequence
-					frameSize += 4;            //  Size is 4 octets
-					if (Aliases != null) 
-					{
-						foreach(string s in Aliases)
-						{
-							frameSize += 4 + s.Length;
-						}                
-					}
-					frameSize += 4;            //  Size is 4 octets
-					if (Headers != null) 
-					{                
-						int headersSize = 0;
-
-						foreach (var pair in Headers)
-						{
-							headersSize += 1 + pair.Key.Length;
-							headersSize += 4 + pair.Value.Length;
-						}
-
-						frameSize += headersSize;
-					}
-            
+					frameSize += Structures.GetFrameSize();
 					break;
 				case MessageId.Binary:
-					frameSize += 2;            //  Sequence
-					frameSize += 4;            //  Flags
-					frameSize += 4;            //  Size is 4 octets
-					if (PublicKey != null)
-						frameSize += PublicKey.Length;
-					frameSize  += 16;    //  Identifier
+					frameSize += Binary.GetFrameSize();
 					break;
 				case MessageId.Types:
-					frameSize += 2;            //  Sequence
-					frameSize += 1 + ClientForename.Length;
-					frameSize += 1 + ClientSurname.Length;
-					frameSize += 1 + ClientMobile.Length;
-					frameSize += 1 + ClientEmail.Length;
-					frameSize += 1 + SupplierForename.Length;
-					frameSize += 1 + SupplierSurname.Length;
-					frameSize += 1 + SupplierMobile.Length;
-					frameSize += 1 + SupplierEmail.Length;
+					frameSize += Types.GetFrameSize();
 					break;
 			}
 
@@ -570,7 +896,7 @@ namespace ZProto
 			msg.InitPool(frameSize);
 
 			try
-			{
+			{		
 				m_offset = 0;
 				m_buffer = msg.Data;
 
@@ -579,111 +905,25 @@ namespace ZProto
 
 				// put message id
 				PutNumber1((byte)Id);
-				bool sendContent = false;
-				int frames = 1;              //  Total number of frames to send
-    
+	
 				switch (Id) 
 				{
 					case MessageId.Log:
-						PutNumber2(Sequence);
-						PutNumber2(3); // Version
-						PutNumber1(Level);
-						PutNumber1(Event);
-						PutNumber2(Node);
-						PutNumber2(Peer);
-						PutNumber8(Time);
-						PutString(Host);
-						if (Data != null) 						
-							PutLongString(Data);                   						
-						else
-							PutNumber4(0);    //  Empty string
+						Log.Write(this);
 					break;
 					case MessageId.Structures:
-						PutNumber2(Sequence);
-						
-						if (Aliases != null) 
-						{
-							PutNumber4((UInt32)Aliases.Count);
-
-							foreach (string s in Aliases)
-							{
-								PutLongString(s);
-							}                
-						}
-						else
-							PutNumber4(0);    //  Empty string array
-
-						
-						if (Headers != null) 
-						{
-							PutNumber4((UInt32)Headers.Count);
-                
-							foreach(var pair in Headers)
-							{
-								PutString(pair.Key);
-								PutLongString(pair.Value);
-							}				
-						}
-						else
-							PutNumber4(0);    //  Empty dictionary
-
+						Structures.Write(this);
 					break;
 					case MessageId.Binary:
-						PutNumber2(Sequence);
-						PutOctets(Flags, 4);
-
-						if (PublicKey != null)
-						{
-							PutNumber4((UInt32)PublicKey.Length);
-							Buffer.BlockCopy(PublicKey, 0, m_buffer, m_offset, PublicKey.Length);
-							m_offset += PublicKey.Length;
-						}
-						else
-							PutNumber4(0);    //  Empty chunk
-
-
-						// copy guid           
-						Buffer.BlockCopy(Identifier.ToByteArray(), 0, m_buffer, m_offset, 16);
-						m_offset += 16;
-						frames++;
-						frames += Content != null ? Content.FrameCount : 1;
-						sendContent = true;
+						Binary.Write(this);
 					break;
 					case MessageId.Types:
-						PutNumber2(Sequence);
-						PutString(ClientForename);
-						PutString(ClientSurname);
-						PutString(ClientMobile);
-						PutString(ClientEmail);
-						PutString(SupplierForename);
-						PutString(SupplierSurname);
-						PutString(SupplierMobile);
-						PutString(SupplierEmail);
+						Types.Write(this);
 					break;
 				}
 
-				//  Now send the data frame				
-				output.Send(ref msg, --frames == 0 ? SendReceiveOptions.None : SendReceiveOptions.SendMore);
-        
-				//  Now send any frame fields, in order
-				if (Id == MessageId.Binary) 
-				{
-					if (--frames == 0)
-						output.Send(Address != null ? Address : new byte[0]);
-					else 
-						output.SendMore(Address != null ? Address : new byte[0]);                        		            
-				}
-				
-				//  Now send the Content if necessary
-				if (sendContent) 
-				{
-					if (Content != null) 
-					{
-						output.SendMessage(Content);                 
-					}
-					else
-						output.Send(new byte[0]);            
-				}
+				//  Send the data frame				
+				output.Send(ref msg, false);       
 			}
 			finally
 			{
@@ -698,7 +938,7 @@ namespace ZProto
 		private void PutOctets(byte[] host, int size) 
 		{ 
 			Buffer.BlockCopy(host, 0, m_buffer, m_offset, size);   
-			m_offset += host.Length; 
+			m_offset += size; 
 		}
 
 		//  Get a block of octets from the frame

@@ -108,9 +108,7 @@ zproto supports several kinds of binary data:
 <message name = "BINARY" id = "3">
     <field name = "flags" type = "octets" size = "4">A set of flags</field>
     <field name = "public key" type = "chunk">Our public key</field>
-    <field name = "identifier" type = "uuid">Unique identity</field>
-    <field name = "address" type = "frame">Return address as frame</field>
-    <field name = "content" type = "msg">Message to be delivered</field>
+    <field name = "identifier" type = "uuid">Unique identity</field>    
 Deliver a multi-part message.
 </message>
 
