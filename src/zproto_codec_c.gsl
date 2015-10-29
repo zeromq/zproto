@@ -200,7 +200,7 @@ $(CLASS.EXPORT_MACRO)void
 
 .endfor
 //  Self test of this class
-$(CLASS.EXPORT_MACRO)int
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_test (bool verbose);
 //  @end
 
@@ -1447,7 +1447,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 //  --------------------------------------------------------------------------
 //  Selftest
 
-int
+void
 $(class.name)_test (bool verbose)
 {
     printf (" * $(class.name):");
@@ -1646,5 +1646,4 @@ $(class.name)_test (bool verbose)
     //  @end
 
     printf ("OK\\n");
-    return 0;
 }
