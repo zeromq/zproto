@@ -13,7 +13,7 @@ set_defaults ()
 .output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
-    
+
     Codec header for $(class.name).
 
     ** WARNING *************************************************************
@@ -99,7 +99,7 @@ $(CLASS.EXPORT_MACRO)bool
     is_$(class.name) (zmsg_t *msg_p);
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. Destroys msg and 
+//  the message could not be parsed, or was NULL. Destroys msg and
 //  nullifies the msg reference.
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_decode (zmsg_t **msg_p);
@@ -109,12 +109,12 @@ $(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(CLASS.EXPORT_MACRO)zmsg_t *
     $(class.name)_encode ($(class.name)_t **self_p);
 
-//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  Receive and parse a $(class.name) from the socket. Returns new object,
 //  or NULL if error. Will block if there's no message waiting.
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_recv (void *input);
 
-//  Receive and parse a $(class.name) from the socket. Returns new object, 
+//  Receive and parse a $(class.name) from the socket. Returns new object,
 //  or NULL either if there was no input waiting, or the recv was interrupted.
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_recv_nowait (void *input);
@@ -128,13 +128,13 @@ $(CLASS.EXPORT_MACRO)int
     $(class.name)_send_again ($(class.name)_t *self, void *output);
 
 .for message
-//  Encode the $(message.NAME) 
+//  Encode the $(message.NAME)
 $(CLASS.EXPORT_MACRO)zmsg_t *
     $(class.name)_encode_$(name) (
 .for field where !defined (value)
 .   if !first ()
 ,
-.   endif 
+.   endif
 .   if type = "number"
         $(ctype) $(name)\
 .   elsif type = "octets"
@@ -171,7 +171,7 @@ $(CLASS.EXPORT_MACRO)int
 .   endif
 .endfor
 );
-    
+
 .endfor
 //  Duplicate the $(class.name) message
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
@@ -248,7 +248,7 @@ $(CLASS.EXPORT_MACRO)zhash_t *
 //  Set the $(name) field, transferring ownership from caller
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_set_$(name) ($(class.name)_t *self, zhash_t **$(name)_p);
-    
+
 //  Get/set a value in the $(name) dictionary
 $(CLASS.EXPORT_MACRO)const char *
     $(class.name)_$(name)_string ($(class.name)_t *self,
@@ -279,7 +279,7 @@ $(CLASS.EXPORT_MACRO)void
 
 .endfor
 //  Self test of this class
-$(CLASS.EXPORT_MACRO)int
+$(CLASS.EXPORT_MACRO)void
     $(class.name)_test (bool verbose);
 //  @end
 
@@ -568,7 +568,7 @@ is_$(class.name) (zmsg_t *msg)
 
 //  --------------------------------------------------------------------------
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
-//  the message could not be parsed, or was NULL. Destroys msg and 
+//  the message could not be parsed, or was NULL. Destroys msg and
 //  nullifies the msg reference.
 
 $(class.name)_t *
@@ -578,11 +578,11 @@ $(class.name)_decode (zmsg_t **msg_p)
     zmsg_t *msg = *msg_p;
     if (msg == NULL)
         return NULL;
-        
+
     $(class.name)_t *self = $(class.name)_new (0);
     //  Read and parse command in frame
     zframe_t *frame = zmsg_pop (msg);
-    if (!frame) 
+    if (!frame)
         goto empty;             //  Malformed or empty
 
     //  Get and check protocol signature
@@ -708,7 +708,7 @@ $(class.name)_encode ($(class.name)_t **self_p)
 {
     assert (self_p);
     assert (*self_p);
-    
+
     $(class.name)_t *self = *self_p;
     zmsg_t *msg = zmsg_new ();
 
@@ -773,7 +773,7 @@ $(class.name)_encode ($(class.name)_t **self_p)
 .       endif
 .   endfor
             break;
-            
+
 .endfor
         default:
             zsys_error ("bad message type '%d', not sent\\n", self->id);
@@ -986,7 +986,7 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
 
     //  Encode $(class.name) message to a single zmsg
     zmsg_t *msg = $(class.name)_encode (self_p);
-    
+
     //  If we're sending to a ROUTER, send the routing_id first
     if (zsock_type (zsock_resolve (output)) == ZMQ_ROUTER) {
         assert (routing_id);
@@ -994,7 +994,7 @@ $(class.name)_send ($(class.name)_t **self_p, void *output)
     }
     else
         zframe_destroy (&routing_id);
-        
+
     if (msg && zmsg_send (&msg, output) == 0)
         return 0;
     else
@@ -1019,7 +1019,7 @@ $(class.name)_send_again ($(class.name)_t *self, void *output)
 //  --------------------------------------------------------------------------
 //  Encode $(message.NAME) message
 
-zmsg_t * 
+zmsg_t *
 $(class.name)_encode_$(name) (
 .for field where !defined (value)
 .   if !first ()
@@ -1112,7 +1112,7 @@ $(class.name)_dup ($(class.name)_t *self)
 {
     if (!self)
         return NULL;
-        
+
     $(class.name)_t *copy = $(class.name)_new (self->id);
     if (self->routing_id)
         copy->routing_id = zframe_dup (self->routing_id);
@@ -1212,7 +1212,7 @@ $(class.name)_print ($(class.name)_t *self)
 .       endif
 .   endfor
             break;
-            
+
 .endfor
     }
 }
@@ -1540,7 +1540,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 //  --------------------------------------------------------------------------
 //  Selftest
 
-int
+void
 $(class.name)_test (bool verbose)
 {
     printf (" * $(class.name): ");
@@ -1568,7 +1568,7 @@ $(class.name)_test (bool verbose)
     $(class.name)_t *copy;
 .for class.message
     self = $(class.name)_new ($(CLASS.NAME)_$(MESSAGE.NAME));
-    
+
     //  Check that _dup works on empty message
     copy = $(class.name)_dup (self);
     assert (copy);
@@ -1610,8 +1610,8 @@ $(class.name)_test (bool verbose)
         self = $(class.name)_recv (input);
         assert (self);
         assert ($(class.name)_routing_id (self));
-        
-.   for field where !defined (value) 
+
+.   for field where !defined (value)
 .       if type = "number"
         assert ($(class.name)_$(name) (self) == 123);
 .       elsif type = "octets"
@@ -1650,5 +1650,4 @@ $(class.name)_test (bool verbose)
     //  @end
 
     printf ("OK\\n");
-    return 0;
 }
