@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+        <id>NetMQ.zproto</id>
+        <version>0.1.5</version>
+        <title>NetMQ ZProto</title>
+        <authors>somdoron</authors>
+        <licenseUrl>https://raw.github.com/zeromq/zproto/blob/master/LICENSE</licenseUrl>
+        <projectUrl>https://github.com/zeromq/zproto</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>Generate NetMQ binary messages.</description>
+        <tags>NetMQ, zeromq, codegen, zproto</tags>
+        <dependencies>
+           <dependency id="gsl" version="4.1.0.1" />
+        </dependencies>
+    </metadata>
+    <files>
+        <file src="..\..\src\zproto_codec_cs.gsl" target="content\zproto\zproto_codec_cs.gsl" />
+        <file src="..\..\src\zproto_lib.gsl" target="content\zproto\zproto_lib.gsl" />
+        <file src="..\..\src\zproto_lib_cs.gsl" target="content\zproto\zproto_lib_cs.gsl" />
+        <file src="..\..\src\zproto_example_cs.xml" target="content\zproto\Example.xml" />
+    </files>
+</package>
