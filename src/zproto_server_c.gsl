@@ -4,6 +4,9 @@
 #   Generates a server class for a protocol specification
 #   This manages ROUTER server talking to DEALER clients
 #
+#
+#   - if proto_class has the 'virtual' flag set, the server will use the appropriate zmsg_t calls transparently
+#
 include "zproto_lib.gsl"
 resolve_includes ()
 set_defaults ()
@@ -11,6 +14,8 @@ set_defaults ()
 #   Load message structures for this engine
 global.proto = xml.load_file (class.protocol_class + ".xml")
 class.proto = class.protocol_class
+
+
 
 #   Lowercase state/event/action names
 for class.state
@@ -591,7 +596,13 @@ s_client_free (void *argument)
 .               if defined (class.send_tracer)
                         $(class.send_tracer) ((server_t *) self->server);
 .               endif
+.               if global.proto.virtual ?= 1
+                        zmsg_t* msg = zmsg_new();
+                        $(proto)_send (self->server->message, msg);
+                        zmsg_send(&msg,self->server->router);
+.               else
                         $(proto)_send (self->server->message, self->server->router);
+.               endif                        
 .           elsif name = "terminate"
                         //  terminate
                         if (self->server->verbose)
@@ -943,8 +954,33 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
     //  We process as many messages as we can, to reduce the overhead
     //  of polling and the reactor:
     while (zsock_events (self->router) & ZMQ_POLLIN) {
+.   if global.proto.virtual ?= 1
+        zframe_t* routing_id = NULL;
+
+        //If the socket is a router, save the routing Id 
+        if (zsock_type (self->router) == ZMQ_ROUTER) {
+            routing_id = zframe_recv (self->router);
+            if (!routing_id || !zsock_rcvmore (self->router)) {
+                zsys_warning ("$(class.name): no routing ID");
+                return -1;          //  Interrupted or malformed
+            }
+        }
+        zmsg_t* recvmsg = zmsg_recv(self->router);
+        if(!recvmsg)
+            return -1;      //  Interrupted; exit zloop
+        if($(proto)_recv(self->message,recvmsg))
+            return -1; //Interrupted; malformed
+
+        //For router sockets, set the routing id of this messaged based on the value we saved
+        if(routing_id)
+        {    entropy_msg_set_routing_id(self->message,routing_id);
+             zframe_destroy(&routing_id);
+        }
+        
+.   else
         if ($(proto)_recv (self->message, self->router))
-            return -1;              //  Interrupted; exit zloop
+            return -1;      //  Interrupted; exit zloop
+.   endif             
 .if defined (class.receive_tracer)
         $(class.receive_tracer) ((server_t *) self);
 .endif

@@ -122,6 +122,7 @@ $(CLASS.EXPORT_MACRO)int
     $(class.name)_send ($(class.name)_t *self, zsock_t *output);
 
 .endif
+
 //  Print contents of message to stdout
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_print ($(class.name)_t *self);
@@ -531,6 +532,8 @@ int
 $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
 {
     assert (input);
+    
+
     zframe_t *frame = zmsg_pop (input);
     if (!frame) {
         zsys_warning ("$(class.name): missing frames in message");
