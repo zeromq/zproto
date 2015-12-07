@@ -1,0 +1,83 @@
+<class
+    name = "example_peer_msg"
+    virtual = "1"
+    signature = "0"
+    title = "example peer protocol"
+    script = "zproto_codec_c"
+    package_dir = "../include"
+    source_dir = "."
+    >
+This is an example of a protocol that may be used with the zproto_peer_c generator that wraps 
+your protocol's state machine in a zyre node and passes through relevant zyre events for your 
+protocol's state machine to handle.     
+
+
+The following are examples of protocol messages that your implement. All messages must minimally specify
+field for the zyre peer uuid and name, which the generator will autopopulate. 
+Messages that will be "shouted" must additionally have a  field specifying the group that they are shouted to.
+    <message name = "HELLO" >
+        <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+        <field name = "group" type = "string">Group this message was sent to</field>
+    </message>
+     <message name = "SEND CHAT" >
+        <field name = "message" type = "string">Chat message to this group</field>
+    </message>
+    <message name = "CHAT" >
+        <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+        <field name = "message" type = "string">Chat message to this group</field>
+
+    </message>
+
+Whisper messages will be populated by the identity information of the peer that is whispering 
+     <message name = "WORLD" >
+        <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+    </message>
+
+The following are zyre events that must be defined in your protocol based on the following template
+to be consumed by the node. The generator will capture zyre's message and populate these messages with
+the approptiate data and pass them on into your protocol, where you can handle them like any other protocol event.
+
+    <message name = "ZYRE_ENTER">
+    	A peer has entered the network
+        <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+        <field name = "headers" type = "hash">Headers for the entering peer</field>
+    </message>
+
+    <message name = "ZYRE_JOIN">
+    	A peer has joined a group
+       <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+        <field name = "group" type = "string">Group the sender is joining</field>
+    </message>
+
+    <message name = "ZYRE_LEAVE">
+    	A peer has left a group
+        <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+    </message>
+
+    <message name = "ZYRE_EXIT">
+    	A peer has exited the network
+       <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+    </message> 
+
+    <message name = "ZYRE_STOP">
+       <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+    </message>
+    
+    <message name = "ZYRE_EVASIVE">
+    	A peer is being evasive
+        <field name = "uuid" type = "string">UUID of the sender</field>
+        <field name = "name" type = "string">Name of the sender</field>
+    </message>
+   
+    
+
+ 
+</class>

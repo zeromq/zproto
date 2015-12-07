@@ -1,0 +1,66 @@
+<class
+    name = "example_peer"
+    title = "Example Peer"
+    script = "zproto_peer_c"
+    protocol_class = "example_peer_msg"
+    project_header = "czmq.h"
+    package_dir = "../include"
+    source_dir = "."
+    >
+
+    <state name = "start">
+        <event name = "ZYRE_ENTER" next = "start">
+            Immediatly detects when a node joins and enters them into the chat group
+            <action name = "join" group = "CHAT"/>
+            
+        </event> 
+        <event name = "ZYRE_JOIN" next = "chatting">
+            If another node enters send them a hello
+            <action name = "send" cast = "shout" group = "CHAT" message = "HELLO"/>
+        </event>
+    </state>
+    
+
+   <state name = "chatting">
+       
+        <event name = "HELLO">
+            A new peer is shouting hello to the group whisper back to them a world message
+            <action name = "send" cast = "whisper" message = "WORLD"/>
+        </event>
+        <event name = "WORLD">
+            A peer is welcoming another peer to the network
+        </event>
+        <event name = "SEND CHAT">
+            The client is requesting a chat message, package it up and shout it out
+            <action name = "generate chat message"/>
+            <action name = "send" cast = "shout" group = "CHAT" message = "CHAT"/>
+        </event>
+        <event name = "CHAT">
+            Another node has sent a chat message, output the contents to the user 
+             <action name = "output chat message"/>
+        </event>
+        <event name = "ZYRE_JOIN">
+            Supply actions for new peers joining
+        </event>
+        <event name = "ZYRE_ENTER" >
+           Supply actions for enter event within any state as you see fit
+             
+        </event>
+        <event name = "ZYRE_EXIT" >
+             Supply actions for exit event within any state as you see fit
+        </event>
+        <event name = "ZYRE_LEAVE" >
+             Supply actions for group leave event within any state as you see fit
+        </event>
+        <event name = "ZYRE_EVASIVE" >
+            Supply actions for evasive event within any state as you see fit
+        </event>
+   </state>
+
+    <method name = "send chat">
+       Client interface for sending a message into the state machine to broadcast to the group
+        <field name = "message" type = "string" />
+    </method>
+ 
+    
+</class>
