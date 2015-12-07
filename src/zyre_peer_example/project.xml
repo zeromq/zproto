@@ -1,0 +1,16 @@
+<project 
+	name = "test_peer"
+	script = "zproject.gsl" >
+    <use project = "czmq" />
+    <use project = "zyre" />
+    
+    
+    <main name = "test_peerd"/>
+    <model name = "example_peer"/>
+    <model name = "example_peer_msg"/>
+
+    <class name = "example_peer" />
+    <class name = "example_peer_msg" />
+
+     
+</project>
