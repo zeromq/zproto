@@ -1204,7 +1204,7 @@ $(class.name)_connected ($(class.name)_t *self)
     int connected;
     zsock_send (self->actor, "s", "$CONNECTED");
     zsock_recv (self->actor, "i", &connected);
-    return (bool) connected;
+    return connected == 1;
 }
 
 
