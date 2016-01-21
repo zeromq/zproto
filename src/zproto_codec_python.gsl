@@ -291,7 +291,7 @@ class $(ClassName)(object):
     #  --------------------------------------------------------------------------
     #  Send the $(ClassName) to the socket, and destroy it
     def send(self, outsocket):
-        if outsocket.socket_type == zmq.ROUTER:
+        if outsocket.type == zmq.ROUTER:
             outsocket.send(self.routing_id, zmq.SNDMORE)
         # TDOD: We could generalize to a ZMsg class? ZMsg msg = new ZMsg();
 
