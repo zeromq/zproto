@@ -235,20 +235,20 @@ class $(ClassName)(object):
 .       elsif type = "octets"
             self._$(name) = self._get_bytes($(size))
 .           if defined (field.value)
-            if self._$(name) != $(field.value:):
+            if self._$(name) != b'$(field.value:)':
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "string"
             self._$(name) = self._get_string()
 .           if defined (field.value)
-            if self._$(name) != $(field.value:):
+            if self._$(name) != '$(field.value:)':
                 #??? raise IllegalArgumentException()
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "longstr"
             self._$(name) = self._get_long_string()
 .           if defined (field.value)
-            if self._$(name) != "$(field.value:)":
+            if self._$(name) != '$(field.value:)':
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "strings"
@@ -321,7 +321,7 @@ class $(ClassName)(object):
             self._put_bytes(self._$(name))
 .       elsif type = "string"
 .           if defined (field.value)
-            self._put_string($(field.value:))
+            self._put_string('$(field.value:)')
 .           else
             if self._$(name) != None:
                 self._put_string(self._$(name))
@@ -330,7 +330,7 @@ class $(ClassName)(object):
 .           endif
 .       elsif type = "longstr"
 .           if defined (field.value)
-            self._put_long_string($(field.value:))
+            self._put_long_string('$(field.value:)')
 .           else
             if self._$(name) != None:
                 self._put_long_string(self._$(name))
