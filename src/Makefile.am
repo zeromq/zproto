@@ -14,6 +14,7 @@ zproto_DATA = \
 	zproto_codec_php.gsl \
 	zproto_codec_java.gsl \
 	zproto_codec_clj.gsl \
+	zproto_codec_python.gsl \
 	zproto_server_c.gsl \
 	zproto_server_clj.gsl \
 	zproto_server_go.gsl \
@@ -33,3 +34,4 @@ code:
 	gsl -q -script:zproto_codec_php -package_dir:php -test_dir:tests -namespace:Zproto zproto_example.xml
 	gsl -q -script:zproto_codec_java zproto_example.xml
 	gsl -q -script:zproto_codec_clj zproto_example.xml
+	gsl -q -script:zproto_codec_python zproto_example.xml
