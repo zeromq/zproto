@@ -271,14 +271,14 @@ class $(ClassName)(object):
 .       elsif type = "frame"
             if not len(frames):
                 self._$(name) = b''
-                logger.warn("no more frames in message while retrieving self._$(name)")
+                logger.warning("no more frames in message while retrieving self._$(name)")
             else:
                 self._$(name) = frames.pop(0)
 .       elsif type = "msg"
-            logger.warn("Zmsg requested but we have no support for Zmsg types")
+            logger.warning("Zmsg requested but we have no support for Zmsg types")
             if not len(frames):
                 self._$(name) = b''
-                logger.warn("no more frames in message while retrieving self._$(name)")
+                logger.warning("no more frames in message while retrieving self._$(name)")
             else:
                 self._$(name) = frames.pop(0)
 .       endif
