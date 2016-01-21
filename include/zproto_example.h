@@ -114,6 +114,7 @@ int
 int
     zproto_example_send (zproto_example_t *self, zsock_t *output);
 
+
 //  Print contents of message to stdout
 void
     zproto_example_print (zproto_example_t *self);
@@ -216,15 +217,14 @@ zchunk_t *
 void
     zproto_example_set_public_key (zproto_example_t *self, zchunk_t **chunk_p);
 
-//  Get a copy of the identifier field
+//  Get/set the identifier field
 zuuid_t *
     zproto_example_identifier (zproto_example_t *self);
+void
+    zproto_example_set_identifier (zproto_example_t *self, zuuid_t *uuid);
 //  Get the identifier field and transfer ownership to caller
 zuuid_t *
     zproto_example_get_identifier (zproto_example_t *self);
-//  Set the identifier field, transferring ownership from caller
-void
-    zproto_example_set_identifier (zproto_example_t *self, zuuid_t **uuid_p);
 
 //  Get a copy of the address field
 zframe_t *
@@ -295,7 +295,7 @@ void
     zproto_example_set_supplier_email (zproto_example_t *self, const char *value);
 
 //  Self test of this class
-int
+void
     zproto_example_test (bool verbose);
 //  @end
 

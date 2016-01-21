@@ -11,33 +11,28 @@
 #  * The XML model used for this code generation: zproto_example.xml
 #  * The code generation script that built this file: zproto_codec_c
 #  ************************************************************************
-"""
-    Copyright (C) 2014 the Authors                                         
-                                                                           
-    Permission is hereby granted, free of charge, to any person obtaining  
-    a copy of this software and associated documentation files (the        
-    "Software"), to deal in the Software without restriction, including    
-    without limitation the rights to use, copy, modify, merge, publish,    
-    distribute, sublicense, and/or sell copies of the Software, and to     
-    permit persons to whom the Software is furnished to do so, subject to  
-    the following conditions:                                              
-                                                                           
-    The above copyright notice and this permission notice shall be included
-    in all copies or substantial portions of the Software.                 
-                                                                           
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF             
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
-    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   
-    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   
-    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      
-    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 
-    =========================================================================
-"""
-
+#  Copyright (C) 2014 the Authors Permission is hereby granted, free  
+#  of charge, to any person obtaining a copy of this software and     
+#  associated documentation files (the "Software"), to deal in the    
+#  Software without restriction, including without limitation the     
+#  rights to use, copy, modify, merge, publish, distribute,           
+#  sublicense, and/or sell copies of the Software, and to permit      
+#  persons to whom the Software is furnished to do so, subject to the 
+#  following conditions: The above copyright notice and this          
+#  permission notice shall be included in all copies or substantial   
+#  portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+#  WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+#  TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR     
+#  PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR      
+#  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER        
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,    
+#  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
+#  OR OTHER DEALINGS IN THE SOFTWARE.                                 
+#  =========================================================================
+#
 #  These are the ZprotoExample messages:
 #
-#   LOG - Log an event.
+#   LOG - #    Log an event.
 #       sequence            number 2            # 
 #       version             number 2            # Version
 #       level               number 1            # Log severity level
@@ -48,12 +43,12 @@
 #       host                string              # Originating hostname
 #       data                longstr             # Actual log message
 #
-#   STRUCTURES - This message contains a list and a hash.
+#   STRUCTURES - #    This message contains a list and a hash.
 #       sequence            number 2            # 
 #       aliases             strings             # List of strings
 #       headers             hash                # Other random properties
 #
-#   BINARY - Deliver a multi-part message.
+#   BINARY - #    Deliver a multi-part message.
 #       sequence            number 2            # 
 #       flags               octets [4]          # A set of flags
 #       public_key          chunk               # Our public key
@@ -61,7 +56,7 @@
 #       address             frame               # Return address as frame
 #       content             msg                 # Message to be delivered
 #
-#   TYPES - Demonstrate custom-defined types
+#   TYPES - #    Demonstrate custom-defined types
 #       sequence            number 2            # 
 #       client_forename     string              # Given name
 #       client_surname      string              # Family name
@@ -133,7 +128,6 @@ class ZprotoExample(object):
     def _put_number1(self, nr):
         d = struct.pack('>b', nr)
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a 1-byte number to the frame
     #  then make it unsigned
@@ -146,7 +140,6 @@ class ZprotoExample(object):
     def _put_number2(self, nr):
         d = struct.pack('>H', nr)
         self.struct_data += d
-        print(self.struct_data)
 
     # Get a 2-byte number from the frame
     def _get_number2(self):
@@ -158,7 +151,6 @@ class ZprotoExample(object):
     def _put_number4(self, nr):
         d = struct.pack('>I', nr)
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a 4-byte number to the frame
     def _get_number4(self):
@@ -170,7 +162,6 @@ class ZprotoExample(object):
     def _put_number8(self, nr):
         d = struct.pack('>Q', nr)
         self.struct_data += d   
-        print(self.struct_data)
 
     #  Get a 8-byte number to the frame
     def _get_number8(self):
@@ -183,7 +174,6 @@ class ZprotoExample(object):
         self._put_number1(len(s))
         d = struct.pack('%is' % len(s), s.encode('UTF-8'))
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a string from the frame
     def _get_string(self):
@@ -197,7 +187,6 @@ class ZprotoExample(object):
         self._put_number4(len(s))
         d = struct.pack('%is' % len(s), s.encode('UTF-8'))
         self.struct_data += d
-        print(self.struct_data)
 
     #  Get a long string from the frame
     def _get_long_string(self):
@@ -209,7 +198,6 @@ class ZprotoExample(object):
     #  Put bytes to the frame
     def _put_bytes(self, b):
         self.struct_data += b
-        print(self.struct_data)
 
     #  Get bytes from the frame
     def _get_bytes(self, size):

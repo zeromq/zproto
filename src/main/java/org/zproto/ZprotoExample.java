@@ -331,6 +331,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
 
             switch (self.id) {
             case LOG:
+                {
                 self.sequence = self.getNumber2 ();
                 self.version = self.getNumber2 ();
                 if (self.version != 3)
@@ -342,9 +343,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 self.time = self.getNumber8 ();
                 self.host = self.getString ();
                 self.data = self.getLongString ();
+                }
                 break;
 
             case STRUCTURES:
+                {
                 self.sequence = self.getNumber2 ();
                 listSize = (int) self.getNumber4 ();
                 self.aliases = new ArrayList<String> ();
@@ -360,9 +363,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
 
                     self.headers.put(key, value);
                 }
+                }
                 break;
 
             case BINARY:
+                {
                 self.sequence = self.getNumber2 ();
                 self.flags = self.getBlock (4);
                 self.public_key = self.getBlock((int) self.getNumber4());
@@ -375,9 +380,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 self.content = new ZMsg();
                 if (input.hasReceiveMore ())
                     self.content.add(ZFrame.recvFrame (input));
+                }
                 break;
 
             case TYPES:
+                {
                 self.sequence = self.getNumber2 ();
                 self.client_forename = self.getString ();
                 self.client_surname = self.getString ();
@@ -387,6 +394,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 self.supplier_surname = self.getString ();
                 self.supplier_mobile = self.getString ();
                 self.supplier_email = self.getString ();
+                }
                 break;
 
             default:
@@ -422,6 +430,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
         int frameSize = 2 + 1;          //  Signature and message ID
         switch (id) {
         case LOG:
+            {
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  version is a 2-byte integer
@@ -442,9 +451,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
             //  data is a long string with 4-byte length
             frameSize += 4;
             frameSize += (data != null) ? data.length() : 0;
+            }
             break;
 
         case STRUCTURES:
+            {
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  aliases is an array of strings
@@ -465,9 +476,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 }
                 frameSize += headersBytes;
             }
+            }
             break;
 
         case BINARY:
+            {
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  flags is a block of 4 bytes
@@ -477,9 +490,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
             frameSize += (public_key != null) ? public_key.length : 0;
             //  identifier is uuid with 16-byte length
             frameSize += 16;
+            }
             break;
 
         case TYPES:
+            {
             //  sequence is a 2-byte integer
             frameSize += 2;
             //  client_forename is a string with 1-byte length
@@ -506,6 +521,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
             //  supplier_email is a string with 1-byte length
             frameSize ++;
             frameSize += (supplier_email != null) ? supplier_email.length() : 0;
+            }
             break;
 
         default:
@@ -521,6 +537,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
 
         switch (id) {
         case LOG:
+            {
             putNumber2 (sequence);
             putNumber2 (3);
             putNumber1 (level);
@@ -536,9 +553,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 putLongString (data);
             else
                 putNumber4 (0);      //  Empty string
+            }
             break;
 
         case STRUCTURES:
+            {
             putNumber2 (sequence);
             if (aliases != null) {
                 putNumber4 (aliases.size ());
@@ -557,9 +576,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
             }
             else
                 putNumber4 (0);      //  Empty hash
+            }
             break;
 
         case BINARY:
+            {
             putNumber2 (sequence);
             putBlock (flags, 4);
               if(public_key != null) {
@@ -576,9 +597,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
               } else {
                   needle.put(new byte[16]);    //  Empty Chunk
               }
+            }
             break;
 
         case TYPES:
+            {
             putNumber2 (sequence);
             if (client_forename != null)
                 putString (client_forename);
@@ -612,6 +635,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 putString (supplier_email);
             else
                 putNumber1 ((byte) 0);      //  Empty string
+            }
             break;
 
         }
@@ -621,18 +645,22 @@ public class ZprotoExample implements java.lang.AutoCloseable
         //  Now send any frame fields, in order
         switch (id) {
         case BINARY:
+            {
             //  If address isn't set, send an empty frame
             if (address == null)
                 address = new ZFrame ("".getBytes ());
             msg.add(address);
+            }
             break;
         }
         switch (id) {
         case BINARY:
+            {
             if( content == null )
                 content = new ZMsg();
             for (ZFrame contentPart : content) {
                 msg.add(contentPart);
+            }
             }
             break;
         }
@@ -862,6 +890,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
             copy.routingId = this.routingId.duplicate ();
         switch (this.id) {
         case LOG:
+            {
             copy.sequence = this.sequence;
             copy.version = this.version;
             copy.level = this.level;
@@ -871,19 +900,25 @@ public class ZprotoExample implements java.lang.AutoCloseable
             copy.time = this.time;
             copy.host = this.host;
             copy.data = this.data;
+        }
         break;
         case STRUCTURES:
+            {
             copy.sequence = this.sequence;
             copy.aliases = new ArrayList <String> (this.aliases);
             copy.headers = new HashMap <String, String> (this.headers);
+        }
         break;
         case BINARY:
+            {
             copy.sequence = this.sequence;
             System.arraycopy (copy.flags, 0, this.flags, 0, 4);
             copy.public_key = this.public_key;
             copy.address = this.address.duplicate ();
+        }
         break;
         case TYPES:
+            {
             copy.sequence = this.sequence;
             copy.client_forename = this.client_forename;
             copy.client_surname = this.client_surname;
@@ -893,6 +928,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
             copy.supplier_surname = this.supplier_surname;
             copy.supplier_mobile = this.supplier_mobile;
             copy.supplier_email = this.supplier_email;
+        }
         break;
         }
         return copy;
@@ -912,6 +948,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
     {
         switch (id) {
         case LOG:
+            {
             System.out.println ("LOG:");
             System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    version=3\n");
@@ -928,9 +965,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 System.out.printf ("    data='%s'\n", data);
             else
                 System.out.printf ("    data=\n");
+            }
             break;
 
         case STRUCTURES:
+            {
             System.out.println ("STRUCTURES:");
             System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    aliases={");
@@ -946,9 +985,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                     headersDump (entry, this);
             }
             System.out.printf ("    }\n");
+            }
             break;
 
         case BINARY:
+            {
             System.out.println ("BINARY:");
             System.out.printf ("    sequence=%d\n", (long)sequence);
             System.out.printf ("    flags=");
@@ -974,9 +1015,11 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 }
             }
             System.out.printf ("    }\n");
+            }
             break;
 
         case TYPES:
+            {
             System.out.println ("TYPES:");
             System.out.printf ("    sequence=%d\n", (long)sequence);
             if (client_forename != null)
@@ -1011,6 +1054,7 @@ public class ZprotoExample implements java.lang.AutoCloseable
                 System.out.printf ("    supplier_email='%s'\n", supplier_email);
             else
                 System.out.printf ("    supplier_email=\n");
+            }
             break;
 
         }
@@ -1408,4 +1452,3 @@ public class ZprotoExample implements java.lang.AutoCloseable
     }
 
 }
-
