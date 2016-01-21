@@ -39,7 +39,7 @@ $(string.justify (license., 70, "#  "):block                                    
 #
 #   $(NAME) - $(string.justify(.?, 70, '#    '))
 .   for field
-.       if type = "number"                      
+.       if type = "number"
 #       $(name)             $(type) $(size)     # $(string.trim (field.)?'':left)
 .       elsif type = "octets"
 #       $(name)             $(type) [$(size)]   # $(string.trim (field.)?'':left)
@@ -142,7 +142,7 @@ class $(ClassName)(object):
     #  Put a 8-byte number to the frame
     def _put_number8(self, nr):
         d = struct.pack('>Q', nr)
-        self.struct_data += d   
+        self.struct_data += d
 
     #  Get a 8-byte number to the frame
     def _get_number8(self):
@@ -175,7 +175,7 @@ class $(ClassName)(object):
         s = struct.unpack_from(str(s_len) + 's', self.struct_data, offset=self._needle)
         self._needle += struct.calcsize('s' * s_len)
         return s[0].decode('UTF-8')
-    
+
     #  Put bytes to the frame
     def _put_bytes(self, b):
         self.struct_data += b
@@ -185,7 +185,7 @@ class $(ClassName)(object):
         s =  self.struct_data[self._needle:self._needle+size]
         self._needle += size
         return s
-    
+
 
 # Skipped recv from zmsg
 # Skipped senf to zmsg
@@ -199,13 +199,13 @@ class $(ClassName)(object):
             self.routing_id = frames.pop(0)
 
         self.struct_data = frames.pop(0)
-        logger.debug("recv data: {0}".format(self.struct_data))
+        logger.debug("recv data: {0!r}".format(self.struct_data))
         if not self.struct_data:
-            logger.debug("Malformed msg")        
+            logger.debug("Malformed msg")
             return
 
         # Get and check protocol signature
-        self._needle = 0        
+        self._needle = 0
         self._ceiling = len(self.struct_data)
 
 # TODO what is zdigest?
@@ -213,10 +213,10 @@ class $(ClassName)(object):
     zdigest_t *digest = zdigest_new ();
 .endif
         signature = self._get_number2()
-        if signature != (0xAAA0 | $(class.signature)): 
+        if signature != (0xAAA0 | $(class.signature)):
             logger.debug("Invalid signature {0}".format(signature))
             return
-   
+
         self._id = self._get_number1()
 
 .for class.message where count (field)
@@ -235,20 +235,20 @@ class $(ClassName)(object):
 .       elsif type = "octets"
             self._$(name) = self._get_bytes($(size))
 .           if defined (field.value)
-            if self._$(name) != $(field.value:):
+            if self._$(name) != b'$(field.value:)':
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "string"
             self._$(name) = self._get_string()
 .           if defined (field.value)
-            if self._$(name) != $(field.value:):
+            if self._$(name) != '$(field.value:)':
                 #??? raise IllegalArgumentException()
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "longstr"
             self._$(name) = self._get_long_string()
 .           if defined (field.value)
-            if self._$(name) != "$(field.value:)":
+            if self._$(name) != '$(field.value:)':
                 logger.debug("Value {0} != {1}".format(self._$(name), $(field.value:)))
 .           endif
 .       elsif type = "strings"
@@ -271,14 +271,14 @@ class $(ClassName)(object):
 .       elsif type = "frame"
             if not len(frames):
                 self._$(name) = b''
-                logger.warn("no more frames in message while retrieving self._$(name)")
+                logger.warning("no more frames in message while retrieving self._$(name)")
             else:
                 self._$(name) = frames.pop(0)
 .       elsif type = "msg"
-            logger.warn("Zmsg requested but we have no support for Zmsg types")
+            logger.warning("Zmsg requested but we have no support for Zmsg types")
             if not len(frames):
                 self._$(name) = b''
-                logger.warn("no more frames in message while retrieving self._$(name)")
+                logger.warning("no more frames in message while retrieving self._$(name)")
             else:
                 self._$(name) = frames.pop(0)
 .       endif
@@ -291,7 +291,7 @@ class $(ClassName)(object):
     #  --------------------------------------------------------------------------
     #  Send the $(ClassName) to the socket, and destroy it
     def send(self, outsocket):
-        if outsocket.socket_type == zmq.ROUTER:
+        if outsocket.type == zmq.ROUTER:
             outsocket.send(self.routing_id, zmq.SNDMORE)
         # TDOD: We could generalize to a ZMsg class? ZMsg msg = new ZMsg();
 
@@ -321,7 +321,7 @@ class $(ClassName)(object):
             self._put_bytes(self._$(name))
 .       elsif type = "string"
 .           if defined (field.value)
-            self._put_string($(field.value:))
+            self._put_string('$(field.value:)')
 .           else
             if self._$(name) != None:
                 self._put_string(self._$(name))
@@ -330,7 +330,7 @@ class $(ClassName)(object):
 .           endif
 .       elsif type = "longstr"
 .           if defined (field.value)
-            self._put_long_string($(field.value:))
+            self._put_long_string('$(field.value:)')
 .           else
             if self._$(name) != None:
                 self._put_long_string(self._$(name))
@@ -524,7 +524,7 @@ class $(ClassName)Test(unittest.TestCase):
         print(" * $(class.name): ");
         class1 = $(ClassName)()
         del(class1)
-    
+
     def test_sockets(self):
         #  Create pair of sockets we can send through
         #  We must bind before connect if we wish to remain compatible with ZeroMQ < v4
@@ -561,7 +561,7 @@ class $(ClassName)Test(unittest.TestCase):
         # Send twice?
         msg.send(outsock);
         msg.send(outsock);
-        
+
 
         msg.recv(insock)
 .   for field where !defined (value)
