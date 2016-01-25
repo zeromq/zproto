@@ -1,12 +1,20 @@
 .template 0
-#   zproto_server_c.gsl
 #
 #   Generates a server class for a protocol specification
 #   This manages ROUTER server talking to DEALER clients
 #
+#   This is a code generator built using the iMatix GSL code generation
+#   language. See https://github.com/imatix/gsl for details.
 #
-#   - if proto_class has the 'virtual' flag set, the server will use the appropriate zmsg_t calls transparently
+#   Copyright (c) the Contributors as noted in the AUTHORS file.
 #
+#   This Source Code Form is subject to the terms of the Mozilla Public
+#   License, v. 2.0. If a copy of the MPL was not distributed with this
+#   file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+#   If proto_class has the 'virtual' flag set, the server will use the
+#   appropriate zmsg_t calls transparently
+
 include "zproto_lib.gsl"
 resolve_includes ()
 set_defaults ()
@@ -14,8 +22,6 @@ set_defaults ()
 #   Load message structures for this engine
 global.proto = xml.load_file (class.protocol_class + ".xml")
 class.proto = class.protocol_class
-
-
 
 #   Lowercase state/event/action names
 for class.state
@@ -215,7 +221,6 @@ $(CLASS.EXPORT_MACRO)void
 .   endfor
     =========================================================================
 */
-
 
 //  ---------------------------------------------------------------------------
 //  State machine constants
@@ -617,6 +622,7 @@ s_client_free (void *argument)
                     }
 .       endfor
 .endmacro
+.
 .macro output_state_change ()
 .       if defined (event.next)
 .           for state.[after]
@@ -867,10 +873,11 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
     zmsg_t *msg = zmsg_recv (self->pipe);
     if (!msg)
         return -1;              //  Interrupted; exit zloop
-.if switches.trace ?= 1
+.   if switches.trace ?= 1
     zsys_debug ("API message:");
     zmsg_print (msg);
-.endif
+
+.   endif
     char *method = zmsg_popstr (msg);
     if (self->verbose)
         zsys_debug ("%s:     API command=%s", self->log_prefix, method);
@@ -981,9 +988,9 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         if ($(proto)_recv (self->message, self->router))
             return -1;      //  Interrupted; exit zloop
 .   endif             
-.if defined (class.receive_tracer)
+.   if defined (class.receive_tracer)
         $(class.receive_tracer) ((server_t *) self);
-.endif
+.   endif
 
         //  TODO: use binary hashing on routing_id
         char *hashkey = zframe_strhex ($(proto)_routing_id (self->message));
@@ -994,10 +1001,10 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
             zhash_freefn (self->clients, hashkey, s_client_free);
         }
         free (hashkey);
-.if switches.trace ?= 1
+.   if switches.trace ?= 1
         zsys_debug ("%d: Client message", client->unique_id);
         $(proto)_print (self->message);
-.endif
+.   endif
         //  Any input from client counts as activity
         if (client->ticket)
             zloop_ticket_reset (self->loop, client->ticket);

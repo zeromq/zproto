@@ -1,17 +1,27 @@
-.#   zproto_codec_clj.gsl
-.#
-.#   Generates a codec for a protocol specification
-.#
-.include "zproto_codec_java.gsl"
-.include "zproto_lib_clj.gsl"
-.global.ClassName = java_class_name($(class.name))
-.global.namespace = "org.zproto"
-.global.name_path = "org/zproto"
-.global.topdir ?= "$(switches.topdir)/main" ? "main"
-.global.source_path = "$(topdir)/clojure/src"
-.global.test_path = "$(topdir)/clojure/test"
-.directory.create ("$(source_path)/$(name_path)")
-.directory.create ("$(test_path)/$(name_path)")
+.template 0
+#
+#   Generates a codec for a protocol specification
+#
+#   This is a code generator built using the iMatix GSL code generation
+#   language. See https://github.com/imatix/gsl for details.
+#
+#   Copyright (c) the Contributors as noted in the AUTHORS file.
+#
+#   This Source Code Form is subject to the terms of the Mozilla Public
+#   License, v. 2.0. If a copy of the MPL was not distributed with this
+#   file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+include "zproto_codec_java.gsl"
+include "zproto_lib_clj.gsl"
+global.ClassName = java_class_name($(class.name))
+global.namespace = "org.zproto"
+global.name_path = "org/zproto"
+global.topdir ?= "$(switches.topdir)/main" ? "main"
+global.source_path = "$(topdir)/clojure/src"
+global.test_path = "$(topdir)/clojure/test"
+directory.create ("$(source_path)/$(name_path)")
+directory.create ("$(test_path)/$(name_path)")
+.endtemplate
 .output "$(source_path)/$(name_path)/$(class.name).clj"
 ;;  =========================================================================
 ;;    $(ClassName) - $(class.title:)
