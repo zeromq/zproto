@@ -272,7 +272,122 @@ endfor
 
 .endtemplate
 .#  This is the API for the client
-.output "$(class.package_dir)/$(class.name).h"
+.if switches.zproject ?= 1
+.   file.delete ("$(class.package_dir)/$(class.name).h")
+.   directory.create ("../api")
+.   output "../api/$(class.name).xml"
+<!--
+    $(class.name) - $(class.title:)
+
+    Codec class for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
+    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+ -->
+<class name = "$(class.name)">
+
+<constructor>
+    Create a new $(class.name), return the reference if successful,
+    or NULL if construction failed due to lack of available memory.
+</constructor>
+
+<destructor>
+    Destroy the $(class.name) and free all memory used by the object.
+</destructor>
+
+<method name = "actor">
+    Return actor, when caller wants to work with multiple actors and/or
+    input sockets asynchronously.
+    <return type = "zactor" />
+</method>
+
+<method name = "msgpipe">
+    Return message pipe for asynchronous message I/O. In the high-volume case,
+    we send methods and get replies to the actor, in a synchronous manner, and
+    we send/recv high volume message data to a second pipe, the msgpipe. In
+    the low-volume case we can do everything over the actor pipe, if traffic
+    is never ambiguous.
+    <return type = "zsock" />
+</method>
+
+<method name = "connected">
+    Return true if client is currently connected, else false. Note that the
+    client will automatically re-connect if the server dies and restarts after
+    a successful first connection.
+    <return type = "boolean" />
+</method>
+
+.for class.method where name <> "constructor" & name <> "destructor"
+<method name = "$(name)">
+    $(method.?'No explanation':justify,block%-80s)
+.   if count (method.accept)
+.       if method.type = "number" | method.type = "integer"
+    Returns >= 0 if successful, -1 if interrupted.
+.       else
+    Returns NULL on an interrupt.
+.       endif
+.   endif
+    <argument name = "args">$(args)</argument>
+    <return type = "$(type)" />
+</method>
+
+.endfor
+.for class.send
+.   for message as method
+<method name = "$(.method)">
+    Send $(name:) message to server, takes ownership of message
+    and destroys message when done sending it.
+    <argument name = "args">$(args)</argument>
+    <return type = "integer" />
+</method>
+
+.   endfor
+.endfor
+.for class.recv
+<method name = "recv">
+    Receive message from server; caller destroys message when done
+    <return type = "zmsg" />
+</method>
+
+<method name = "command">
+    Return last received command. Can be one of these values:
+.   for message
+        "$(NAME)"
+.   endfor
+    <return type = "string" />
+</method>
+
+.endfor
+.for class.property
+<method name = "$(name)">
+    Return last received $(name)
+    <return type = "$(ctype)" />
+</method>
+
+.endfor
+.for class.custom
+.   for header
+$(header.:)
+.   endfor
+.endfor
+
+<method name = "set verbose" singleton = "1">
+    Enable verbose tracing (animation) of $(class.name) instances,
+    This lets you trace from and including construction.
+</method>
+</class>
+.else
+.   output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
