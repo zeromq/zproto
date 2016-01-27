@@ -1,8 +1,17 @@
 .template 0
-#   zproto_codec_c_v2.gsl
 #
-#   Generates a codec for a protocol specification. This has the following
-#   changes over the v1 codec:
+#   Generates a codec for a protocol specification.
+#
+#   This is a code generator built using the iMatix GSL code generation
+#   language. See https://github.com/imatix/gsl for details.
+#
+#   Copyright (c) the Contributors as noted in the AUTHORS file.
+#
+#   This Source Code Form is subject to the terms of the Mozilla Public
+#   License, v. 2.0. If a copy of the MPL was not distributed with this
+#   file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+#   This has the following changes over the v1 codec:
 #
 #   - uses the low-level zmq API for sending/receiving messages, instead
 #     of CZMQ, to reduce heap usage.
@@ -15,7 +24,7 @@
 #   - class.virtual makes send/recv work with zmsg_t instead of sockets.
 #
 #   Note that the API is NOT compatible with v1.
-#
+
 include "zproto_lib.gsl"
 include "zproto_bnf.gsl"
 resolve_includes ()
@@ -23,7 +32,178 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.output "$(class.package_dir)/$(class.name).h"
+.if switches.zproject ?= 1
+.   file.delete ("$(class.package_dir)/$(class.name).h")
+.   directory.create ("../api")
+.   output "../api/$(class.name).xml"
+<!--
+    $(class.name) - $(class.title:)
+
+    Codec class for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
+    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+ -->
+<class name = "$(class.name)">
+.   for define
+    <constant name = "$(define.name)" value = "$(define.value:)" />
+.   endfor
+.   for message
+    <constant name = "$(message.name)" value = "$(id)" />
+.   endfor
+.   for class.field where type = "octets"
+    <constant name = "$(field.name) size" value = "$(size)" />
+.   endfor
+
+<constructor>
+    Create a new empty $(class.name)
+</constructor>
+
+<destructor>
+    Destroy a $(class.name) instance
+</destructor>
+
+.   if class.virtual ?= 1
+<method name = "recv">
+    Deserialize a $(class.name) from the specified message, popping
+    as many frames as needed. Returns 0 if OK, -1 if there was an error.
+    <argument name = "input" type = "zmsg" />
+    <return type = "integer" />
+</method>
+
+<method name = "send">
+    Serialize and append the $(class.name) to the specified message
+    <argument name = "output" type = "zmsg" />
+    <return type = "integer" />
+</method>
+.   else
+<method name = "recv">
+    Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
+    there was an error. Blocks if there is no message waiting.
+    <argument name = "input" type = "zsock" />
+    <return type = "integer" />
+</method>
+
+<method name = "send">
+    Send the $(class.name) to the output socket, does not destroy it
+    <argument name = "output" type = "zsock" />
+    <return type = "integer" />
+</method>
+.   endif
+
+<method name = "print">
+    Print contents of message to stdout
+</method>
+
+<method name = "routing id">
+    Get the message routing id, as a frame
+    <return type = "zframe" />
+</method>
+
+<method name = "set routing id">
+    Set the message routing id from a frame
+    <argument name = "routing id" type = "zframe" />
+</method>
+
+<method name = "id">
+    Get the $(class.name) message id
+    <return type = "integer" />
+</method>
+
+<method name = "set id">
+    Set the $(class.name) message id
+    <argument name = "id" type = "integer" />
+</method>
+
+<method name = "command">
+    Get the $(class.name) message id as printable text
+    <return type = "string" />
+</method>
+
+.   for class.field where !defined (value)
+.       if type = "number"
+<method name = "$(name)">
+    Get the $(name) field
+    <return type = "number" size = "$(size)" />
+</method>
+<method name = "set $(name)">
+    Set the $(name) field
+    <argument name = "$(name)" type = "number" size = "$(size)" />
+</method>
+.       elsif type = "octets"
+<method name = "$(name)">
+    Get the $(name) field
+    <return type = "buffer" mutable = "1" size = "$(size)" />
+</method>
+<method name = "set $(name)">
+    Set the $(name) field
+    <argument name = "$(name)" type = "buffer" />
+</method>
+.       elsif type = "string" | type = "longstr"
+<method name = "$(name)">
+    Get the $(name) field
+    <return type = "string" />
+</method>
+<method name = "set $(name)">
+    Set the $(name) field
+    <argument name = "$(name)" type = "string" />
+</method>
+.       elsif type = "strings"
+<method name = "$(name)">
+    Get the $(name) field
+    <return type = "zlist" />
+</method>
+<method name = "get $(name)">
+    Get the $(name) field and transfer ownership to caller
+    <return type = "zlist" />
+</method>
+<method name = "set $(name)">
+    Set the $(name) field
+    <argument name = "$(name)_p" type = "zlist" by_reference = "1" />
+</method>
+.       elsif type = "uuid"
+<method name = "$(name)">
+    Get the $(name) field
+    <return type = "z$(type)" />
+</method>
+<method name = "get $(name)">
+    Get the $(name) field and transfer ownership to caller
+    <return type = "z$(type)" />
+</method>
+<method name = "set $(name)">
+    Set the $(name) field
+    <argument name = "$(name)_p" type = "z$(type)" />
+</method>
+.       elsif type = "hash" | type = "chunk" | type = "frame" | type = "msg"
+<method name = "$(name)">
+    Get a copy of the $(name) field
+    <return type = "z$(type)" />
+</method>
+<method name = "get $(name)">
+    Get the $(name) field and transfer ownership to caller
+    <return type = "z$(type)" />
+</method>
+    Set the $(name) field, transferring ownership from caller
+<method name = "set $(name)">
+    <argument name = "$(name)_p" type = "z$(type)" by_reference = "1" />
+</method>
+.       else
+.           echo "E: unknown type '$(type)' for field '$(name)'"
+.       endif
+.   endfor
+</class>
+.else
+.   output "$(class.package_dir)/$(class.name).h"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -213,6 +393,7 @@ $(CLASS.EXPORT_MACRO)void
 #endif
 
 #endif
+.endif
 .output "$(class.source_dir)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
