@@ -1070,6 +1070,9 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     else
     if (streq (method, "$CONNECTED"))
         zsock_send (self->cmdpipe, "i", self->connected);
+    else
+    if (streq (method, "SET VERBOSE"))
+        zsock_recv (self->cmdpipe, "i", &self->verbose);
 .for class.method where immediate = 0
     else
     if (streq (method, "$(NAME)")) {
@@ -1563,7 +1566,7 @@ void
 $(class.name)_set_verbose ($(class.name)_t *self, bool verbose)
 {
     assert (self);
-    ((s_client_t *) self)->verbose = verbose;
+    zsock_send (self->actor, "si", "SET VERBOSE", verbose);
 }
 .for class.custom
 .   for source
