@@ -286,7 +286,7 @@ endif
 .if switches.zproject ?= 1
 .   file.delete ("$(class.package_dir)/$(class.name).h")
 .   directory.create ("../api")
-.   output "../api/$(class.name).xml"
+.   output "../api/$(class.name).api"
 <!--
     $(class.name) - $(class.title:)
 
