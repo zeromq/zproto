@@ -113,6 +113,7 @@ function check_field (field)
         #   Used in zsock_bsend
         my.field.bin_pattern = "4"
         my.field.ctype = "int "
+        my.field.zproject_type = "integer"
     elsif type = "number"
         my.field.size ?= 4
         #   Used in zsock_send
@@ -131,35 +132,42 @@ function check_field (field)
             echo "E: bad size $(size) for $(name)"
             abort "E: please fix model and 'make code' again"
         endif
+        my.field.zproject_type = "number"
+        my.field.zproject_size = size
     elsif type = "string"
         my.field.txt_pattern = "s"
         my.field.bin_pattern = "s"
         my.field.const = "const "
         my.field.ctype = "char *"
         my.field.destructor = "zstr_free"
+        my.field.zproject_type = "string"
     elsif type = "longstr"
         my.field.txt_pattern = "s"
         my.field.bin_pattern = "S"
         my.field.const = "const "
         my.field.ctype = "char *"
         my.field.destructor = "zstr_free"
+        my.field.zproject_type = "string"
     elsif type = "strings"
         my.field.txt_pattern = "p"
         my.field.bin_pattern = "p"
         my.field.ctype = "zlist_t *"
         my.field.byref = 1
         my.field.destructor = "zlist_destroy"
+        my.field.zproject_type = "zlist"
     elsif type = "uuid"
         my.field.txt_pattern = "U"
         my.field.bin_pattern = "u"
         my.field.ctype = "z$(type)_t *"
         my.field.destructor = "z$(type)_destroy"
+        my.field.zproject_type = "zuuid"
     elsif type = "chunk" | type = "frame" | type = "hash" | type = "msg"
         my.field.txt_pattern = "p"
         my.field.bin_pattern = "p"
         my.field.ctype = "z$(type)_t *"
         my.field.byref = 1
         my.field.destructor = "z$(type)_destroy"
+        my.field.zproject_type = "z$(type)"
     endif
 endfunction
 
@@ -270,6 +278,9 @@ for class.custom where language = "C"
     custom.load_file (custom.filename)
 endfor
 
+if switches.save ?= 1
+    class.save ("save.xml")
+endif
 .endtemplate
 .#  This is the API for the client
 .if switches.zproject ?= 1
@@ -295,84 +306,100 @@ endfor
 .   endfor
  -->
 <class name = "$(class.name)">
+    <constructor>
+        Create a new $(class.name), return the reference if successful,
+        or NULL if construction failed due to lack of available memory.
+    </constructor>
 
-<constructor>
-    Create a new $(class.name), return the reference if successful,
-    or NULL if construction failed due to lack of available memory.
-</constructor>
+    <destructor>
+        Destroy the $(class.name) and free all memory used by the object.
+    </destructor>
 
-<destructor>
-    Destroy the $(class.name) and free all memory used by the object.
-</destructor>
+    <method name = "actor">
+        Return actor, when caller wants to work with multiple actors and/or
+        input sockets asynchronously.
+        <return type = "zactor" />
+    </method>
 
-<method name = "actor">
-    Return actor, when caller wants to work with multiple actors and/or
-    input sockets asynchronously.
-    <return type = "zactor" />
-</method>
+    <method name = "msgpipe">
+        Return message pipe for asynchronous message I/O. In the high-volume case,
+        we send methods and get replies to the actor, in a synchronous manner, and
+        we send/recv high volume message data to a second pipe, the msgpipe. In
+        the low-volume case we can do everything over the actor pipe, if traffic
+        is never ambiguous.
+        <return type = "zsock" />
+    </method>
 
-<method name = "msgpipe">
-    Return message pipe for asynchronous message I/O. In the high-volume case,
-    we send methods and get replies to the actor, in a synchronous manner, and
-    we send/recv high volume message data to a second pipe, the msgpipe. In
-    the low-volume case we can do everything over the actor pipe, if traffic
-    is never ambiguous.
-    <return type = "zsock" />
-</method>
-
-<method name = "connected">
-    Return true if client is currently connected, else false. Note that the
-    client will automatically re-connect if the server dies and restarts after
-    a successful first connection.
-    <return type = "boolean" />
-</method>
+    <method name = "connected">
+        Return true if client is currently connected, else false. Note that the
+        client will automatically re-connect if the server dies and restarts after
+        a successful first connection.
+        <return type = "boolean" />
+    </method>
 
 .for class.method where name <> "constructor" & name <> "destructor"
-<method name = "$(name)">
-    $(method.?'No explanation':justify,block%-80s)
+    <method name = "$(name)">
+        $(method.?'No explanation':justify,block%-80s)
 .   if count (method.accept)
 .       if method.type = "number" | method.type = "integer"
-    Returns >= 0 if successful, -1 if interrupted.
+        Returns >= 0 if successful, -1 if interrupted.
 .       else
-    Returns NULL on an interrupt.
+        Returns NULL on an interrupt.
 .       endif
 .   endif
-    <argument name = "args">$(args)</argument>
-    <return type = "$(type)" />
-</method>
+.   for field
+        <argument name = "$(name)" type = "$(zproject_type)"\
+.       if defined (field.size)
+ size = "$(zproject_size)"\
+.       endif
+>$(field.?:)</argument>
+.   endfor
+.   if defined (method.return)
+        <return type = "$(type)" />
+.   endif
+    </method>
 
 .endfor
 .for class.send
 .   for message as method
-<method name = "$(.method)">
-    Send $(name:) message to server, takes ownership of message
-    and destroys message when done sending it.
-    <argument name = "args">$(args)</argument>
-    <return type = "integer" />
-</method>
+    <method name = "$(.method)">
+        Send $(name:) message to server, takes ownership of message
+        and destroys message when done sending it.
+.   for field
+        <argument name = "$(name)" type = "$(zproject_type)"\
+.       if field.byref ?= 1
+ by_reference = "1"\
+.       endif
+.       if defined (field.size)
+ size = "$(zproject_size)"\
+.       endif
+>$(field.?:)</argument>
+.   endfor
+        <return type = "integer" />
+    </method>
 
 .   endfor
 .endfor
 .for class.recv
-<method name = "recv">
-    Receive message from server; caller destroys message when done
-    <return type = "zmsg" />
-</method>
+    <method name = "recv">
+        Receive message from server; caller destroys message when done
+        <return type = "zmsg" />
+    </method>
 
-<method name = "command">
-    Return last received command. Can be one of these values:
+    <method name = "command">
+        Return last received command. Can be one of these values:
 .   for message
-        "$(NAME)"
+            "$(NAME)"
 .   endfor
-    <return type = "string" />
-</method>
+        <return type = "string" />
+    </method>
 
 .endfor
 .for class.property
-<method name = "$(name)">
-    Return last received $(name)
-    <return type = "$(ctype)" />
-</method>
+    <method name = "$(name)">
+        Return last received $(name)
+        <return type = "$(zproject_type)" />
+    </method>
 
 .endfor
 .for class.custom
@@ -380,11 +407,10 @@ endfor
 $(header.:)
 .   endfor
 .endfor
-
-<method name = "set verbose" singleton = "1">
-    Enable verbose tracing (animation) of $(class.name) instances,
-    This lets you trace from and including construction.
-</method>
+    <method name = "set verbose">
+        Enable verbose tracing (animation) of state machine activity.
+        <argument name = "verbose" type = "boolean" />
+    </method>
 </class>
 .else
 .   output "$(class.package_dir)/$(class.name).h"
@@ -500,14 +526,13 @@ $(CLASS.EXPORT_MACRO)$(const)$(ctype)
 $(header.:)
 .   endfor
 .endfor
+//  Enable verbose tracing (animation) of state machine activity.
+$(CLASS.EXPORT_MACRO)void
+    $(class.name)_set_verbose (bool verbose);
+
 //  Self test of this class
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_test (bool verbose);
-
-//  To enable verbose tracing (animation) of $(class.name) instances, set
-//  this to true. This lets you trace from and including construction.
-$(CLASS.EXPORT_MACRO)extern volatile int
-    $(class.name)_verbose;
 //  @end
 
 #ifdef __cplusplus
@@ -598,6 +623,7 @@ typedef struct {
     zloop_t *loop;              //  Listen to pipe and dealer
     $(proto)_t *message;        //  Message received or sent
     client_args_t args;         //  Method arguments structure
+    bool verbose;               //  True if we're tracing state machine
     bool connected;             //  True if client is connected
     bool terminated;            //  True if client is shutdown
     bool fsm_stopped;           //  "terminate" action called
@@ -638,10 +664,6 @@ static void
 static void
     $(name) ($(args));
 .endfor
-
-//  Global tracing/animation indicator; we can't use a client method as
-//  that only works after construction (which we often want to trace).
-volatile int $(class.name)_verbose = false;
 
 //  Create a new client connection
 
@@ -871,7 +893,7 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
                     if (!self->exception) {
 .           if name = "send"
                         //  send $(MESSAGE:C)
-                        if ($(class.name)_verbose)
+                        if (self->verbose)
                             zsys_debug ("%s:         $ $(name) $(MESSAGE:C)",
                                 self->log_prefix);
                         $(proto)_set_id (self->message, $(PROTO)_$(MESSAGE:C));
@@ -882,12 +904,12 @@ s_protocol_event (s_client_t *self, $(proto)_t *message)
                         $(proto)_send (self->message, self->dealer);
 .           elsif name = "terminate"
                         //  terminate
-                        if ($(class.name)_verbose)
+                        if (self->verbose)
                             zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         self->fsm_stopped = true;
 .           else
                         //  $(name)
-                        if ($(class.name)_verbose)
+                        if (self->verbose)
                             zsys_debug ("%s:         $ $(name)", self->log_prefix);
                         $(name:c) (&self->client);
 .           endif
@@ -926,7 +948,7 @@ s_client_execute (s_client_t *self, event_t event)
         self->event = self->next_event;
         self->next_event = NULL_event;
         self->exception = NULL_event;
-        if ($(class.name)_verbose) {
+        if (self->verbose) {
             zsys_debug ("%s: %s:",
                 self->log_prefix, s_state_name [self->state]);
             zsys_debug ("%s:     %s",
@@ -972,13 +994,13 @@ s_client_execute (s_client_t *self, event_t event)
         }
         //  If we had an exception event, interrupt normal programming
         if (self->exception) {
-            if ($(class.name)_verbose)
+            if (self->verbose)
                 zsys_debug ("%s:         ! %s",
                     self->log_prefix, s_event_name [self->exception]);
             self->next_event = self->exception;
         }
         else
-        if ($(class.name)_verbose)
+        if (self->verbose)
             zsys_debug ("%s:         > %s",
                     self->log_prefix, s_state_name [self->state]);
     }
@@ -1040,7 +1062,7 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     char *method = zstr_recv (self->cmdpipe);
     if (!method)
         return -1;                  //  Interrupted; exit zloop
-    if ($(class.name)_verbose)
+    if (self->verbose)
         zsys_debug ("%s:     API command=%s", self->log_prefix, method);
 
     if (streq (method, "$TERM"))
@@ -1090,7 +1112,7 @@ s_client_handle_msgpipe (zloop_t *loop, zsock_t *reader, void *argument)
         char *method = zstr_recv (self->msgpipe);
         if (!method)
             return -1;              //  Interrupted; exit zloop
-        if ($(class.name)_verbose)
+        if (self->verbose)
             zsys_debug ("%s:     API message=%s", self->log_prefix, method);
 
         //  Front-end shuts down msgpipe before cmdpipe, this little
@@ -1532,6 +1554,17 @@ $(class.name)_$(name) ($(class.name)_t *self)
     return self->$(name);
 }
 .endfor
+
+
+//  ---------------------------------------------------------------------------
+//  Enable verbose tracing (animation) of state machine activity.
+
+void
+$(class.name)_set_verbose ($(class.name)_t *self, bool verbose)
+{
+    assert (self);
+    ((s_client_t *) self)->verbose = verbose;
+}
 .for class.custom
 .   for source
 
@@ -1617,7 +1650,7 @@ $(class.name)_test (bool verbose)
 
     //  @selftest
     zactor_t *client = zactor_new ($(class.name), NULL);
-    $(class.name)_verbose = verbose;
+    self->verbose = verbose;
     zactor_destroy (&client);
     //  @end
     printf ("OK\\n");
