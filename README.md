@@ -220,42 +220,6 @@ Your server code (the actions) gets a small API to work with:
     static void
     engine_configure (server_t *server, const char *path, const char *value);
 
-### Message Filtering & Priorities
-
-The generated engine implements a simple yet useful form of message filtering:
-
-* If a protocol message is not valid in the current state (i.e. there is no matching event), then it is queued for later processing.
-
-* When entering a new state, the engine will pull and process protocol messages from oldest to newest, matching events in the state.
-
-You can use this to mix blocking and non-blocking work on the same connection. For instance, one command may involve some work (such as waiting on other connections) that can block for arbitrary periods. At the same time the client may send heartbeat commands that the engine has to respond to:
-
-    <state name = "start">
-        <event name = "HELLO" next = "waiting">
-            <action name = "wait on other internal event" />
-        </event>
-        <event name = "PING">
-            <action name = "send" message = "PONG" />
-        </event>
-    </state>
-
-    <state name = "waiting">
-        <event name = "ok" next = "start">
-            <action name = "tell the user hello too" />
-            <action name = "send" message = "WORLD" />
-        </event>
-        <event name = "error" next = "start">
-            <action name = "terminate" />
-        </event>
-        <event name = "PING">
-            <action name = "send" message = "PONG" />
-        </event>
-    </state>
-
-Note here that while the engine is waiting for an internal event, it will continue to process PING commands, but will not process HELLO commands.
-
-As side-effect of message filtering, the client can 'pipeline' messages, e.g. sending multiple HELLOs before waiting for WORLD replies.
-
 ### Superstates
 
 Superstates are a shorthand to reduce the amount of error-prone repetition in a state machine. Here is the same state machine using a superstate:
