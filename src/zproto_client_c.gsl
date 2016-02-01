@@ -288,10 +288,6 @@ endif
 .   directory.create ("../api")
 .   output "../api/$(class.name).api"
 <!--
-    $(class.name) - $(class.title:)
-
-    Codec class for $(class.name).
-
     ** WARNING *************************************************************
     THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
     your changes at the next build cycle. This is great for temporary printf
@@ -306,6 +302,9 @@ endif
 .   endfor
  -->
 <class name = "$(class.name)">
+    $(class.title:)
+
+        Codec class for $(class.name).
     <constructor>
         Create a new $(class.name), return the reference if successful,
         or NULL if construction failed due to lack of available memory.
@@ -349,6 +348,9 @@ endif
 .   endif
 .   for field
         <argument name = "$(name)" type = "$(zproject_type)"\
+.       if field.byref ?= 1
+ by_reference = "1"\
+.       endif
 .       if defined (field.size)
  size = "$(zproject_size)"\
 .       endif
