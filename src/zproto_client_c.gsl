@@ -1401,8 +1401,8 @@ s_accept_reply ($(class.name)_t *self, ...)
         va_end (args);
         //  If anything was remaining on pipe, flush it
         zsock_flush (self->actor);
+        zstr_free (&reply);
         if (filter) {
-            zstr_free (&reply);
             return 0;           //  We matched one of the filters
         }
     }
