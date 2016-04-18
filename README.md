@@ -385,7 +385,7 @@ Your input to the code generator is two XML files that defines a set of 'states'
             </event>
         </state>
         <state name = "connected">
-            <event name = "WORLD" next = "connected" />
+            <event name = "WORLD" next = "connected">
                 <action name = "terminate" />
             </event>
         </state>
