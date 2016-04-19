@@ -405,8 +405,8 @@ endif
 
 .endfor
 .for class.custom
-.   for header
-$(header.:)
+.   for api
+$(api.:)
 .   endfor
 .endfor
     <method name = "set verbose">
