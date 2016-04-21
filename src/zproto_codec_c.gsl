@@ -54,7 +54,11 @@ set_defaults ()
     $(string.trim (license.):block                                         )
 .   endfor
  -->
-<class name = "$(class.name)">
+<class name = "$(class.name)"\
+.   if defined (class.state)
+ state = "$(class.state)"\
+.       endif
+>
 .   for define
     <constant name = "$(define.name)" value = "$(define.value:)" />
 .   endfor
