@@ -220,6 +220,7 @@ for class.method
             endif
             method.type = property.type
             method.ctype = property.ctype
+            method.zproject_type = property.zproject_type
         endfor
     else
         method.return = "0"
@@ -357,7 +358,7 @@ endif
 >$(field.?:)</argument>
 .   endfor
 .   if defined (method.return)
-        <return type = "$(type)" />
+        <return type = "$(zproject_type)" />
 .   endif
     </method>
 
@@ -400,7 +401,11 @@ endif
 .for class.property
     <method name = "$(name)">
         Return last received $(name)
-        <return type = "$(zproject_type)" />
+        <return type = "$(zproject_type)"\
+.       if defined (property.size)
+ size = "$(zproject_size)"\
+.       endif
+ />
     </method>
 
 .endfor
