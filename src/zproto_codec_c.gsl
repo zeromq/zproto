@@ -717,7 +717,7 @@ int
 $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
 {
     assert (input);
-    
+
 
     zframe_t *frame = zmsg_pop (input);
     if (!frame) {
@@ -1638,7 +1638,7 @@ $(class.name)_set_$(name) ($(class.name)_t *self, z$(type)_t **$(type)_p)
 void
 $(class.name)_test (bool verbose)
 {
-    printf (" * $(class.name):");
+    printf (" * $(class.name): ");
 .if switches.digest ?= 1
     printf ("\\n");
 .endif
