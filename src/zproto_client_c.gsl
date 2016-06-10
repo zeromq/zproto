@@ -535,7 +535,7 @@ $(header.:)
 .endfor
 //  Enable verbose tracing (animation) of state machine activity.
 $(CLASS.EXPORT_MACRO)void
-    $(class.name)_set_verbose ($(class.name)_t *self, bool verbose)
+    $(class.name)_set_verbose ($(class.name)_t *self, bool verbose);
 
 //  Self test of this class
 $(CLASS.EXPORT_MACRO)void
