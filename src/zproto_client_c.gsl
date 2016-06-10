@@ -1659,9 +1659,10 @@ $(class.name)_test (bool verbose)
         printf ("\\n");
 
     //  @selftest
-    zactor_t *client = zactor_new ($(class.name), NULL);
-    self->verbose = verbose;
-    zactor_destroy (&client);
+    // TODO: fill this out
+    $(class.name)_t *client = $(class.name)_new ();
+    $(class.name)_set_verbose(client, verbose);
+    $(class.name)_destroy (&client);
     //  @end
     printf ("OK\\n");
 }
