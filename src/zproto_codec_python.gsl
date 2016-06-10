@@ -461,7 +461,7 @@ class $(ClassName)(object):
     #  --------------------------------------------------------------------------
     #  Get/set the $(class.name) id
 
-    def id():
+    def id(self):
         return self._id
 
     def set_id(self, id):
