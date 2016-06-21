@@ -2,7 +2,11 @@
 #
 #   Script to generate all required files from fresh git checkout.
 
-command -v libtoolize >/dev/null 2>&1
+
+case `uname` in Darwin*) LIBTOOLIZE=glibtoolize ;;
+    *) LIBTOOLIZE=libtoolize ;; esac
+
+command -v $LIBTOOLIZE >/dev/null 2>&1
 if  [ $? -ne 0 ]; then
     echo "autogen.sh: error: could not find libtool.  libtool is required to run autogen.sh." 1>&2
     exit 1
