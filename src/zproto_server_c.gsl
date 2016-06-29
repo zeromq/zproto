@@ -16,7 +16,9 @@
 #   appropriate zmsg_t calls transparently
 
 include "zproto_lib.gsl"
+include "zproto_dot.gsl"
 resolve_includes ()
+generate_dot ()
 set_defaults ()
 
 #   Load message structures for this engine
