@@ -20,6 +20,7 @@ zproto_DATA = \
 	zproto_server_go.gsl \
 	zproto_client_c.gsl \
 	zproto_bnf.gsl \
+	zproto_dot.gsl \
 	zproto_lib.gsl \
 	zproto_lib_go.gsl \
 	zproto_lib_php.gsl \
