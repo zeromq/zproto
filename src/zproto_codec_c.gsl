@@ -1065,6 +1065,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             {
                 size_t list_size;
                 GET_NUMBER4 (list_size);
+                zlist_destroy (&self->$(name));
                 self->$(name) = zlist_new ();
                 zlist_autofree (self->$(name));
                 while (list_size--) {
