@@ -318,6 +318,8 @@ static int
 static void
     client_terminate (client_t *self);
 static void
+    s_server_config_global (s_server_t *server);
+static void
     s_client_execute (s_client_t *client, event_t event);
 static int
     s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument);
@@ -470,6 +472,7 @@ engine_configure (server_t *server, const char *path, const char *value)
     if (server) {
         s_server_t *self = (s_server_t *) server;
         zconfig_put (self->config, path, value);
+        s_server_config_global (self);
     }
 }
 
