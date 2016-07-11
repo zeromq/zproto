@@ -11,7 +11,6 @@
 #   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 function generate_dot
-    [gsl].shuffle = 1
     output "$(class.name).dot"
     >## Automatically generated from $(class.name).xml by gsl
     >digraph "$(class.name)" {
