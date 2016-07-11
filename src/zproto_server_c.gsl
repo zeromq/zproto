@@ -313,6 +313,8 @@ static void
     server_terminate (server_t *self);
 static zmsg_t *
     server_method (server_t *self, const char *method, zmsg_t *msg);
+static void
+    server_configuration (server_t *self, zconfig_t *config);
 static int
     client_initialize (client_t *self);
 static void
@@ -919,6 +921,7 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
         if (self->config) {
             s_server_config_service (self);
             self->server.config = self->config;
+            server_configuration (&self->server, self->config);
         }
         else {
             zsys_warning ("cannot load config file '%s'", filename);
@@ -1030,6 +1033,7 @@ s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
     &&  zconfig_reload (&self->config) == 0) {
         s_server_config_service (self);
         self->server.config = self->config;
+        server_configuration (&self->server, self->config);
         zsys_notice ("reloaded configuration from %s",
             zconfig_filename (self->config));
     }
@@ -1151,6 +1155,13 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
     return NULL;
 }
 
+//  Apply new configuration.
+
+static void
+server_configuration (server_t *self, zconfig_t *config)
+{
+    //  Apply new cnfiguration
+}
 
 //  Allocate properties and structures for a new client connection and
 //  optionally engine_set_next_event (). Return 0 if OK, or -1 on error.
