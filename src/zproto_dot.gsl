@@ -10,33 +10,63 @@
 #   License, v. 2.0. If a copy of the MPL was not distributed with this
 #   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+function generate_event (event, inherited)
+        label = "<<table border=\"0\" cellborder=\"0\" cellpadding=\"3\" bgcolor=\"white\"><tr><td bgcolor=\"black\" align=\"center\" colspan=\"2\"><font color=\"white\">$(event.name)</font></td></tr>"
+
+        for event.action as action
+            label = label + "<tr><td align=\"left\" port=\"r3\">$(action.name)</td></tr>"
+        endfor
+
+        label = label + "</table>>"
+        if my.inherited = 1
+            style = "dashed"
+        else
+            style = "solid"
+        endif
+
+        > "$(state.name) $(event.name)" [shape = "Mrecord" style = $(style:) label = $(label)];
+        > "$(state.name)" -> "$(state.name) $(event.name)";
+
+        if defined (event.next)
+            > "$(state.name) $(event.name)" -> "$(event.next)";
+        else
+            > "$(state.name) $(event.name)" -> "$(state.name)";
+        endif
+
+endfunction
+
 function generate_dot
     output "$(class.name).dot"
     >## Automatically generated from $(class.name).xml by gsl
     >digraph "$(class.name)" {
-    for class.state
+
+    # Mark super-states (those, which are inherited by some other state)
+    for class.state where defined (inherit)
+        for class.state as superstate where name = state.inherit
+            superstate.superstate = 1
+        endfor
+    endfor
+
+    # Go through all classes except superstates, which does not have
+    # an entry point and are merged with their descendants
+    for class.state where ! defined (superstate)
         >
         > "$(name)" [shape = "doublecircle"];
 
-        for event
-    
-            label = "<<table border=\"0\" cellborder=\"0\" cellpadding=\"3\" bgcolor=\"white\"><tr><td bgcolor=\"black\" align=\"center\" colspan=\"2\"><font color=\"white\">$(event.name)</font></td></tr>"
-
-            for action
-                label = label + "<tr><td align=\"left\" port=\"r3\">$(action.name)</td></tr>"
-            endfor
-
-            label = label + "</table>>"
-
-            > "$(state.name) $(event.name)" [shape = "Mrecord" label = $(label)];
-            > "$(state.name)" -> "$(state.name) $(event.name)";
-
-            if defined (event.next)
-                > "$(state.name) $(event.name)" -> "$(event.next)";
+        if defined (inherit)
+            for class.state as superstate where name = state.inherit
+                for event where count (state.event, name = -1.name) = 0
+                    generate_event (event, 1)
+                endfor
             else
-                > "$(state.name) $(event.name)" -> "$(state.name)";
-            endif
+                echo "E: superstate $(inherit) isn't defined"
+            endfor
+        endif
+
+        for event
+            generate_event (event, 0)
         endfor
+
     endfor
     >}
 
