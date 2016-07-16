@@ -46,7 +46,7 @@ for class.state
     state.comma = last()?? ""? ","
     for event where name <> "*"
         event.name = "$(event.name:c)"
-        #   Mark event as external if it a protocol message
+        #   Mark event as external if it's a protocol message
         if count (proto.message, message.name = event.name)
             event.external = 1
         endif
@@ -804,7 +804,7 @@ engine_set_heartbeat (client_t *client, size_t heartbeat)
 
 
 //  Set expiry timer. Setting a non-zero expiry causes the state machine
-//  to receive an "expired" event if is no incoming traffic for that many
+//  to receive an "expired" event if there is no incoming traffic for that many
 //  milliseconds. This cycles over and over until/unless the code sets a
 //  zero expiry. The state machine must handle the "expired" event.
 

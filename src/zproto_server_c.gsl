@@ -1160,7 +1160,7 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
 static void
 server_configuration (server_t *self, zconfig_t *config)
 {
-    //  Apply new cnfiguration
+    //  Apply new configuration
 }
 
 //  Allocate properties and structures for a new client connection and
