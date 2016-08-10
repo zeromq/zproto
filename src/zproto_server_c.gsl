@@ -983,8 +983,18 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         zmsg_t* recvmsg = zmsg_recv(self->router);
         if(!recvmsg)
             return -1;      //  Interrupted; exit zloop
-        if($(proto)_recv(self->message,recvmsg))
-            return -1; //Interrupted; malformed
+        int rc = $(proto)_recv (self->message, recvmsg);
+        if(rc == -1)
+            return -1;      //  Interrupted; exit zloop
+        if(rc == -2) {
+.if count (class.event, name = "malformed")
+           s_client_execute (client, malformed_event);
+           continue;
+.else
+           return -1;       //  Malformed, but malformed_event doesn't exist
+                            //  -> exit zloop
+.endif
+        }
 
         //For router sockets, set the routing id of this messaged based on the value we saved
         if(routing_id)
@@ -993,8 +1003,19 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         }
         
 .   else
-        if ($(proto)_recv (self->message, self->router))
+        int rc = $(proto)_recv (self->message, self->router)
+        if (rc == -1)
             return -1;      //  Interrupted; exit zloop
+        if(rc == -2) {
+.if count (class.event, name = "malformed")
+           s_client_execute (client, malformed_event);
+           continue;
+.else
+           return -1;       //  Malformed, but malformed_event doesn't exist
+                            //  -> exit zloop
+.endif
+        }
+
 .   endif             
 .   if defined (class.receive_tracer)
         $(class.receive_tracer) ((server_t *) self);
