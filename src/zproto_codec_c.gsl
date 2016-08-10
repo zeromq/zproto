@@ -287,7 +287,8 @@ $(CLASS.EXPORT_MACRO)void
 
 .if class.virtual ?= 1
 //  Deserialize a $(class.name) from the specified message, popping
-//  as many frames as needed. Returns 0 if OK, -1 if there was an error.
+//  as many frames as needed. Returns 0 if OK, -1 if there recv was
+//  interrupted, or -2 if the message is malformed.
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_recv ($(class.name)_t *self, zmsg_t *input);
 
@@ -297,7 +298,8 @@ $(CLASS.EXPORT_MACRO)int
 
 .else
 //  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  the recv was interrupted, or -2 if the message is malformed.
+//  Blocks if there is no message waiting.
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_recv ($(class.name)_t *self, zsock_t *input);
 
@@ -712,17 +714,20 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 .if class.virtual ?= 1
 //  --------------------------------------------------------------------------
 //  Deserialize a $(class.name) from the specified message, popping
-//  as many frames as needed. Returns 0 if OK, -1 if there was an error.
+//  as many frames as needed. Returns 0 if OK, -1 if the recv was interrupted,
+//  or -2 if the message is malformed.
 int
 $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
 {
     assert (input);
+    int rc = 0;
 
 
     zframe_t *frame = zmsg_pop (input);
     if (!frame) {
         zsys_warning ("$(class.name): missing frames in message");
-        goto malformed;         //  Interrupted
+        rc = -1;                //  Interrupted
+        goto malformed;
     }
     //  Get and check protocol signature
     self->needle = zframe_data (frame);
@@ -732,7 +737,8 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | $(class.signature))) {
         zsys_warning ("$(class.name): invalid signature");
-        goto malformed;         //  Interrupted
+        rc = -2;                //  Malformed
+        goto malformed;
     }
     //  Get message id and parse per message type
     GET_NUMBER1 (self->id);
@@ -748,6 +754,7 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
                 GET_NUMBER$(size) ($(name));
                 if ($(name) != $(value:)) {
                     zsys_warning ("$(class.name): $(name) is invalid");
+                    rc = -2;    //  Malformed
                     goto malformed;
                 }
             }
@@ -763,6 +770,7 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
                 GET_STRING ($(name));
                 if (strneq ($(name), "$(value:)")) {
                     zsys_warning ("$(class.name): $(name) is invalid");
+                    rc = -2;    //  Malformed
                     goto malformed;
                 }
             }
@@ -788,6 +796,7 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
 .       elsif type = "uuid"
             if (self->needle + ZUUID_LEN > (self->ceiling)) {
                 zsys_warning ("$(class.name): $(name) is invalid");
+                rc = -2;        //  Malformed
                 goto malformed;
             }
             zuuid_destroy (&self->$(name));
@@ -815,6 +824,7 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
                 GET_NUMBER4 (chunk_size);
                 if (self->needle + chunk_size > (self->ceiling)) {
                     zsys_warning ("$(class.name): $(name) is missing data");
+                    rc = -2;    //  Malformed
                     goto malformed;
                 }
                 zchunk_destroy (&self->$(name));
@@ -839,17 +849,17 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
 .endfor
         default:
             zsys_warning ("$(class.name): bad message ID");
+            rc = -2;            //  Malformed
             goto malformed;
     }
     zframe_destroy (&frame);
     //  Successful return
-    return 0;
+    return rc;
 
     //  Error returns
     malformed:
         zframe_destroy (&frame);
-        zsys_warning ("$(class.name): $(name) malformed message, fail");
-        return -1;              //  Invalid message
+        return rc;              //  Invalid message
 }
 
 
@@ -980,19 +990,22 @@ $(class.name)_send ($(class.name)_t *self, zmsg_t *output)
 .else
 //  --------------------------------------------------------------------------
 //  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  the recv was interrupted, or -2 if the message is malformed.
+//  Blocks if there is no message waiting.
 
 int
 $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 {
     assert (input);
+    int rc = 0;
 
     if (zsock_type (input) == ZMQ_ROUTER) {
         zframe_destroy (&self->routing_id);
         self->routing_id = zframe_recv (input);
         if (!self->routing_id || !zsock_rcvmore (input)) {
             zsys_warning ("$(class.name): no routing ID");
-            return -1;          //  Interrupted or malformed
+            rc = -1;            //  Interrupted
+            goto malformed;
         }
     }
     zmq_msg_t frame;
@@ -1000,7 +1013,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
     int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
     if (size == -1) {
         zsys_warning ("$(class.name): interrupted");
-        goto malformed;         //  Interrupted
+        rc = -1;                //  Interrupted
+        goto malformed;
     }
     //  Get and check protocol signature
     self->needle = (byte *) zmq_msg_data (&frame);
@@ -1013,9 +1027,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | $(class.signature))) {
         zsys_warning ("$(class.name): invalid signature");
-        //  TODO: discard invalid messages and loop, and return
-        //  -1 only on interrupt
-        goto malformed;         //  Interrupted
+        rc = -2;                //  Malformed
+        goto malformed;
     }
     //  Get message id and parse per message type
     GET_NUMBER1 (self->id);
@@ -1038,6 +1051,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                 GET_NUMBER$(size) ($(name));
                 if ($(name) != $(value:)) {
                     zsys_warning ("$(class.name): $(name) is invalid");
+                    rc = -2;    //  Malformed
                     goto malformed;
                 }
             }
@@ -1053,6 +1067,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                 GET_STRING ($(name));
                 if (strneq ($(name), "$(value:)")) {
                     zsys_warning ("$(class.name): $(name) is invalid");
+                    rc = -2;    //  Malformed
                     goto malformed;
                 }
             }
@@ -1078,6 +1093,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 .       elsif type = "uuid"
             if (self->needle + ZUUID_LEN > (self->ceiling)) {
                 zsys_warning ("$(class.name): $(name) is invalid");
+                rc = -2;        //  Malformed
                 goto malformed;
             }
             zuuid_destroy (&self->$(name));
@@ -1104,6 +1120,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
                 GET_NUMBER4 (chunk_size);
                 if (self->needle + chunk_size > (self->ceiling)) {
                     zsys_warning ("$(class.name): $(name) is missing data");
+                    rc = -2;    //  Malformed
                     goto malformed;
                 }
                 zchunk_destroy (&self->$(name));
@@ -1114,6 +1131,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             //  Get next frame off socket
             if (!zsock_rcvmore (input)) {
                 zsys_warning ("$(class.name): $(name) is missing");
+                rc = -2;        //  Malformed
                 goto malformed;
             }
             zframe_destroy (&self->$(name));
@@ -1132,6 +1150,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 .endfor
         default:
             zsys_warning ("$(class.name): bad message ID");
+            rc = -2;            //  Malformed
             goto malformed;
     }
     //  Successful return
@@ -1139,16 +1158,15 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
     zdigest_destroy (&digest);
 .endif
     zmq_msg_close (&frame);
-    return 0;
+    return rc;
 
     //  Error returns
     malformed:
-        zsys_warning ("$(class.name): $(name) malformed message, fail");
 .if switches.digest ?= 1
         zdigest_destroy (&digest);
 .endif
         zmq_msg_close (&frame);
-        return -1;              //  Invalid message
+        return rc;              //  Invalid message
 }
 
 
