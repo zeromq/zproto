@@ -287,7 +287,7 @@ $(CLASS.EXPORT_MACRO)void
 
 .if class.virtual ?= 1
 //  Deserialize a $(class.name) from the specified message, popping
-//  as many frames as needed. Returns 0 if OK, -1 if there recv was
+//  as many frames as needed. Returns 0 if OK, -1 if the read was
 //  interrupted, or -2 if the message is malformed.
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_recv ($(class.name)_t *self, zmsg_t *input);
@@ -298,7 +298,7 @@ $(CLASS.EXPORT_MACRO)int
 
 .else
 //  Receive a $(class.name) from the socket. Returns 0 if OK, -1 if
-//  the recv was interrupted, or -2 if the message is malformed.
+//  the read was interrupted, or -2 if the message is malformed.
 //  Blocks if there is no message waiting.
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_recv ($(class.name)_t *self, zsock_t *input);

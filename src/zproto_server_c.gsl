@@ -986,15 +986,8 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         int rc = $(proto)_recv (self->message, recvmsg);
         if(rc == -1)
             return -1;      //  Interrupted; exit zloop
-        if(rc == -2) {
-.if count (class.event, name = "malformed")
-           s_client_execute (client, malformed_event);
-           continue;
-.else
-           return -1;       //  Malformed, but malformed_event doesn't exist
-                            //  -> exit zloop
-.endif
-        }
+        if(rc == -2)
+            continue;       //  Malformed; discard the message
 
         //For router sockets, set the routing id of this messaged based on the value we saved
         if(routing_id)
@@ -1003,18 +996,9 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         }
         
 .   else
-        int rc = $(proto)_recv (self->message, self->router)
+        int rc = $(proto)_recv (self->message, self->router);
         if (rc == -1)
             return -1;      //  Interrupted; exit zloop
-        if(rc == -2) {
-.if count (class.event, name = "malformed")
-           s_client_execute (client, malformed_event);
-           continue;
-.else
-           return -1;       //  Malformed, but malformed_event doesn't exist
-                            //  -> exit zloop
-.endif
-        }
 
 .   endif             
 .   if defined (class.receive_tracer)
@@ -1038,6 +1022,15 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
         if (client->ticket)
             zloop_ticket_reset (self->loop, client->ticket);
 
+        if (rc == -2) {
+.if count (class.event, name = "malformed")
+            s_client_execute (client, malformed_event);
+            continue;
+.else
+            continue;       //  Malformed, but malformed_event doesn't exist
+                            //  -> discard the message
+.endif
+        }
         //  Pass to client state machine
         s_client_execute (client, s_protocol_event (self->message));
     }
