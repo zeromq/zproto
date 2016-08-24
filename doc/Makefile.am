@@ -13,7 +13,7 @@ endif
 
 EXTRA_DIST = asciidoc.conf mkman $(MAN_TXT)
 
-MAINTAINERCLEANFILES = $(MAN_DOC)
+DISTCLEANFILES = $(MAN_DOC)
 
 dist-hook : $(MAN_DOC)
 
