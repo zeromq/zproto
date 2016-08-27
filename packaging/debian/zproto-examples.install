@@ -1,0 +1,13 @@
+include usr/share/zproto/examples/
+src/clojure usr/share/zproto/examples/src/
+src/csharp usr/share/zproto/examples/src/
+src/go usr/share/zproto/examples/src/
+src/clojure usr/share/zproto/examples/src/
+src/php usr/share/zproto/examples/src/
+src/main usr/share/zproto/examples/src/
+src/python usr/share/zproto/examples/src/
+src/selftest usr/share/zproto/examples/src/
+src/test usr/share/zproto/examples/src/
+src/zproto_example* usr/share/zproto/examples/src/
+src/zyre_peer_example usr/share/zproto/examples/src/
+usr/share/man/man3/*

@@ -1,0 +1,34 @@
+Source: zproto
+Section: net
+Priority: optional
+Maintainer: zproto Developers <zeromq-dev@lists.zeromq.org>
+Standards-Version: 3.9.8
+Build-Depends: debhelper (>= 9),
+ pkg-config,
+ dh-autoreconf,
+ generator-scripting-language,
+Build-Depends-Indep: asciidoc,
+ xmlto,
+
+Package: zproto
+Architecture: all
+Depends: ${misc:Depends},
+ generator-scripting-language,
+ libczmq-dev,
+Description: Protocol framework for ZeroMQ
+ zproto is a set of code generators that can produce:
+ fast and efficient binary codecs for ZeroMQ-based protocols.
+ full-featured protocol servers based on high-level state machine models.
+ full-featured protocol clients based on high-level state machine models.
+
+Package: zproto-examples
+Architecture: all
+Depends: ${misc:Depends},
+ zproto (= ${source:Version}),
+Description: Examples for zproto
+ zproto is a set of code generators that can produce:
+ fast and efficient binary codecs for ZeroMQ-based protocols.
+ full-featured protocol servers based on high-level state machine models.
+ full-featured protocol clients based on high-level state machine models.
+ .
+ This package contains examples to get started with zproto.
