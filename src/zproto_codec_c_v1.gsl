@@ -1262,14 +1262,11 @@ static char *
 s_bytes_str (byte* mem, size_t len)
 {
     assert (mem);
-    char* ret = zmalloc (4*len);
+    char* ret = zmalloc (2*len + 1);
     char* aux = ret;
     for (size_t i = 0; i != len; i++)
     {
-        if (mem [i] <= 0xf)
-            sprintf (aux, "0%x", mem [i]);
-        else
-            sprintf (aux, "%x", mem [i]);
+        sprintf (aux, "%02x", mem [i]);
         aux+=2;
     }
     return ret;
