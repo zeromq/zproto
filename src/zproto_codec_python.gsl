@@ -416,7 +416,7 @@ class $(ClassName)(object):
 
     def dump(self):
 .for class.message
-        if self.id == $(ClassName).$(MESSAGE.NAME):
+        if self._id == $(ClassName).$(MESSAGE.NAME):
             logger.info("$(MESSAGE.NAME):")
 .   for field
 .       if type = "number"
@@ -448,6 +448,32 @@ class $(ClassName)(object):
             logger.info("(NULL)")
 
 .endfor
+
+    #  --------------------------------------------------------------------------
+    #  Convert message to a dictionary
+
+    def to_dict(self):
+        result = {}
+.for class.message
+        if self._id == $(ClassName).$(MESSAGE.NAME):
+            result['id'] = "$(MESSAGE.NAME)"
+.   for field
+.       if type = "string" | type = "longstr" | type = "number"
+.           if defined (field.value)
+            result['$(name)'] = $(field.value)
+.           else
+            result['$(name)'] = self._$(name)
+.           endif
+.       elsif type = "strings"
+            result['$(name)'] = self._$(name)
+.       elsif type = "hash" | type = "msg" | type = "uuid" | type = "chunk" | type = "octets"
+            result['$(name)'] = "{0}".format(self._$(name)))
+.       endif
+.   endfor
+
+.endfor
+
+        return result
 
     #  --------------------------------------------------------------------------
     #  Get/set the message routing id
