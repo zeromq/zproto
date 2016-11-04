@@ -416,7 +416,7 @@ class $(ClassName)(object):
 
     def dump(self):
 .for class.message
-        if self.id == $(Classname).$(MESSAGE.NAME):
+        if self.id == $(ClassName).$(MESSAGE.NAME):
             logger.info("$(MESSAGE.NAME):")
 .   for field
 .       if type = "number"
