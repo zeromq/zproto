@@ -195,7 +195,7 @@ $(CLASS.EXPORT_MACRO)void
 
 //  Export class as zconfig_t*. Caller is responsibe for destroying the instance
 $(CLASS.EXPORT_MACRO)zconfig_t *
-    $(class.name)_dump_zpl ($(class.name)_t *self, zconfig_t* parent);
+    $(class.name)_zpl ($(class.name)_t *self, zconfig_t* parent);
 
 //  Get/set the message routing id
 $(CLASS.EXPORT_MACRO)zframe_t *
@@ -1448,7 +1448,7 @@ $(class.name)_print ($(class.name)_t *self)
 //  Export class as zconfig_t*. Caller is responsibe for destroying the instance
 
 zconfig_t *
-$(class.name)_dump_zpl ($(class.name)_t *self, zconfig_t *parent)
+$(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
 {
     assert (self);
 
@@ -1963,7 +1963,7 @@ $(class.name)_test (bool verbose)
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       endif
 .   endfor
-        zconfig_t *config = $(class.name)_dump_zpl (self, NULL);
+        zconfig_t *config = $(class.name)_zpl (self, NULL);
         zconfig_print (config);
         $(class.name)_t *msg = $(class.name)_new_zpl (config);
         assert (msg);
