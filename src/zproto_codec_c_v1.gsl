@@ -96,6 +96,10 @@ typedef struct _$(class.name)_t $(class.name)_t;
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (int id);
 
+//  Create a new $(class.name) from zpl/zconfig_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_new_zpl (zconfig_t *config);
+
 //  Destroy the $(class.name)
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
@@ -191,7 +195,7 @@ $(CLASS.EXPORT_MACRO)void
 
 //  Export class as zconfig_t*. Caller is responsibe for destroying the instance
 $(CLASS.EXPORT_MACRO)zconfig_t *
-    $(class.name)_dump_zpl ($(class.name)_t *self, zconfig_t* parent);
+    $(class.name)_zpl ($(class.name)_t *self, zconfig_t* parent);
 
 //  Get/set the message routing id
 $(CLASS.EXPORT_MACRO)zframe_t *
@@ -496,6 +500,49 @@ struct _$(class.name)_t {
     self->needle += string_size; \\
 }
 
+//  --------------------------------------------------------------------------
+//  bytes cstring conversion macros
+
+// create new array of unsigned char from properly encoded string
+// len of resulting array is strlen (str) / 2
+// caller is responsibe for freeing up the memory
+#define BYTES_FROM_STR (dst, _str) { \\
+    char *str = (char*) (_str); \\
+    if (!str || (strlen (str) % 2) != 0) \\
+        return NULL; \\
+\\
+    size_t strlen_2 = strlen (str) / 2; \\
+    byte *mem = (byte*) zmalloc (strlen_2); \\
+\\
+    for (size_t i = 0; i != strlen_2; i++) \\
+    { \\
+        char buff[3] = {0x0, 0x0, 0x0}; \\
+        strncpy (buff, str, 2); \\
+        unsigned int uint; \\
+        sscanf (buff, "%x", &uint); \\
+        assert (uint <= 0xff); \\
+        mem [i] = (byte) (0xff & uint); \\
+        str += 2; \\
+    } \\
+    dst = mem; \\
+}
+
+// convert len bytes to hex string
+// caller is responsibe for freeing up the memory
+#define STR_FROM_BYTES (dst, _mem, _len) { \\
+    byte *mem = (byte*) (_mem); \\
+    size_t len = (size_t) (_len); \\
+    char* ret = (char*) zmalloc (2*len + 1); \\
+    char* aux = ret; \\
+    for (size_t i = 0; i != len; i++) \\
+    { \\
+        sprintf (aux, "%02x", mem [i]); \\
+        aux+=2; \\
+    } \\
+    dst = ret; \\
+}
+
+
 
 //  --------------------------------------------------------------------------
 //  Create a new $(class.name)
@@ -508,6 +555,174 @@ $(class.name)_new (int id)
     return self;
 }
 
+//  --------------------------------------------------------------------------
+//  Create a new $(class.name) from zpl/zconfig_t *
+
+$(class.name)_t *
+    $(class.name)_new_zpl (zconfig_t *config)
+{
+    assert (config);
+    $(class.name)_t *self = NULL;
+    char *message = zconfig_get (config, "message", NULL);
+    if (!message) {
+        zsys_error ("Can't find 'message' section");
+        return NULL;
+    }
+
+.for class.message
+    if (streq ("$(CLASS.NAME)_$(MESSAGE.NAME)", message))
+        self = $(class.name)_new ($(CLASS.NAME)_$(MESSAGE.NAME));
+    else
+.endfor
+       {
+        zsys_error ("message=%s is not known", message);
+        return NULL;
+       }
+
+    zconfig_t *content = zconfig_locate (config, "content");
+    if (!content) {
+        zsys_error ("Can't find 'content' section");
+        return NULL;
+    }
+    switch (self->id) {
+.for class.message
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field where !defined (value)
+.       if type = "number"
+            {
+            char *es = NULL;
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                zsys_error ("content/$(name) not found");
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
+            if (es != s+strlen (s)) {
+                zsys_error ("content/$(name): %s is not a number", s);
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            self->$(name) = uvalue;
+            }
+.       elsif type = "octets"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            self->$(name) = bvalue;
+            }
+.       elsif type = "string" | type = "longstr"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            self->$(name) = strdup (s);
+            }
+.       elsif type = "strings"
+            {
+            zconfig_t *zstrings = zconfig_locate (content, "$(name)");
+            if (zstrings) {
+                zlist_t *strings = zlist_new ();
+                for (zconfig_t *child = zconfig_child (zstrings);
+                                child != NULL;
+                                child = zconfig_next (child))
+                {
+                    zlist_append (strings, zconfig_value (child));
+                }
+                self->$(name) = strings;
+            }
+            }
+.       elsif type = "hash"
+            {
+            zconfig_t *zhash = zconfig_locate (content, "$(name)");
+            if (zhash) {
+                zhash_t *hash = zhash_new ();
+                for (zconfig_t *child = zconfig_child (zhash);
+                                child != NULL;
+                                child = zconfig_next (child))
+                {
+                    zhash_update (hash, zconfig_name (child), zconfig_value (child));
+                }
+                self->$(name) = hash;
+            }
+            }
+.       elsif type = "chunk"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            zchunk_t *chunk = zchunk_new (bvalue, strlen (s) / 2);
+            free (bvalue);
+            self->$(name) = chunk;
+.       elsif type = "uuid"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (s) {
+                zuuid_t *uuid = zuuid_new ();
+                zuuid_set_str (uuid, s);
+                self->$(name) = uuid;
+            }
+            }
+.       elsif type = "frame"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            zframe_t *frame = zframe_new (bvalue, strlen (s) / 2);
+            free (bvalue);
+            self->$(name) = frame;
+            }
+.       elsif type = "msg"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            zmsg_t *msg = zmsg_decode (bvalue, strlen (s) / 2);
+            free (bvalue);
+            self->$(name) = msg;
+            }
+.       endif
+.   endfor
+            break;
+.endfor
+    }
+    return self;
+}
 
 //  --------------------------------------------------------------------------
 //  Destroy the $(class.name)
@@ -1229,59 +1444,15 @@ $(class.name)_print ($(class.name)_t *self)
     }
 }
 
-// create new array of unsigned char from properly encoded string
-// len of resulting array is strlen (str) / 2
-// caller is responsibe for freeing up the memory
-static byte*
-s_bytes_new (const char* str)
-{
-    if (!str || (strlen (str) % 2) != 0)
-        return NULL;
-
-    size_t strlen_2 = strlen (str) / 2;
-    byte *mem = (byte*) zmalloc (strlen_2);
-
-    for (size_t i = 0; i != strlen_2; i++)
-    {
-        char buff[3] = {0x0, 0x0, 0x0};
-        strncpy (buff, str, 2);
-
-        byte b;
-        sscanf (buff, "%x" SCNu8, &b);
-
-        mem [i] = b;
-        str += 2;
-    }
-
-    return mem;
-}
-
-// convert len bytes to hex string
-// caller is responsibe for freeing up the memory
-static char *
-s_bytes_str (byte* mem, size_t len)
-{
-    assert (mem);
-    char* ret = zmalloc (2*len + 1);
-    char* aux = ret;
-    for (size_t i = 0; i != len; i++)
-    {
-        sprintf (aux, "%02x", mem [i]);
-        aux+=2;
-    }
-    return ret;
-}
-
 //  --------------------------------------------------------------------------
 //  Export class as zconfig_t*. Caller is responsibe for destroying the instance
 
 zconfig_t *
-$(class.name)_dump_zpl ($(class.name)_t *self, zconfig_t *parent)
+$(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
 {
     assert (self);
 
     zconfig_t *root = zconfig_new ("$(class.name)", parent);
-    char* hex = NULL;
 
     switch (self->id) {
 .for class.message
@@ -1297,9 +1468,12 @@ $(class.name)_dump_zpl ($(class.name)_t *self, zconfig_t *parent)
             zconfig_putf (config, "$(name)", "%ld", (long) self->$(name));
 .           endif
 .       elsif type = "octets"
-            hex = s_bytes_str (self->$(name), $(size));
+            {
+            char *hex = NULL;
+            STR_FROM_BYTES (hex, self->$(name), $(size));
             zconfig_putf (config, "$(name)", "%s", hex);
             zstr_free (&hex);
+            }
 .       elsif type = "string" | type = "longstr"
 .           if defined (field.value)
             zconfig_putf (config, "$(name)", "%s", "$(field.value)");
@@ -1330,23 +1504,32 @@ $(class.name)_dump_zpl ($(class.name)_t *self, zconfig_t *parent)
                 }
             }
 .       elsif type = "chunk"
-            hex = s_bytes_str (zchunk_data (self->$(name)), zchunk_size (self->$(name)));
+            {
+            char *hex = NULL;
+            STR_FROM_BYTES (hex, zchunk_data (self->$(name)), zchunk_size (self->$(name)));
             zconfig_putf (config, "$(name)", "%s", hex);
             zstr_free (&hex);
+            }
 .       elsif type = "uuid"
             if (self->$(name))
                 zconfig_putf (config, "$(name)", "%s", zuuid_str (self->$(name)));
 .       elsif type = "frame"
-            hex = s_bytes_str (zframe_data (self->$(name)), zframe_size (self->$(name)));
+            {
+            char *hex = NULL;
+            STR_FROM_BYTES (hex, zframe_data (self->$(name)), zframe_size (self->$(name)));
             zconfig_putf (config, "$(name)", "%s", hex);
             zstr_free (&hex);
+            }
 .       elsif type = "msg"
+            {
+            char *hex = NULL;
             byte *buffer;
             size_t size = zmsg_encode (self->$(name), &buffer);
-            hex = s_bytes_str (buffer, size);
+            STR_FROM_BYTES (hex, buffer, size);
             zconfig_putf (config, "$(name)", "%s", hex);
             zstr_free (&hex);
             free (buffer); buffer= NULL;
+            }
 .       endif
 .   endfor
             break;
@@ -1780,8 +1963,11 @@ $(class.name)_test (bool verbose)
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       endif
 .   endfor
-        zconfig_t *config = $(class.name)_dump_zpl (self, NULL);
+        zconfig_t *config = $(class.name)_zpl (self, NULL);
         zconfig_print (config);
+        $(class.name)_t *msg = $(class.name)_new_zpl (config);
+        assert (msg);
+        $(class.name)_destroy (&msg);
         zconfig_destroy (&config);
         $(class.name)_destroy (&self);
     }
