@@ -1957,8 +1957,10 @@ $(class.name)_test (bool verbose)
     for (instance = 0; instance < 3; instance++) {
         if (instance < 2)
             self = $(class.name)_recv (input);
-        else
+        else {
             self = $(class.name)_new_zpl (config);
+            zconfig_destroy (&config);
+        }
         assert (self);
         if (instance < 2)
             assert ($(class.name)_routing_id (self));
