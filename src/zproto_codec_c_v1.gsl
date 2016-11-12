@@ -647,6 +647,7 @@ $(class.name)_t *
             zconfig_t *zstrings = zconfig_locate (content, "$(name)");
             if (zstrings) {
                 zlist_t *strings = zlist_new ();
+                zlist_autofree (strings);
                 for (zconfig_t *child = zconfig_child (zstrings);
                                 child != NULL;
                                 child = zconfig_next (child))
@@ -661,6 +662,7 @@ $(class.name)_t *
             zconfig_t *zhash = zconfig_locate (content, "$(name)");
             if (zhash) {
                 zhash_t *hash = zhash_new ();
+                zhash_autofree (hash);
                 for (zconfig_t *child = zconfig_child (zhash);
                                 child != NULL;
                                 child = zconfig_next (child))
