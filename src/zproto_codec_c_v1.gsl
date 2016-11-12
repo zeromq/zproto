@@ -506,7 +506,7 @@ struct _$(class.name)_t {
 // create new array of unsigned char from properly encoded string
 // len of resulting array is strlen (str) / 2
 // caller is responsibe for freeing up the memory
-#define BYTES_FROM_STR (dst, _str) { \\
+#define BYTES_FROM_STR(dst, _str) { \\
     char *str = (char*) (_str); \\
     if (!str || (strlen (str) % 2) != 0) \\
         return NULL; \\
@@ -529,7 +529,7 @@ struct _$(class.name)_t {
 
 // convert len bytes to hex string
 // caller is responsibe for freeing up the memory
-#define STR_FROM_BYTES (dst, _mem, _len) { \\
+#define STR_FROM_BYTES(dst, _mem, _len) { \\
     byte *mem = (byte*) (_mem); \\
     size_t len = (size_t) (_len); \\
     char* ret = (char*) zmalloc (2*len + 1); \\
@@ -578,6 +578,19 @@ $(class.name)_t *
         zsys_error ("message=%s is not known", message);
         return NULL;
        }
+
+    char *s = zconfig_get (config, "routing_id", NULL);
+    if (s) {
+        byte *bvalue;
+        BYTES_FROM_STR (bvalue, s);
+        if (!bvalue) {
+            $(class.name)_destroy (&self);
+            return NULL;
+        }
+        zframe_t *frame = zframe_new (bvalue, strlen (s) / 2);
+        free (bvalue);
+        self->routing_id = frame;
+    }
 
     zconfig_t *content = zconfig_locate (config, "content");
     if (!content) {
@@ -1457,8 +1470,16 @@ $(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
     switch (self->id) {
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
-            {
+        {
             zconfig_put (root, "message", "$(CLASS.NAME)_$(MESSAGE.NAME)");
+
+            if (self->routing_id) {
+                char *hex = NULL;
+                STR_FROM_BYTES (hex, zframe_data (self->routing_id), zframe_size (self->routing_id));
+                zconfig_putf (root, "routing_id", "%s", hex);
+                zstr_free (&hex);
+            }
+
             zconfig_t *config = zconfig_new ("content", root);
 .   for field
 .       if type = "number"
@@ -1888,6 +1909,7 @@ $(class.name)_test (bool verbose)
     //  Encode/send/decode and verify each message type
     int instance;
     $(class.name)_t *copy;
+    zconfig_t *config;
 .for class.message
     self = $(class.name)_new ($(CLASS.NAME)_$(MESSAGE.NAME));
 
@@ -1924,14 +1946,22 @@ $(class.name)_test (bool verbose)
     zmsg_addstr ($(class.name)_$(name) (self), "Hello, World");
 .       endif
 .   endfor
+    // convert to zpl
+    config = $(class.name)_zpl (self, NULL);
+    if (verbose)
+        zconfig_print (config);
     //  Send twice from same object
     $(class.name)_send_again (self, output);
     $(class.name)_send (&self, output);
 
-    for (instance = 0; instance < 2; instance++) {
-        self = $(class.name)_recv (input);
+    for (instance = 0; instance < 3; instance++) {
+        if (instance < 2)
+            self = $(class.name)_recv (input);
+        else
+            self = $(class.name)_new_zpl (config);
         assert (self);
-        assert ($(class.name)_routing_id (self));
+        if (instance < 2)
+            assert ($(class.name)_routing_id (self));
 
 .   for field where !defined (value)
 .       if type = "number"
@@ -1963,16 +1993,11 @@ $(class.name)_test (bool verbose)
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
 .       endif
 .   endfor
-        zconfig_t *config = $(class.name)_zpl (self, NULL);
-        zconfig_print (config);
-        $(class.name)_t *msg = $(class.name)_new_zpl (config);
-        assert (msg);
-        $(class.name)_destroy (&msg);
-        zconfig_destroy (&config);
         $(class.name)_destroy (&self);
     }
 .endfor
 
+    zconfig_destroy (&config);
     zsock_destroy (&input);
     zsock_destroy (&output);
     //  @end
