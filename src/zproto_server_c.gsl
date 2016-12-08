@@ -228,6 +228,8 @@ $(CLASS.EXPORT_MACRO)void
 #undef NDEBUG
 #endif
 
+#define ZPROTO_UNUSED(object) (void)object
+
 //  ---------------------------------------------------------------------------
 //  State machine constants
 
@@ -745,6 +747,8 @@ s_client_handle_ticket (zloop_t *loop, int timer_id, void *argument)
 static int
 s_client_handle_wakeup (zloop_t *loop, int timer_id, void *argument)
 {
+    ZPROTO_UNUSED(loop);
+    ZPROTO_UNUSED(timer_id);
     s_client_t *self = (s_client_t *) argument;
     s_client_execute (self, self->wakeup_event);
     return 0;
@@ -880,6 +884,9 @@ s_server_config_service (s_server_t *self)
 static int
 s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
 {
+    ZPROTO_UNUSED(loop);
+    ZPROTO_UNUSED(reader);
+
     s_server_t *self = (s_server_t *) argument;
     zmsg_t *msg = zmsg_recv (self->pipe);
     if (!msg)
@@ -969,6 +976,9 @@ s_server_handle_pipe (zloop_t *loop, zsock_t *reader, void *argument)
 static int
 s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
 {
+    ZPROTO_UNUSED(loop);
+    ZPROTO_UNUSED(reader);
+
     s_server_t *self = (s_server_t *) argument;
     //  We process as many messages as we can, to reduce the overhead
     //  of polling and the reactor:
@@ -1046,6 +1056,9 @@ s_server_handle_protocol (zloop_t *loop, zsock_t *reader, void *argument)
 static int
 s_watch_server_config (zloop_t *loop, int timer_id, void *argument)
 {
+    ZPROTO_UNUSED(loop);
+    ZPROTO_UNUSED(timer_id);
+
     s_server_t *self = (s_server_t *) argument;
     if (zconfig_has_changed (self->config)
     &&  zconfig_reload (&self->config) == 0) {
@@ -1153,6 +1166,7 @@ struct _client_t {
 static int
 server_initialize (server_t *self)
 {
+    ZPROTO_UNUSED(self);
     //  Construct properties here
     return 0;
 }
@@ -1162,6 +1176,7 @@ server_initialize (server_t *self)
 static void
 server_terminate (server_t *self)
 {
+    ZPROTO_UNUSED(self);
     //  Destroy properties here
 }
 
@@ -1170,6 +1185,9 @@ server_terminate (server_t *self)
 static zmsg_t *
 server_method (server_t *self, const char *method, zmsg_t *msg)
 {
+    ZPROTO_UNUSED(self);
+    ZPROTO_UNUSED(method);
+    ZPROTO_UNUSED(msg);
     return NULL;
 }
 
@@ -1178,6 +1196,8 @@ server_method (server_t *self, const char *method, zmsg_t *msg)
 static void
 server_configuration (server_t *self, zconfig_t *config)
 {
+    ZPROTO_UNUSED(self);
+    ZPROTO_UNUSED(config);
     //  Apply new configuration
 }
 
@@ -1187,6 +1207,7 @@ server_configuration (server_t *self, zconfig_t *config)
 static int
 client_initialize (client_t *self)
 {
+    ZPROTO_UNUSED(self);
     //  Construct properties here
     return 0;
 }
@@ -1196,6 +1217,7 @@ client_initialize (client_t *self)
 static void
 client_terminate (client_t *self)
 {
+    ZPROTO_UNUSED(self);
     //  Destroy properties here
 }
 
