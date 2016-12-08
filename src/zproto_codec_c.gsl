@@ -428,6 +428,10 @@ $(CLASS.EXPORT_MACRO)void
 @end
 */
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
 .if defined (class.project_header)
 #include "$(class.project_header)"
 .endif
