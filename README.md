@@ -46,13 +46,13 @@
 
 **<a href="#toc3-705">Custom hand-written methods</a>**
 
-**<a href="#toc2-758">Protocol Design Notes</a>**
+**<a href="#toc2-759">Protocol Design Notes</a>**
 
-**<a href="#toc3-763">Heartbeating and Client Expiry</a>**
+**<a href="#toc3-764">Heartbeating and Client Expiry</a>**
 
-**<a href="#toc2-780">For More Information</a>**
+**<a href="#toc2-781">For More Information</a>**
 
-**<a href="#toc2-789">This document</a>**
+**<a href="#toc2-790">This document</a>**
 
 <A name="toc2-11" title="Man Page" />
 ## Man Page
@@ -755,7 +755,8 @@ Within your state model you can include another XML file with custom hand-writte
 
     <custom filename = "hello_client_custom.xml" language = "C" />
 
-The hello_client_custom.xml can contain three sections <header>, <source> and <api>. The contents of the <header> and <source> section will be placed into the hello_client.(h|c) files. The <api> defines a zproject API for your custom code and can only be used in conjunction with zproject. Please note that <header> and <api> are exclusive as the header will be generated from the API by zproject. The hello_client_custom.xml may look like:
+The hello_client_custom.xml can contain three sections `<header>`, `<source>` and `<api>`. The contents of the `<header>` and `<source>` section will be placed into the hello_client.(h|c) files. The `<api>` defines a zproject API for your custom code and can only be used in conjunction with zproject. Please note that `<header>` and `<api>` are exclusive as the header will be generated from the API by zproject. The hello_client_custom.xml may look like:
+
     <header>
         //  Print the attributes of this class
         void
@@ -801,12 +802,12 @@ When using zprojects API you'll need to escape '<' and '>' for now:
         }
     </source>
 
-<A name="toc2-758" title="Protocol Design Notes" />
+<A name="toc2-759" title="Protocol Design Notes" />
 ## Protocol Design Notes
 
 This section covers some learned experience designing protocols, using zproto and more generally:
 
-<A name="toc3-763" title="Heartbeating and Client Expiry" />
+<A name="toc3-764" title="Heartbeating and Client Expiry" />
 ### Heartbeating and Client Expiry
 
 The simplest and most robust heartbeat / connection expiry model appears to be the following:
@@ -823,7 +824,7 @@ The simplest and most robust heartbeat / connection expiry model appears to be t
 
 This approach resolves stale TCP connections, as well as dead clients and dead servers. It makes the heartbeating interval a client-side decision, and client expiry a server-side decision (this seems best in both cases).
 
-<A name="toc2-780" title="For More Information" />
+<A name="toc2-781" title="For More Information" />
 ## For More Information
 
 Though [the Libero documentation](http://legacy.imatix.com/html/libero/) is quite old now, it's useful as a guide to what's possible with state machines. The Libero model added superstates, substates, and other useful ways to manage larger state machines.
@@ -832,7 +833,7 @@ The current working example of the zproto server generator is the [zeromq/zbroke
 
 You can find [GSL on Github](https://github.com/imatix/gsl) and there's a [old backgrounder](http://download.imatix.com/mop/) for the so-called "model oriented programming" we used at iMatix.
 
-<A name="toc2-789" title="This document" />
+<A name="toc2-790" title="This document" />
 ## This document
 
 _This documentation was generated from zproto/README.txt using [Gitdown](https://github.com/zeromq/gitdown)_

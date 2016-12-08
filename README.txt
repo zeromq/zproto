@@ -392,7 +392,7 @@ Your input to the code generator is two XML files that defines a set of 'states'
             </event>
         </state>
         <state name = "connected">
-            <event name = "WORLD" next = "connected" />
+            <event name = "WORLD" next = "connected">
                 <action name = "terminate" />
             </event>
         </state>
@@ -688,7 +688,8 @@ Within your state model you can include another XML file with custom hand-writte
 
     <custom filename = "hello_client_custom.xml" language = "C" />
 
-The hello_client_custom.xml can contain three sections <header>, <source> and <api>. The contents of the <header> and <source> section will be placed into the hello_client.(h|c) files. The <api> defines a zproject API for your custom code and can only be used in conjunction with zproject. Please note that <header> and <api> are exclusive as the header will be generated from the API by zproject. The hello_client_custom.xml may look like:
+The hello_client_custom.xml can contain three sections `<header>`, `<source>` and `<api>`. The contents of the `<header>` and `<source>` section will be placed into the hello_client.(h|c) files. The `<api>` defines a zproject API for your custom code and can only be used in conjunction with zproject. Please note that `<header>` and `<api>` are exclusive as the header will be generated from the API by zproject. The hello_client_custom.xml may look like:
+
     <header>
         //  Print the attributes of this class
         void
