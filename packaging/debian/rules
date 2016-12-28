@@ -1,4 +1,7 @@
 #!/usr/bin/make -f
 
+# Workaround for automake < 1.14 bug
+$(shell dpkg --compare-versions `dpkg-query -W -f='$${Version}\n' automake` lt 1:1.14 && mkdir -p config)
+
 %:
 	dh $@ --with autoreconf
