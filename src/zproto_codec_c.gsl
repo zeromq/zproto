@@ -1002,6 +1002,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 {
     assert (input);
     int rc = 0;
+    zmq_msg_t frame;
+    zmq_msg_init (&frame);
 
     if (zsock_type (input) == ZMQ_ROUTER) {
         zframe_destroy (&self->routing_id);
@@ -1012,9 +1014,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             goto malformed;
         }
     }
-    zmq_msg_t frame;
-    zmq_msg_init (&frame);
-    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
+    int size;
+    size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
     if (size == -1) {
         zsys_warning ("$(class.name): interrupted");
         rc = -1;                //  Interrupted
