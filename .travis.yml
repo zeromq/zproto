@@ -2,26 +2,17 @@
 
 language: c
 
-#   Build-check-install all subprojects
-before_script:
+sudo: false
 
-#   GSL
-- git clone git://github.com/imatix/gsl.git
-- ( cd gsl/src; make; sudo make install )
-
-#   libsodium
-- git clone git://github.com/jedisct1/libsodium.git
-- ( cd libsodium; ./autogen.sh; ./configure; make check; sudo make install; sudo ldconfig )
-
-#   libzmq
-- git clone git://github.com/zeromq/libzmq.git
-- ( cd libzmq; ./autogen.sh; ./configure; make check; sudo make install; sudo ldconfig )
-
-#   CZMQ
-- git clone git://github.com/zeromq/czmq.git
-- ( cd czmq; ./autogen.sh; ./configure; make check; sudo make install; sudo ldconfig )
+addons:
+  apt:
+    sources:
+    - sourceline: 'deb http://download.opensuse.org/repositories/home:/zeromq:/git-draft/xUbuntu_12.04/ ./'
+      key_url: 'http://download.opensuse.org/repositories/home:/zeromq:/git-draft/xUbuntu_12.04/Release.key'
+    packages:
+    - generator-scripting-language
+    - libczmq-dev
 
 #   Build and check this project
 script:
-- ./autogen.sh && ./configure && make && make check
-- sudo make install
+- ./autogen.sh && ./configure && make distcheck
