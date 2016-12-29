@@ -1014,7 +1014,8 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             goto malformed;
         }
     }
-    int size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
+    int size;
+    size = zmq_msg_recv (&frame, zsock_resolve (input), 0);
     if (size == -1) {
         zsys_warning ("$(class.name): interrupted");
         rc = -1;                //  Interrupted
