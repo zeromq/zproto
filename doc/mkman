@@ -1,10 +1,10 @@
 #! /usr/bin/perl
-#   
+#
 #   mkman - Generates man pages from C source and header files.
 #
-#   Syntax: 'mkman classname', in doc subdirectory.
+#   Syntax: './mkman classname', in doc subdirectory.
 #
-#   Copyright (c) 1996-2013 iMatix Corporation
+#   Copyright (c) 1996-2016 iMatix Corporation
 #
 #   This is free software; you can redistribute it and/or modify it under the
 #   terms of the GNU General Public License as published by the Free Software
@@ -20,81 +20,158 @@
 #   with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 use File::Basename;
+use Cwd;
 
-$class = $ARGV [0];
-$class = $1 if $class =~ /(\w+)\.\w+/;
-$top_srcdir = "..";
+sub pull {
+    local ($_) = @_;
+    if (/^(.*)(@[a-zA-Z0-9]+)(,(\w*)\s*)?/) {
+        $file = $1;
+        $tag = $2;
+        $opts = $4;
+        $text = "";
+        $ext = (fileparse("$file", qr/[^.]*/))[2];
+        die "Can't read '$file': $!"
+            unless open (SOURCE, $file);
 
-#   Look for class title in 2nd line of source
-#   If there's no class file, leave hand-written man page alone
-exit unless open (SOURCE, "$top_srcdir/src/$class.c");
-$_ = <SOURCE>;
-$_ = <SOURCE>;
-$title = "no title found";
-$title = $1 if (/    \w+ - (.*)/);
-close (SOURCE);
+        while (<SOURCE>) {
+            if (/$tag/) {
+                while (<SOURCE>) {
+                    last if /\@discuss/ || /\@end/ || /\@ignore/ || /\@header/;
+                    $_ = "    $_" if ($opts eq "code");
+                    s/^    // if ($opts eq "left");
+                    $_ = "    $_" if ($opts eq "test");
+                    s/^        /    / if ($opts eq "test");
+                    $text .= $_;
+                }
+            }
+        }
+        close (SOURCE);
+        # Add code fences for markdown highlighting
+        $text = "```$ext\n$text```\n" if (length $text) and ($opts eq "code" or $opts eq "test");
 
-#   Open output file
-die "Can't create $class.txt: $!"
-    unless open (OUTPUT, ">$class.txt");
+        $text = "Please add '$tag' section in '$file'.\n" unless $text;
+        return $text;
+    }
+    else {
+        print "E: bad pull request: $_\n";
+    }
+}
 
-printf "Generating $class.txt...\n";
-$underline = "=" x (length ($class) + 3);
+sub generate_manpage {
+    local ($name, $outp, $rootsrcdir) = @_;
+    $name = $1 if $name =~ /(\w+)\.\w+/; # Chop off extensions
+    $outp = $1 if $outp =~ /^(.+)\.[^\.\/]+$/;
+    $outp_basename = basename ($outp);
+    $outp_basename = $2 if $outp =~ /^(.*\/)?(\w+)$/;
 
-$template = <<"END";
-$class(3)
+    if ($ENV{"V"} == "1") {
+        printf "D: generate_manpage() got name='$name' outp='$outp' outp_basename='$outp_basename' rootsrcdir='$rootsrcdir'\n";
+    }
+
+    #   Check if we're making the man page for a main program, or a class
+    $cat = 0;           #   Unknown category
+    die "Can't open '" . cwd() . "/Makefile'"
+        unless open (MAKEFILE, "Makefile");
+    while (<MAKEFILE>) {
+        if (/MAN1.*$outp_basename\.1/) {
+            $source = "$rootsrcdir/src/$name.c";
+            $header = "$rootsrcdir/src/$name.c";
+            $cat = 1;
+            last;
+        }
+        elsif (/MAN3.*$name\.3/) {
+            $source = "$rootsrcdir/src/$name.c";
+            $header = "$rootsrcdir/include/$name.h";
+            $cat = 3;
+            last;
+        }
+    }
+    close MAKEFILE;
+
+    #   Look for class title in 2nd line of source
+    #   If there's no class file, leave hand-written man page alone
+    die "Can't open '$source'"
+        unless open (SOURCE, $source);
+    $_ = <SOURCE>;
+    $_ = <SOURCE>;
+    $title = "no title found";
+    $title = $1 if (/    \w+ - (.*)/);
+    close (SOURCE);
+
+    #   Open output file
+    die "Can't create '$outp.txt': $!"
+        unless open (OUTPUT, ">$outp.txt");
+
+    printf "Generating '$outp.txt' from '$source'...\n";
+    $underline = "=" x (length ($name) + 3);
+
+    $template = <<"END";
+$name($cat)
 $underline
 
 NAME
 ----
-$class - $title
+$outp_basename - $title
 
 SYNOPSIS
 --------
 ----
-pull $top_srcdir/include/$class.h\@interface
+pull $header\@interface
+pull $source\@interface,left
 ----
 
 DESCRIPTION
 -----------
 
-pull $top_srcdir/src/$class.c\@header,left
+pull $source\@header,left
 
-pull $top_srcdir/src/$class.c\@discuss,left
+pull $source\@discuss,left
 
 EXAMPLE
 -------
-.From $class\_test method
+.From $name\_test method
 ----
-pull $top_srcdir/src/$class.c\@selftest
+pull $source\@selftest,left
 ----
-
-SEE ALSO
---------
-link:zproto[7]
 END
 
-#   Now process template
-for (split /^/, $template) {
-    if (/^pull (.*)(@[a-zA-Z0-9]+)(,(.*)\s*)?/) {
-        $source = $1;
-        $tag = $2;
-        $opts = $4;
-        die "Can't read $source: $!"
-            unless open (SOURCE, $source);
-        while (<SOURCE>) {
-            if (/$tag/) {
-                while (<SOURCE>) {
-                    last if /@[a-zA-Z0-9]+/;
-                    $_ = "    $_" if ($opts eq "code");
-                    s/^    // if ($opts eq "left");
-                    print OUTPUT $_;
-                }
-            }
+    #   Now process template
+    for (split /^/, $template) {
+        if (/^pull (.*)$/) {
+            print OUTPUT pull ($1);
         }
-        close (SOURCE);
+        else {
+            print OUTPUT $_;
+        }
     }
-    else {
-        print OUTPUT $_;
-    }
+
+    #   Generate a simple text documentation for README.txt
+    close OUTPUT;
+    printf "Generating '$outp.doc' from '$source'...\n";
+    die "Can't create '$outp.doc': $!"
+        unless open (OUTPUT, ">$outp.doc");
+    print OUTPUT "#### $outp_basename - $title\n\n";
+    print OUTPUT pull ("$source\@header,left");
+    print OUTPUT "\n";
+    print OUTPUT pull ("$source\@discuss,left");
+    print OUTPUT "\nThis is the class interface:\n\n";
+    print OUTPUT pull ("$header\@interface,code");
+    print OUTPUT pull ("$source\@interface,left");
+    print OUTPUT "\nThis is the class self test code:\n\n";
+    print OUTPUT pull ("$source\@selftest,test");
+    print OUTPUT "\n";
+    close OUTPUT;
 }
+
+$name = shift (@ARGV);
+$outp = shift (@ARGV);
+if (!$outp) {
+    $outp=$name;
+}
+$rootsrcdir = shift (@ARGV);
+if (!$rootsrcdir) {
+    $rootsrcdir="..";
+}
+
+printf "D: got name='$name' outp='$outp' rootsrcdir='$rootsrcdir' from the start\n";
+generate_manpage ($name, $outp, $rootsrcdir);
