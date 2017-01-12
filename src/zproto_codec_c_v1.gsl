@@ -518,19 +518,19 @@ $(CLASS.EXPORT_MACRO)void
         Get/set the $(name) field, transferring ownership from caller
         <argument name = "$(name)" type = "zlist" by_reference = "1"/>
     </method>
-    <method name = "$(name)_first" />
+    <method name = "$(name)_first" >
         Iterate through the $(name) field, and append a $(name) value
         <return type = "string" />
     </method>
-    <method name = "$(name)_next" />
+    <method name = "$(name)_next" >
         Iterate through the $(name) field, and append a $(name) value
         <return type = "string" />
     </method>
-    <method name = "$(name)_append" />
+    <method name = "$(name)_append" >
         Iterate through the $(name) field, and append a $(name) value
         <argument name = "format" type = "format" />
     </method>
-    <method name = "$(name)_size" />
+    <method name = "$(name)_size" >
         Iterate through the $(name) field, and append a $(name) value
         <return type = "size" />
     </method>
@@ -562,12 +562,12 @@ $(CLASS.EXPORT_MACRO)void
         <return type = "number" size = "8" />
     </method>
 
-    <method name = "$(name)_insert" />
+    <method name = "$(name)_insert" >
         Get/set a value in the $(name) dictionary
         <argument name = "key" type = "string" />
         <argument name = "format" type = "format" />
     </method>
-    <method name = "$(name)_size" />
+    <method name = "$(name)_size" >
         Get/set a value in the $(name) dictionary
         <return type = "size" />
     </method>
