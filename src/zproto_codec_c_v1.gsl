@@ -308,6 +308,293 @@ $(CLASS.EXPORT_MACRO)void
 #endif
 
 #endif
+
+.directory.create ("../api")
+.output "../api/$(class.name).api"
+<class name="$(class.name)" state="draft" >
+<!--
+    $(class.name) - $(class.title:)
+
+    Codec header for $(class.name).
+
+    ** WARNING *************************************************************
+    THIS SOURCE FILE IS 100% GENERATED. If you edit this file, you will lose
+    your changes at the next build cycle. This is great for temporary printf
+    statements. DO NOT MAKE ANY CHANGES YOU WISH TO KEEP. The correct places
+    for commits are:
+
+     * The XML model used for this code generation: $(filename), or
+     * The code generation script that built this file: $(script)
+    ************************************************************************
+.   for class.license
+    $(string.trim (license.):block                                         )
+.   endfor
+-->
+
+    <constuctor>
+        Create a new $(class.name)
+        <argument name = "id" type = "number" size = "4" />
+    </constuctor>
+
+    <constuctor name = "new_zpl">
+        Create a new $(class.name) from zpl/zconfig_t *
+        <argument name = "config" type = "zconfig" />
+    </constuctor>
+
+    <destructor>
+        Destroy the $(class.name)
+    </destructor>
+
+    <method name = "is">
+        Parse a zmsg_t and decides whether it is $(class.name). Returns
+        true if it is, false otherwise. Doesn't destroy or modify the
+        original message.
+        <return type = "boolean" />
+    </method>
+
+    <method name = "decode" singleton = "1">
+        Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
+        the message could not be parsed, or was NULL. Destroys msg and
+        nullifies the msg reference.
+        <argument name = "msg_p" type = "zmsg" by_reference = "1" />
+        <return type = "$(class.name)" fresh = "1" />
+    </method>
+
+    <method name = "encode">
+        Encode $(class.name) into zmsg and destroy it. Returns a newly created
+        object or NULL if error. Use when not in control of sending the message.
+        <argument name = "self_p" type = "zmsg_t" by_reference = "1" />
+        <return type = "$(class.name)" fresh = "1" />
+    </method>
+
+    <method name = "recv">
+        Receive and parse a $(class.name) from the socket. Returns new object,
+        or NULL if error. Will block if there's no message waiting.
+        <argument name = "input" type = "anything" />
+        <return type = "$(class.name)" fresh = "1" />
+    </method>
+
+    <method name = "recv_nowait">
+        Receive and parse a $(class.name) from the socket. Returns new object,
+        or NULL either if there was no input waiting, or the recv was interrupted.
+        <argument name = "input" type = "anything" />
+        <return type = "$(class.name)" fresh = "1" />
+    </method>
+
+    <method name = "send">
+        Send the $(class.name) to the output, and destroy it
+        <argument name = "self_p" type = "$(class.name)" by_reference = "1" />
+        <argument name = "output" type = "anything" />
+    </method>
+
+    <method name = "send_again">
+        Send the $(class.name) to the output, and do not destroy it
+        <argument name = "self" type = "$(class.name)" />
+        <argument name = "output" type = "anything" />
+    </method>
+
+.for message
+    <method name = "encode_$(name)">
+        Encode the $(message.NAME)
+.for field where !defined (value)
+.   if type = "number"
+        <argument name = "$(name)" type = "number" size = "$(size)" />
+.   elsif type = "octets"
+        <argument name = "$(name)" type = "buffer" />
+.   elsif type = "string" | type = "longstr"
+        <argument name = "$(name)" type = "string" />
+.   elsif type = "strings"
+        <argument name = "$(name)" type = "zlist" />
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+        <argument name = "$(name)" type = "z$(type)" />
+.   endif
+.endfor
+        <return type = "zmsg" fresh = "1" />
+    </method>
+
+.endfor
+
+.for message
+    <method name = "send_$(name)">
+        Send the $(message.NAME) to the output in one step
+        WARNING, this call will fail if output is of type ZMQ_ROUTER.
+
+        <argument name = "output" type = "anything" />
+.for field where !defined (value)
+.   if type = "number"
+        <argument name = "$(name)" type = "number" size = "$(size)" />
+.   elsif type = "octets"
+        <argument name = "$(name)" type = "buffer" />
+.   elsif type = "string" | type = "longstr"
+        <argument name = "$(name)" type = "string" />
+.   elsif type = "strings"
+        <argument name = "$(name)" type = "zlist" />
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+        <argument name = "$(name)" type = "z$(type)" />
+.   endif
+.endfor
+        <return type = "integer" />
+    </message>
+
+.endfor
+    <method name = "dup">
+        Duplicate the $(class.name) message
+        <return type = "$(class.name)" fresh = "1" />
+    </method>
+
+    <method name = "print">
+        Print contents of message to stdout
+    </method>
+
+    <method name = "zpl">
+        Export class as zconfig_t*. Caller is responsibe for destroying the instance
+        <argument name = "parent" type = "zconfig" />
+        <return type = "zconfig" fresh = "1" />
+    </method>
+
+    <method name = "routing_id">
+        Get the message routing id
+        <return type = "zframe" fresh = "1" />
+    </method>
+
+    <method name = "set_routing_id">
+        Set the message routing id
+        <argument name = "routing_id" type = "zframe" />
+    </method>
+
+    <method name = "id">
+        Get the $(class.name) id
+        <return type = "integer" />
+    </method>
+
+    <method name = "set_id">
+        Set the $(class.name) id
+    </method>
+
+    <method name = "command">
+        Return the printable command
+        <return type = "string" />
+    </method>
+
+
+.for class.field where !defined (value)
+.   if type = "number"
+    <method name = "$(name)">
+        Get/set the $(name) field
+        <return type = "number" size = "$(size)" />
+    </method>
+    <method name = "set_$(name)">
+        Get/set the $(name) field
+        <argument name = "$(name)" type = "number" size = "$(size)" />
+    </method>
+.   elsif type = "octets"
+    <method name = "$(name)">
+        Get/set the $(name) field
+        <return type = "buffer" />
+    </method>
+    <method name = "set_$(name)">
+        Get/set the $(name) field
+        <argument name = "$(name)" type = "buffer"/>
+    </method>
+.   elsif type = "string" | type = "longstr"
+    <method name = "$(name)">
+        Get/set the $(name) field
+        <return type = "string" />
+    </method>
+    <method name = "set_$(name)">
+        Get/set the $(name) field
+        <argument name = "$(name)" type = "string"/>
+    </method>
+.   elsif type = "strings"
+    <method name = "$(name)">
+        Get/set the $(name) field
+        <return type = "zlist" />
+    </method>
+    <method name = "get_$(name)">
+        Get/set the $(name) field and transfer ownership to caller
+        <return type = "zlist" fresh = "1"/>
+    </method>
+    <method name = "set_$(name)">
+        Get/set the $(name) field, transferring ownership from caller
+        <argument name = "$(name)" type = "zlist" by_reference = "1"/>
+    </method>
+    <method name = "$(name)_first" />
+        Iterate through the $(name) field, and append a $(name) value
+        <return type = "string" />
+    </method>
+    <method name = "$(name)_next" />
+        Iterate through the $(name) field, and append a $(name) value
+        <return type = "string" />
+    </method>
+    <method name = "$(name)_append" />
+        Iterate through the $(name) field, and append a $(name) value
+        <argument name = "format" type = "format" />
+    </method>
+    <method name = "$(name)_size" />
+        Iterate through the $(name) field, and append a $(name) value
+        <return type = "size" />
+    </method>
+.   elsif type = "hash"
+    <method name = "$(name)">
+        Get/set the $(name) field
+        <return type = "zhash" />
+    </method>
+    <method name = "get_$(name)">
+        Get/set the $(name) field and transfer ownership to caller
+        <return type = "zhash" fresh = "1"/>
+    </method>
+    <method name = "set_$(name)">
+        Get/set the $(name) field, transferring ownership from caller
+        <argument name = "$(name)" type = "zhash" by_reference = "1"/>
+    </method>
+
+    <method name = "$(name)_get">
+        Get/set a value in the $(name) dictionary
+        <argument name = "key" type = "string" />
+        <argument name = "default_value" type = "string" />
+        <return type = "string" />
+    </method>
+    
+    <method name = "$(name)_number">
+        Get/set a value in the $(name) dictionary
+        <argument name = "key" type = "string" />
+        <argument name = "default_value" type = "number" size = "8" />
+        <return type = "number" size = "8" />
+    </method>
+
+    <method name = "$(name)_insert" />
+        Get/set a value in the $(name) dictionary
+        <argument name = "key" type = "string" />
+        <argument name = "format" type = "format" />
+    </method>
+    <method name = "$(name)_size" />
+        Get/set a value in the $(name) dictionary
+        <return type = "size" />
+    </method>
+.   elsif type = "chunk" | type = "frame" | type = "uuid" | type = "msg"
+    <method name = "$(name)">
+        Get a copy of the $(name) field
+        <return type = "z$(type)" fresh = "1" />
+    </method>
+    <method name = "get_$(name)">
+        Get a copy of the $(name) field and transfer ownership to caller
+        <return type = "z$(type)" fresh = "1" />
+    </method>
+    <method name = "set_$(name)">
+        Set the $(name) field, transferring ownership from caller
+        <argument name = "$(type)_p" type = "z$(type)" />
+    </method>
+.   else
+.       echo "E: unknown type '$(type)' for field '$(name)'"
+.   endif
+
+.endfor
+    <method name = "test">
+        Self test of this class
+        <argument name = "verbose" type = "boolean" />
+    </method>
+</class>
+
 .output "$(class.source_dir)/$(class.name).c"
 /*  =========================================================================
     $(class.name) - $(class.title:)
