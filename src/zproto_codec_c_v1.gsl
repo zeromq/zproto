@@ -61,7 +61,7 @@ set_defaults ()
 */
 
 .for define
-#define $(CLASS.NAME)_$(DEFINE.NAME:C)      $(value)
+#define $(CLASS.NAME)_$(DEFINE.NAME:C)      $(value:)
 .endfor
 
 .for message
