@@ -434,7 +434,7 @@ $(CLASS.EXPORT_MACRO)void
 .   endif
 .endfor
         <return type = "integer" />
-    </message>
+    </method>
 
 .endfor
     <method name = "dup">
