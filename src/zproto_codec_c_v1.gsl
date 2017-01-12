@@ -345,10 +345,11 @@ $(CLASS.EXPORT_MACRO)void
         Destroy the $(class.name)
     </destructor>
 
-    <method name = "is">
+    <method name = "is" singleton = "1">
         Parse a zmsg_t and decides whether it is $(class.name). Returns
         true if it is, false otherwise. Doesn't destroy or modify the
         original message.
+        <argument name = "msg" type = "zmsg" />
         <return type = "boolean" />
     </method>
 
@@ -360,41 +361,43 @@ $(CLASS.EXPORT_MACRO)void
         <return type = "$(class.name)" fresh = "1" />
     </method>
 
-    <method name = "encode">
+    <method name = "encode" singleton = "1">
         Encode $(class.name) into zmsg and destroy it. Returns a newly created
         object or NULL if error. Use when not in control of sending the message.
-        <argument name = "self_p" type = "zmsg" by_reference = "1" />
-        <return type = "$(class.name)" fresh = "1" />
+        <argument name = "self_p" type = "$(class.name)" by_reference = "1" />
+        <return type = "zmsg" fresh = "1" />
     </method>
 
-    <method name = "recv">
+    <method name = "recv" singleton = "1">
         Receive and parse a $(class.name) from the socket. Returns new object,
         or NULL if error. Will block if there's no message waiting.
         <argument name = "input" type = "anything" />
         <return type = "$(class.name)" fresh = "1" />
     </method>
 
-    <method name = "recv_nowait">
+    <method name = "recv_nowait" singleton = "1">
         Receive and parse a $(class.name) from the socket. Returns new object,
         or NULL either if there was no input waiting, or the recv was interrupted.
         <argument name = "input" type = "anything" />
         <return type = "$(class.name)" fresh = "1" />
     </method>
 
-    <method name = "send">
+    <method name = "send" singleton = "1">
         Send the $(class.name) to the output, and destroy it
         <argument name = "self_p" type = "$(class.name)" by_reference = "1" />
         <argument name = "output" type = "anything" />
+        <return type = "integer" />
     </method>
 
-    <method name = "send_again">
+    <method name = "send_again" singleton = "1">
         Send the $(class.name) to the output, and do not destroy it
         <argument name = "self" type = "$(class.name)" />
         <argument name = "output" type = "anything" />
+        <return type = "integer" />
     </method>
 
 .for message
-    <method name = "encode_$(name)">
+    <method name = "encode_$(name)" singleton = "1">
         Encode the $(message.NAME)
 .for field where !defined (value)
 .   if type = "number"
@@ -415,7 +418,7 @@ $(CLASS.EXPORT_MACRO)void
 .endfor
 
 .for message
-    <method name = "send_$(name)">
+    <method name = "send_$(name)" singleton = "1">
         Send the $(message.NAME) to the output in one step
         WARNING, this call will fail if output is of type ZMQ_ROUTER.
 
@@ -469,6 +472,7 @@ $(CLASS.EXPORT_MACRO)void
 
     <method name = "set_id">
         Set the $(class.name) id
+        <argument name = "id" type = "integer" />
     </method>
 
     <method name = "command">
@@ -503,7 +507,7 @@ $(CLASS.EXPORT_MACRO)void
     </method>
     <method name = "set_$(name)">
         Get/set the $(name) field
-        <argument name = "$(name)" type = "string"/>
+        <argument name = "format" type = "format"/>
     </method>
 .   elsif type = "strings"
     <method name = "$(name)">
@@ -516,7 +520,7 @@ $(CLASS.EXPORT_MACRO)void
     </method>
     <method name = "set_$(name)">
         Get/set the $(name) field, transferring ownership from caller
-        <argument name = "$(name)" type = "zlist" by_reference = "1"/>
+        <argument name = "$(name)_p" type = "zlist" by_reference = "1"/>
     </method>
     <method name = "$(name)_first" >
         Iterate through the $(name) field, and append a $(name) value
@@ -545,10 +549,10 @@ $(CLASS.EXPORT_MACRO)void
     </method>
     <method name = "set_$(name)">
         Get/set the $(name) field, transferring ownership from caller
-        <argument name = "$(name)" type = "zhash" by_reference = "1"/>
+        <argument name = "$(name)_p" type = "zhash" by_reference = "1"/>
     </method>
 
-    <method name = "$(name)_get">
+    <method name = "$(name)_string">
         Get/set a value in the $(name) dictionary
         <argument name = "key" type = "string" />
         <argument name = "default_value" type = "string" />
@@ -589,7 +593,7 @@ $(CLASS.EXPORT_MACRO)void
 .   endif
 
 .endfor
-    <method name = "test">
+    <method name = "test" singleton = "1">
         Self test of this class
         <argument name = "verbose" type = "boolean" />
     </method>
