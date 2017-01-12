@@ -363,7 +363,7 @@ $(CLASS.EXPORT_MACRO)void
     <method name = "encode">
         Encode $(class.name) into zmsg and destroy it. Returns a newly created
         object or NULL if error. Use when not in control of sending the message.
-        <argument name = "self_p" type = "zmsg_t" by_reference = "1" />
+        <argument name = "self_p" type = "zmsg" by_reference = "1" />
         <return type = "$(class.name)" fresh = "1" />
     </method>
 
