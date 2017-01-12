@@ -108,7 +108,7 @@ $(CLASS.EXPORT_MACRO)void
 //  true if it is, false otherwise. Doesn't destroy or modify the
 //  original message.
 $(CLASS.EXPORT_MACRO)bool
-    is_$(class.name) (zmsg_t *msg_p);
+    $(class.name)_is (zmsg_t *msg_p);
 
 //  Parse a $(class.name) from zmsg_t. Returns a new object, or NULL if
 //  the message could not be parsed, or was NULL. Destroys msg and
@@ -301,6 +301,7 @@ $(CLASS.EXPORT_MACRO)void
 
 //  For backwards compatibility with old codecs
 #define $(class.name)_dump  $(class.name)_print
+#define is_$(class.name) $(class.name)_is
 
 #ifdef __cplusplus
 }
@@ -772,7 +773,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
 //  true if it is, false otherwise. Doesn't destroy or modify the
 //  original message.
 bool
-is_$(class.name) (zmsg_t *msg)
+$(class.name)_is (zmsg_t *msg)
 {
     if (msg == NULL)
         return false;
