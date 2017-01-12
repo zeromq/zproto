@@ -1620,8 +1620,10 @@ $(class.name)_send_$(name) (
 {
     $(class.name)_t *self = $(class.name)_new ($(class.NAME)_$(NAME));
 .for field where !defined (value)
-.   if type = "number" | type = "octets" | type = "string" | type = "longstr"
+.   if type = "number" | type = "octets" | type = "longstr"
     $(class.name)_set_$(name) (self, $(name));
+.   elsif type = "string"
+    $(class.name)_set_$(name) (self, "%s", $(name));
 .   elsif type = "strings"
     zlist_t *$(name)_copy = zlist_dup ($(name));
     $(class.name)_set_$(name) (self, &$(name)_copy);
