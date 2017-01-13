@@ -61,7 +61,7 @@ set_defaults ()
 */
 
 .for define
-#define $(CLASS.NAME)_$(DEFINE.NAME:C)      $(value)
+#define $(CLASS.NAME)_$(DEFINE.NAME:C)      $(value:)
 .endfor
 
 .for message
@@ -331,15 +331,15 @@ $(CLASS.EXPORT_MACRO)void
 .   endfor
 -->
 
-    <constuctor>
+    <constructor>
         Create a new $(class.name)
         <argument name = "id" type = "number" size = "4" />
-    </constuctor>
+    </constructor>
 
-    <constuctor name = "new_zpl">
+    <constructor name = "new_zpl">
         Create a new $(class.name) from zpl/zconfig_t *
         <argument name = "config" type = "zconfig" />
-    </constuctor>
+    </constructor>
 
     <destructor>
         Destroy the $(class.name)
