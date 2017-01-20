@@ -423,7 +423,7 @@ class $(ClassName)(object):
 .           if defined (field.value)
             logger.info("    $(name)=$(field.value)")
 .           else
-            logger.info("    $(name)=%d" %$(name))
+            logger.info("    $(name)=%d" %self._$(name))
 .           endif
 .       elsif type = "octets"
             logger.info("    $(name)={0}".format(self._$(name)))
