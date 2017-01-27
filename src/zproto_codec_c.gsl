@@ -77,6 +77,10 @@ set_defaults ()
     Destroy a $(class.name) instance
 </destructor>
 
+<method name = "dup">
+    Create a deep copy of a $(class.name) instance
+</method>
+
 .   if class.virtual ?= 1
 <method name = "recv">
     Deserialize a $(class.name) from the specified message, popping
@@ -284,6 +288,10 @@ $(CLASS.EXPORT_MACRO)$(class.name)_t *
 //  Destroy a $(class.name) instance
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
+
+//  Create a deep copy of a $(class.name) instance
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_dup ($(class.name)_t *other);
 
 .if class.virtual ?= 1
 //  Deserialize a $(class.name) from the specified message, popping
@@ -654,6 +662,38 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     }
 }
 
+
+//  --------------------------------------------------------------------------
+//  Create a deep copy of a $(class.name) instance
+
+$(class.name)_t *
+$(class.name)_dup ($(class.name)_t *other)
+{
+    assert (other);
+    $(class.name)_t *copy = $(class.name)_new ();
+
+    // Copy the routing and message id
+    $(class.name)_set_routing_id (copy, zframe_dup ($(class.name)_routing_id (other)));
+    $(class.name)_set_id (copy, $(class.name)_id (other));
+
+    // Copy the rest of the fields
+.for class.field
+.   if type = "longstr" | type = "string"
+    $(class.name)_set_$(name) (copy, strdup ($(class.name)_$(name) (other)));
+.   elsif type = "uuid" | type = "hash" | type = "chunk" | type = "frame" | type = "msg"
+    $(class.name)_set_$(name) (copy, z$(type)_dup ($(class.name)_$(name) (other)));
+.   elsif type = "strings"
+    {
+        zlist_t *lcopy = zlist_dup ($(class.name)_$(name) (other));
+        $(class.name)_set_$(name) (copy, &lcopy);
+    }
+.   elsif type = "number"
+    $(class.name)_set_$(name) (copy, $(class.name)_$(name) (other));
+.   endif
+.endfor
+
+    return copy;
+}
 
 .macro calculate_frame_size
     size_t frame_size = 2 + 1;          //  Signature and message ID
