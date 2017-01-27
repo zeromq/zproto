@@ -678,7 +678,7 @@ $(class.name)_dup ($(class.name)_t *other)
 
     // Copy the rest of the fields
 .for class.field
-.   if type = "longstr" | type = "string"
+.   if type = "longstr"
     $(class.name)_set_$(name) (copy, strdup ($(class.name)_$(name) (other)));
 .   elsif type = "uuid" | type = "hash" | type = "chunk" | type = "frame" | type = "msg"
     $(class.name)_set_$(name) (copy, z$(type)_dup ($(class.name)_$(name) (other)));
@@ -687,7 +687,7 @@ $(class.name)_dup ($(class.name)_t *other)
         zlist_t *lcopy = zlist_dup ($(class.name)_$(name) (other));
         $(class.name)_set_$(name) (copy, &lcopy);
     }
-.   elsif type = "number"
+.   elsif type = "number" | type = "string"
     $(class.name)_set_$(name) (copy, $(class.name)_$(name) (other));
 .   endif
 .endfor
