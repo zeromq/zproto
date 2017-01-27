@@ -679,7 +679,12 @@ $(class.name)_dup ($(class.name)_t *other)
     // Copy the rest of the fields
 .for class.field
 .   if type = "longstr"
-    $(class.name)_set_$(name) (copy, strdup ($(class.name)_$(name) (other)));
+    {
+        const char *str = $(class.name)_$(name) (other);
+        if (str) {
+            $(class.name)_set_$(name) (copy, strdup (str));
+        }
+    }
 .   elsif type = "uuid" | type = "hash" | type = "chunk" | type = "frame" | type = "msg"
     $(class.name)_set_$(name) (copy, z$(type)_dup ($(class.name)_$(name) (other)));
 .   elsif type = "strings"
