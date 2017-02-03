@@ -16,6 +16,10 @@ The signature is put into every protocol message and lets us filter bogus
 or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
 for each protocol you write, at least.
 
+When using zproto with zproject you won't need to set package_dir and
+source_dir as those will be configured by zproject depending on the class's
+properties.
+
 <include filename = "license.xml" />
 
 You can define constants. These are put into the header file, prefixed by
@@ -147,7 +151,7 @@ zproto supports several kinds of binary data:
 * You can define frames, which are zframe_t objects in the API. Frames
   are sent as separate ZeroMQ frames on the wire. This is ideal for
   variable-size binary data such as images, or other blobs.
-  
+
 * You can define ZeroMQ messages, which are zmsg_t objects in the API.
   This is useful for protocols that want to wrap entire ZeroMQ messages
   in other data. If you use a "msg" type field, it must be the last

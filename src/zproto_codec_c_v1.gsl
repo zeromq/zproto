@@ -309,8 +309,9 @@ $(CLASS.EXPORT_MACRO)void
 
 #endif
 
-.directory.create ("../api")
-.output "../api/$(class.name).api"
+.if switches.zproject ?= 1 & switches.private ?<> 1
+.   directory.create ("../api")
+.   output "../api/$(class.name).api"
 <class name="$(class.name)" state="draft" >
 <!--
     $(class.name) - $(class.title:)
@@ -558,7 +559,7 @@ $(CLASS.EXPORT_MACRO)void
         <argument name = "default_value" type = "string" />
         <return type = "string" />
     </method>
-    
+
     <method name = "$(name)_number">
         Get/set a value in the $(name) dictionary
         <argument name = "key" type = "string" />
@@ -598,6 +599,7 @@ $(CLASS.EXPORT_MACRO)void
         <argument name = "verbose" type = "boolean" />
     </method>
 </class>
+.endif
 
 .output "$(class.source_dir)/$(class.name).c"
 /*  =========================================================================
