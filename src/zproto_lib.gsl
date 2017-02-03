@@ -35,9 +35,13 @@ function set_defaults ()
     resolve_types ()
 
     class.signature ?= 0
-    class.package_dir ?= "../include"
     class.source_dir ?= "."
-    
+    if switches.zproject ?= 1 & switches.private ?= 1
+        class.package_dir ?= "."
+    else
+        class.package_dir ?= "../include"
+    endif
+
     class.export_macro ?= ""
     if class.export_macro <> ""
         class.export_macro += " "
