@@ -1149,6 +1149,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             {
                 size_t hash_size;
                 GET_NUMBER4 (hash_size);
+                zhash_destroy (&self->$(name));
                 self->$(name) = zhash_new ();
                 zhash_autofree (self->$(name));
                 while (hash_size--) {
