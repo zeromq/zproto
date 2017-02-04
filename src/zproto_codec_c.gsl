@@ -32,7 +32,7 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.if switches.zproject ?= 1
+.if switches.zproject ?= 1 & switches.private ?<> 1
 .   file.delete ("$(class.package_dir)/$(class.name).h")
 .   directory.create ("../api")
 .   output "../api/$(class.name).api"
@@ -681,13 +681,14 @@ $(class.name)_dup ($(class.name)_t *other)
 .   if type = "longstr"
     $(class.name)_set_$(name) (copy, strdup ($(class.name)_$(name) (other)));
 .   elsif type = "uuid" | type = "hash" | type = "chunk" | type = "frame" | type = "msg"
-    $(class.name)_set_$(name) (copy, z$(type)_dup ($(class.name)_$(name) (other)));
+    z$(type)_t *dup_$(type:) = z$(type)_dup ($(class.name)_$(name) (other));
+    $(class.name)_set_$(name) (copy, &dup_$(type:));
 .   elsif type = "strings"
     {
         zlist_t *lcopy = zlist_dup ($(class.name)_$(name) (other));
         $(class.name)_set_$(name) (copy, &lcopy);
     }
-.   elsif type = "number" | type = "string"
+.   elsif type = "number" | type = "string" & !defined (value)
     $(class.name)_set_$(name) (copy, $(class.name)_$(name) (other));
 .   endif
 .endfor
@@ -1148,6 +1149,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
             {
                 size_t hash_size;
                 GET_NUMBER4 (hash_size);
+                zhash_destroy (&self->$(name));
                 self->$(name) = zhash_new ();
                 zhash_autofree (self->$(name));
                 while (hash_size--) {
