@@ -688,7 +688,7 @@ s_client_new (zsock_t *cmdpipe, zsock_t *msgpipe)
         self->state = $(name:c)_state;
 .endfor
         self->event = NULL_event;
-        snprintf (self->log_prefix, sizeof (self->log_prefix) - 1,
+        snprintf (self->log_prefix, sizeof (self->log_prefix),
             "%6d:%-33s", randof (1000000), "$(class.name)");
         self->dealer = zsock_new (ZMQ_DEALER);
         if (self->dealer)
