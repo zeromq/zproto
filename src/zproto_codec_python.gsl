@@ -59,7 +59,6 @@ $(string.justify (license., 70, "#  "):block                                    
 
 
 import struct
-import uuid
 import zmq
 import logging
 
@@ -67,8 +66,8 @@ logger = logging.getLogger(__name__)
 
 ZFrame = zmq.Frame
 
-class $(ClassName)(object):
 
+class $(ClassName)(object):
 .for define
     $(CLASS.NAME)_$(DEFINE.NAME:C)  = $(value)
 .endfor
@@ -82,9 +81,10 @@ class $(ClassName)(object):
 
     def __init__(self, id=None, *args, **kwargs):
         #  Structure of our class
-        self.routingId = None               # Routing_id from ROUTER, if any
+        self._routing_id = None             # Routing_id from ROUTER, if any
         self._id = id                       # $(ClassName) message ID
         self._needle = 0                    # Read/write pointer for serialization
+        self._ceiling = 0                   # Size of struct_data
         self.struct_data = b''              # holds the binary data
 
 .for class.field
@@ -93,7 +93,7 @@ class $(ClassName)(object):
 .   elsif type = "octets"
         self._$(name) = b''
 .   elsif type = "number"
-        self._$name = $(name);
+        self._$name = $(name)
 .   elsif type = "string" | type = "longstr"
         self._$(name) = ""
 .   elsif type = "strings"
@@ -190,7 +190,7 @@ class $(ClassName)(object):
 
     #  Get bytes from the frame
     def _get_bytes(self, size):
-        s =  self.struct_data[self._needle:self._needle+size]
+        s = self.struct_data[self._needle:self._needle+size]
         self._needle += size
         return s
 
@@ -201,10 +201,10 @@ class $(ClassName)(object):
     #  --------------------------------------------------------------------------
     #  Receive a $(ClassName) from the socket. Returns new object or
     #  null if error. Will block if there's no message waiting.
-    def recv (self, insocket):
+    def recv(self, insocket):
         frames = insocket.recv_multipart()
         if insocket.type == zmq.ROUTER:
-            self.routing_id = frames.pop(0)
+            self._routing_id = frames.pop(0)
 
         self.struct_data = frames.pop(0)
         logger.debug("recv data: {0!r}".format(self.struct_data))
@@ -218,7 +218,7 @@ class $(ClassName)(object):
 
 # TODO what is zdigest?
 .if switches.digest ?= 1
-    zdigest_t *digest = zdigest_new ();
+    zdigest_t *digest = zdigest_new ()
 .endif
         signature = self._get_number2()
         if signature != (0xAAA0 | $(class.signature)):
@@ -263,7 +263,7 @@ class $(ClassName)(object):
             list_size = self._get_number4()
             self._$(name) = []
             for x in range(list_size):
-                self._$(name).append(self._get_long_string());
+                self._$(name).append(self._get_long_string())
 .       elsif type = "hash"
             hash_size = self._get_number4()
             self._$(name) = {}
@@ -272,7 +272,7 @@ class $(ClassName)(object):
                 val = self._get_long_string()
                 self._$(name).update({key: val})
 .       elsif type = "chunk"
-            self._$(name) = self._get_bytes(self.getNumber4());
+            self._$(name) = self._get_bytes(self.getNumber4())
 .       elsif type = "uuid"
             uuid_bytes = self._get_bytes(16)
             self._$(name) = uuid.UUID(bytes=uuid_bytes)
@@ -294,14 +294,14 @@ class $(ClassName)(object):
 .endfor
         else:
             logger.debug("bad message ID")
-
+.
 
     #  --------------------------------------------------------------------------
     #  Send the $(ClassName) to the socket, and destroy it
     def send(self, outsocket):
         if outsocket.type == zmq.ROUTER:
             outsocket.send(self.routing_id, zmq.SNDMORE)
-        # TDOD: We could generalize to a ZMsg class? ZMsg msg = new ZMsg();
+        # TDOD: We could generalize to a ZMsg class? ZMsg msg = new ZMsg()
 
         self.struct_data = b''
         self._needle = 0
@@ -331,46 +331,46 @@ class $(ClassName)(object):
 .           if defined (field.value)
             self._put_string('$(field.value:)')
 .           else
-            if self._$(name) != None:
+            if self._$(name) is not None:
                 self._put_string(self._$(name))
             else:
-                self._put_number1(0)      #  Empty string
+                self._put_number1(0)      # Empty string
 .           endif
 .       elsif type = "longstr"
 .           if defined (field.value)
             self._put_long_string('$(field.value:)')
 .           else
-            if self._$(name) != None:
+            if self._$(name) is not None:
                 self._put_long_string(self._$(name))
             else:
-                self._put_number4(0)      #  Empty string
+                self._put_number4(0)      # Empty string
 .           endif
 .       elsif type = "strings"
-            if self._$(name) != None:
+            if self._$(name) is not None:
                 self._put_number4(len(self._$(name)))
                 for val in self._$(name):
                     self._put_long_string(val)
             else:
-                self._put_number4(0);      #  Empty string array
+                self._put_number4(0)      # Empty string array
 .       elsif type = "hash"
-            if self._$(name) != None:
+            if self._$(name) is not None:
                 self._put_number4(len(self._$(name)))
                 for key, val in self._$(name).items():
                     self._put_string(key)
                     self._put_long_string(val)
             else:
-                self._put_number4(0)      #  Empty hash
+                self._put_number4(0)      # Empty hash
 .       elsif type = "chunk"
-            if self._$(name) != None:
+            if self._$(name) is not None:
                 self._put_number4(len(self._$(name)))
                 self._put_bytes(self._$(name))
             else:
                 self._put_number4(0)
 .       elsif type = "uuid"
-            if self._$(name) != None:
+            if self._$(name) is not None:
                 self._put_bytes(self._$(name).bytes)
             else:
-                self._put_chunk(b'0'*16)    #  Empty Chunk
+                self._put_chunk(b'0'*16)    # Empty Chunk
 .       elsif type = "frame"
             nbr_frames += 1
 .       elsif type = "msg"
@@ -379,8 +379,7 @@ class $(ClassName)(object):
 .   endfor
 
 .endfor
-
-        #  Now send the data frame
+        # Now send the data frame
         if nbr_frames:
             outsocket.send(self.struct_data, zmq.SNDMORE)
         else:
@@ -409,10 +408,10 @@ class $(ClassName)(object):
         else:
             zmq_send (zsock_resolve (output), NULL, 0, 0)
 .endif
-
-
-    #  --------------------------------------------------------------------------
-    #  Print contents of message to stdout
+.
+.
+    # --------------------------------------------------------------------------
+    # Print contents of message to stdout
 
     def dump(self):
 .for class.message
@@ -423,7 +422,7 @@ class $(ClassName)(object):
 .           if defined (field.value)
             logger.info("    $(name)=$(field.value)")
 .           else
-            logger.info("    $(name)=%d" %self._$(name))
+            logger.info("    $(name)=%d" % self._$(name))
 .           endif
 .       elsif type = "octets"
             logger.info("    $(name)={0}".format(self._$(name)))
@@ -431,8 +430,8 @@ class $(ClassName)(object):
 .           if defined (field.value)
             logger.info("    $(name)=$(field.value)")
 .           else
-            if self._$(name) != None:
-                logger.info("    $(name)='%s'\\n" %self._$(name))
+            if self._$(name) is not None:
+                logger.info("    $(name)='%s'\\n" % self._$(name))
             else:
                 logger.info("    $(name)=")
 .           endif
@@ -448,7 +447,7 @@ class $(ClassName)(object):
             logger.info("(NULL)")
 
 .endfor
-
+.
     #  --------------------------------------------------------------------------
     #  Convert message to a dictionary
 
@@ -467,12 +466,12 @@ class $(ClassName)(object):
 .       elsif type = "strings"
             result['$(name)'] = self._$(name)
 .       elsif type = "hash" | type = "msg" | type = "uuid" | type = "chunk" | type = "octets"
-            result['$(name)'] = "{0}".format(self._$(name)))
+            result['$(name)'] = "{0}".format(self._$(name))
 .       endif
 .   endfor
 
 .endfor
-
+.
         return result
 
     #  --------------------------------------------------------------------------
@@ -500,7 +499,7 @@ class $(ClassName)(object):
         if self._id == $(ClassName).$(MESSAGE.NAME):
             return "$(MESSAGE.NAME)"
 .endfor
-        return "?";
+        return "?"
 
 .for class.field where !defined (value)
 .   if type = "number" | type = "octets" | type = "string" | type = "longstr"
@@ -508,7 +507,7 @@ class $(ClassName)(object):
     #  Get/set the $(name) field
 
     def $(name)(self):
-        return self._$(name);
+        return self._$(name)
 
     def set_$(name)(self, $(name)):
         self._$(name) = $(name)
@@ -540,24 +539,23 @@ class $(ClassName)(object):
         self._$(name) = $(name)
 .   endif
 .endfor
-
+.
 .directory.create ("$(topdir)/test/python/$(name_path)")
 .output "$(topdir)/test/python/$(name_path)/test_$(ClassName).py"
-
+.
 import unittest
-import struct
-import uuid
 import logging
 import zmq
 from $(ClassName) import $(ClassName)
+
 
 class $(ClassName)Test(unittest.TestCase):
 
     def test_create_destroy(self):
         #  Simple create/destroy test
-        print(" * $(class.name): ");
+        print(" * $(class.name): ")
         class1 = $(ClassName)()
-        del(class1)
+        del class1
 
     def test_sockets(self):
         #  Create pair of sockets we can send through
@@ -578,12 +576,12 @@ class $(ClassName)Test(unittest.TestCase):
 .       elsif type = "octets"
         msg.set_$(name)(b'123')
 .       elsif type = "string" | type = "longstr"
-        msg.set_$(name) ("Life is short but Now lasts for ever")
+        msg.set_$(name)("Life is short but Now lasts for ever")
 .       elsif type = "strings"
         msg.set_$(name)(("Name: %s" %"Brutus","Age: %d" %43))
 .       elsif type = "hash"
         msg._$(name).update({"Name": "Brutus"})
-        msg._$(name).update({"Age": "43"});
+        msg._$(name).update({"Age": "43"})
 .       elsif type = "chunk"
         msg.set_$(name)("Captcha Diem".encode('utf-8'))
 .       elsif type = "frame"
@@ -593,14 +591,13 @@ class $(ClassName)Test(unittest.TestCase):
 .       endif
 .   endfor
         # Send twice?
-        msg.send(outsock);
-        msg.send(outsock);
-
+        msg.send(outsock)
+        msg.send(outsock)
 
         msg.recv(insock)
 .   for field where !defined (value)
 .       if type = "number"
-        self.assertEqual (msg.$(name)(), 123)
+        self.assertEqual(msg.$(name)(), 123)
 .       elsif type = "octets"
         self.assertEqual(msg.$(name)(), b'123')
 .       elsif type = "string" | type = "longstr"
@@ -621,10 +618,10 @@ class $(ClassName)Test(unittest.TestCase):
         self.assertEqual(msg.$(name)(), uuid.UUID(bytes=b'1'*16))
 .       endif
 .   endfor
-        #self.destroy ();
+        # self.destroy()
 .endfor
 
-        ctx.destroy ();
+        ctx.destroy()
         print("OK")
 
 ctx = zmq.Context()
