@@ -445,14 +445,26 @@ engine_handle_socket (server_t *server, void *sock, zloop_reader_fn handler)
 }
 
 //  Register monitor function that will be called at regular intervals
-//  by the server engine
+//  by the server engine. Returns an identifier that can be used to cancel it.
 
-static void
+static int
 engine_set_monitor (server_t *server, size_t interval, zloop_timer_fn monitor)
 {
     if (server) {
         s_server_t *self = (s_server_t *) server;
         int rc = zloop_timer (self->loop, interval, 0, monitor, self);
+        assert (rc >= 0);
+        return rc;
+    }
+}
+
+//  Cancel the monitor function with the given identifier.
+static void
+engine_cancel_monitor (server_t *server, int identifier)
+{
+    if (server) {
+        s_server_t *self = (s_server_t *) server;
+        int rc = zloop_timer_end (self->loop, identifier);
         assert (rc >= 0);
     }
 }
