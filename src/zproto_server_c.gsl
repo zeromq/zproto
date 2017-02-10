@@ -456,6 +456,8 @@ engine_set_monitor (server_t *server, size_t interval, zloop_timer_fn monitor)
         assert (rc >= 0);
         return rc;
     }
+
+    return -1;
 }
 
 //  Cancel the monitor function with the given identifier.
