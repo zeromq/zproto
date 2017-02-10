@@ -456,6 +456,8 @@ engine_set_monitor (server_t *server, size_t interval, zloop_timer_fn monitor)
         assert (rc >= 0);
         return rc;
     }
+
+    return -1;
 }
 
 //  Cancel the monitor function with the given identifier.
@@ -521,6 +523,7 @@ s_satisfy_pedantic_compilers (void)
     engine_broadcast_event (NULL, NULL, NULL_event);
     engine_handle_socket (NULL, 0, NULL);
     engine_set_monitor (NULL, 0, NULL);
+    engine_cancel_monitor (NULL, 0);
     engine_set_log_prefix (NULL, NULL);
     engine_configure (NULL, NULL, NULL);
     engine_verbose (NULL);
