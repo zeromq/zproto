@@ -685,15 +685,17 @@ $(class.name)_dup ($(class.name)_t *other)
             $(class.name)_set_$(name) (copy, strdup (str));
         }
     }
-.   elsif type = "uuid" | type = "hash" | type = "chunk" | type = "frame" | type = "msg"
-    z$(type)_t *dup_$(type:) = z$(type)_dup ($(class.name)_$(name) (other));
-    $(class.name)_set_$(name) (copy, &dup_$(type:));
+.   elsif type = "hash" | type = "chunk" | type = "frame" | type = "msg"
+    {
+        z$(type)_t *dup_$(type:) = z$(type)_dup ($(class.name)_$(name) (other));
+        $(class.name)_set_$(name) (copy, &dup_$(type:));
+    }
 .   elsif type = "strings"
     {
         zlist_t *lcopy = zlist_dup ($(class.name)_$(name) (other));
         $(class.name)_set_$(name) (copy, &lcopy);
     }
-.   elsif type = "number" | type = "string" & !defined (value)
+.   elsif type = "uuid" | type = "number" | type = "string" & !defined (value)
     $(class.name)_set_$(name) (copy, $(class.name)_$(name) (other));
 .   endif
 .endfor
