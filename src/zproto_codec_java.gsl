@@ -224,8 +224,9 @@ public class $(ClassName) implements java.lang.AutoCloseable
     //  Put a string to the frame
     public void putString (String value)
     {
-        needle.put ((byte) value.length ());
-        needle.put (value.getBytes());
+        byte [] bytes = value.getBytes(ZMQ.CHARSET);
+        needle.put ((byte) bytes.length);
+        needle.put (bytes);
     }
 
     //  Get a string from the frame
@@ -235,14 +236,15 @@ public class $(ClassName) implements java.lang.AutoCloseable
         byte [] value = new byte [size];
         needle.get (value);
 
-        return new String (value);
+        return new String (value, ZMQ.CHARSET);
     }
 
         //  Put a string to the frame
     public void putLongString (String value)
     {
-        needle.putInt (value.length ());
-        needle.put (value.getBytes());
+        byte [] bytes = value.getBytes(ZMQ.CHARSET);
+        needle.putInt (bytes.length);
+        needle.put (bytes);
     }
 
     //  Get a string from the frame
@@ -252,7 +254,7 @@ public class $(ClassName) implements java.lang.AutoCloseable
         byte [] value = new byte [(int) size];
         needle.get (value);
 
-        return new String (value);
+        return new String (value, ZMQ.CHARSET);
     }
     //  --------------------------------------------------------------------------
     //  Receive and parse a $(ClassName) from the socket. Returns new object or
@@ -412,15 +414,15 @@ public class $(ClassName) implements java.lang.AutoCloseable
 .       elsif type = "string"
             //  $(name) is a string with 1-byte length
 .           if defined (field.value)
-            frameSize += 1 + "$(field.value:)".length();
+            frameSize += 1 + new String ("$(field.value:)").getBytes(ZMQ.CHARSET).length;
 .           else
             frameSize ++;
-            frameSize += ($(name) != null) ? $(name).length() : 0;
+            frameSize += ($(name) != null) ? $(name).getBytes(ZMQ.CHARSET).length : 0;
 .           endif
 .       elsif type = "longstr"
             //  $(name) is a long string with 4-byte length
             frameSize += 4;
-            frameSize += ($(name) != null) ? $(name).length() : 0;
+            frameSize += ($(name) != null) ? $(name).getBytes(ZMQ.CHARSET).length : 0;
 .       elsif type = "strings"
             //  $(name) is an array of strings
             frameSize += 4;
@@ -436,8 +438,8 @@ public class $(ClassName) implements java.lang.AutoCloseable
             if ($(name) != null) {
                 $(name)Bytes = 0;
                 for (Map.Entry <String, String> entry: $(name).entrySet ()) {
-                    $(name)Bytes += 1 + entry.getKey().length();
-                    $(name)Bytes += 4 + entry.getValue().length();
+                    $(name)Bytes += 1 + entry.getKey().getBytes(ZMQ.CHARSET).length;
+                    $(name)Bytes += 4 + entry.getValue().getBytes(ZMQ.CHARSET).length;
                 }
                 frameSize += $(name)Bytes;
             }
@@ -1059,7 +1061,7 @@ public class Test$(ClassName)
         self.insert$(Name) ("Name", "Brutus");
         self.insert$(Name) ("Age", "%d", 43);
 .       elsif type = "chunk"
-        self.set$(Name) ("Captcha Diem".getBytes());
+        self.set$(Name) ("Captcha Diem".getBytes(ZMQ.CHARSET));
 .       elsif type = "frame"
         self.set$(Name) (new ZFrame ("Captcha Diem"));
 .       endif
@@ -1085,7 +1087,7 @@ public class Test$(ClassName)
         assertEquals (self.$(name)String ("Name", "?"), "Brutus");
         assertEquals (self.$(name)Number ("Age", 0), 43);
 .       elsif type = "chunk"
-        assertTrue (java.util.Arrays.equals("Captcha Diem".getBytes(), self.$(name) ()));
+        assertTrue (java.util.Arrays.equals("Captcha Diem".getBytes(ZMQ.CHARSET), self.$(name) ()));
 .       elsif type = "frame"
         assertTrue (self.$(name) ().streq ("Captcha Diem"));
 .       endif
