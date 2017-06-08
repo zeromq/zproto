@@ -72,6 +72,11 @@ set_defaults ()
 <constructor>
     Create a new empty $(class.name)
 </constructor>
+    
+<constructor name = "new_zpl">
+    Create a new $(class.name) from zpl/zconfig_t *
+    <argument name = "config" type = "zconfig" />
+</constructor>
 
 <destructor>
     Destroy a $(class.name) instance
@@ -112,6 +117,13 @@ set_defaults ()
 <method name = "print">
     Print contents of message to stdout
 </method>
+
+<method name = "zpl">
+    Export class as zconfig_t*. Caller is responsibe for destroying the instance
+    <argument name = "parent" type = "zconfig" />
+    <return type = "zconfig" fresh = "1" />
+</method>
+
 
 <method name = "routing id">
     Get the message routing id, as a frame
@@ -285,6 +297,10 @@ typedef struct _$(class.name)_t $(class.name)_t;
 $(CLASS.EXPORT_MACRO)$(class.name)_t *
     $(class.name)_new (void);
 
+//  Create a new $(class.name) from zpl/zconfig_t *
+$(CLASS.EXPORT_MACRO)$(class.name)_t *
+    $(class.name)_new_zpl (zconfig_t *config);
+
 //  Destroy a $(class.name) instance
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
@@ -320,6 +336,10 @@ $(CLASS.EXPORT_MACRO)int
 //  Print contents of message to stdout
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_print ($(class.name)_t *self);
+
+//  Export class as zconfig_t*. Caller is responsibe for destroying the instance
+$(CLASS.EXPORT_MACRO)zconfig_t *
+    $(class.name)_zpl ($(class.name)_t *self, zconfig_t* parent);
 
 //  Get/set the message routing id
 $(CLASS.EXPORT_MACRO)zframe_t *
@@ -621,6 +641,47 @@ struct _$(class.name)_t {
     self->needle += string_size; \\
 }
 
+//  --------------------------------------------------------------------------
+//  bytes cstring conversion macros
+
+// create new array of unsigned char from properly encoded string
+// len of resulting array is strlen (str) / 2
+// caller is responsibe for freeing up the memory
+#define BYTES_FROM_STR(dst, _str) { \\
+    char *str = (char*) (_str); \\
+    if (!str || (strlen (str) % 2) != 0) \\
+        return NULL; \\
+\\
+    size_t strlen_2 = strlen (str) / 2; \\
+    byte *mem = (byte*) zmalloc (strlen_2); \\
+\\
+    for (size_t i = 0; i != strlen_2; i++) \\
+    { \\
+        char buff[3] = {0x0, 0x0, 0x0}; \\
+        strncpy (buff, str, 2); \\
+        unsigned int uint; \\
+        sscanf (buff, "%x", &uint); \\
+        assert (uint <= 0xff); \\
+        mem [i] = (byte) (0xff & uint); \\
+        str += 2; \\
+    } \\
+    dst = mem; \\
+}
+
+// convert len bytes to hex string
+// caller is responsibe for freeing up the memory
+#define STR_FROM_BYTES(dst, _mem, _len) { \\
+    byte *mem = (byte*) (_mem); \\
+    size_t len = (size_t) (_len); \\
+    char* ret = (char*) zmalloc (2*len + 1); \\
+    char* aux = ret; \\
+    for (size_t i = 0; i != len; i++) \\
+    { \\
+        sprintf (aux, "%02x", mem [i]); \\
+        aux+=2; \\
+    } \\
+    dst = ret; \\
+}
 
 //  --------------------------------------------------------------------------
 //  Create a new $(class.name)
@@ -629,6 +690,196 @@ $(class.name)_t *
 $(class.name)_new (void)
 {
     $(class.name)_t *self = ($(class.name)_t *) zmalloc (sizeof ($(class.name)_t));
+    return self;
+}
+
+//  --------------------------------------------------------------------------
+//  Create a new $(class.name) from zpl/zconfig_t *
+
+$(class.name)_t *
+    $(class.name)_new_zpl (zconfig_t *config)
+{
+    assert (config);
+    $(class.name)_t *self = NULL;
+    char *message = zconfig_get (config, "message", NULL);
+    if (!message) {
+        zsys_error ("Can't find 'message' section");
+        return NULL;
+    }
+
+.for class.message
+    if (streq ("$(CLASS.NAME)_$(MESSAGE.NAME)", message)) {
+        self = $(class.name)_new ();
+        $(class.name)_set_id (self, $(CLASS.NAME)_$(MESSAGE.NAME));
+    }
+    else
+.endfor
+       {
+        zsys_error ("message=%s is not known", message);
+        return NULL;
+       }
+
+    char *s = zconfig_get (config, "routing_id", NULL);
+    if (s) {
+        byte *bvalue;
+        BYTES_FROM_STR (bvalue, s);
+        if (!bvalue) {
+            $(class.name)_destroy (&self);
+            return NULL;
+        }
+        zframe_t *frame = zframe_new (bvalue, strlen (s) / 2);
+        free (bvalue);
+        self->routing_id = frame;
+    }
+
+    zconfig_t *content = zconfig_locate (config, "content");
+    if (!content) {
+        zsys_error ("Can't find 'content' section");
+        return NULL;
+    }
+    switch (self->id) {
+.for class.message
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field where !defined (value)
+.       if type = "number"
+            {
+            char *es = NULL;
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                zsys_error ("content/$(name) not found");
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
+            if (es != s+strlen (s)) {
+                zsys_error ("content/$(name): %s is not a number", s);
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            self->$(name) = uvalue;
+            }
+.       elsif type = "octets"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            self->$(name) = bvalue;
+            }
+.       elsif type = "string" | type = "longstr"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+.           if type = "string"
+            strncpy (self->$(name), s, 256);
+.           else
+            self->$(name) = strdup (s);
+.           endif
+            }
+.       elsif type = "strings"
+            {
+            zconfig_t *zstrings = zconfig_locate (content, "$(name)");
+            if (zstrings) {
+                zlist_t *strings = zlist_new ();
+                zlist_autofree (strings);
+                for (zconfig_t *child = zconfig_child (zstrings);
+                                child != NULL;
+                                child = zconfig_next (child))
+                {
+                    zlist_append (strings, zconfig_value (child));
+                }
+                self->$(name) = strings;
+            }
+            }
+.       elsif type = "hash"
+            {
+            zconfig_t *zhash = zconfig_locate (content, "$(name)");
+            if (zhash) {
+                zhash_t *hash = zhash_new ();
+                zhash_autofree (hash);
+                for (zconfig_t *child = zconfig_child (zhash);
+                                child != NULL;
+                                child = zconfig_next (child))
+                {
+                    zhash_update (hash, zconfig_name (child), zconfig_value (child));
+                }
+                self->$(name) = hash;
+            }
+            }
+.       elsif type = "chunk"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            zchunk_t *chunk = zchunk_new (bvalue, strlen (s) / 2);
+            free (bvalue);
+            self->$(name) = chunk;
+.       elsif type = "uuid"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (s) {
+                zuuid_t *uuid = zuuid_new ();
+                zuuid_set_str (uuid, s);
+                self->$(name) = uuid;
+            }
+            }
+.       elsif type = "frame"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            zframe_t *frame = zframe_new (bvalue, strlen (s) / 2);
+            free (bvalue);
+            self->$(name) = frame;
+            }
+.       elsif type = "msg"
+            {
+            char *s = zconfig_get (content, "$(name)", NULL);
+            if (!s) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            byte *bvalue;
+            BYTES_FROM_STR (bvalue, s);
+            if (!bvalue) {
+                $(class.name)_destroy (&self);
+                return NULL;
+            }
+            zmsg_t *msg = zmsg_decode (bvalue, strlen (s) / 2);
+            free (bvalue);
+            self->$(name) = msg;
+            }
+.       endif
+.   endfor
+            break;
+.endfor
+    }
     return self;
 }
 
@@ -1440,6 +1691,108 @@ $(class.name)_print ($(class.name)_t *self)
     }
 }
 
+//  --------------------------------------------------------------------------
+//  Export class as zconfig_t*. Caller is responsibe for destroying the instance
+
+zconfig_t *
+$(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
+{
+    assert (self);
+
+    zconfig_t *root = zconfig_new ("$(class.name)", parent);
+
+    switch (self->id) {
+.for class.message
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+        {
+            zconfig_put (root, "message", "$(CLASS.NAME)_$(MESSAGE.NAME)");
+
+            if (self->routing_id) {
+                char *hex = NULL;
+                STR_FROM_BYTES (hex, zframe_data (self->routing_id), zframe_size (self->routing_id));
+                zconfig_putf (root, "routing_id", "%s", hex);
+                zstr_free (&hex);
+            }
+
+            zconfig_t *config = zconfig_new ("content", root);
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+            zconfig_putf (config, "$(name)", "%s", "$(field.value)");
+.           else
+            zconfig_putf (config, "$(name)", "%ld", (long) self->$(name));
+.           endif
+.       elsif type = "octets"
+            {
+            char *hex = NULL;
+            STR_FROM_BYTES (hex, self->$(name), $(size));
+            zconfig_putf (config, "$(name)", "%s", hex);
+            zstr_free (&hex);
+            }
+.       elsif type = "string" | type = "longstr"
+.           if defined (field.value)
+            zconfig_putf (config, "$(name)", "%s", "$(field.value)");
+.           else
+            if (self->$(name))
+                zconfig_putf (config, "$(name)", "%s", self->$(name));
+.           endif
+.       elsif type = "strings"
+            if (self->$(name)) {
+                zconfig_t *strings = zconfig_new ("$(name)", config);
+                size_t i = 0;
+                char *$(name) = (char *) zlist_first (self->$(name));
+                while ($(name)) {
+                    char *key = zsys_sprintf ("%zu", i);
+                    zconfig_putf (config, key, "%s", $(name));
+                    zstr_free (&key);
+                    i++;
+                    $(name) = (char *) zlist_next (self->$(name));
+                }
+            }
+.       elsif type = "hash"
+            if (self->$(name)) {
+                zconfig_t *hash = zconfig_new ("$(name)", config);
+                char *item = (char *) zhash_first (self->$(name));
+                while (item) {
+                    zconfig_putf (hash, zhash_cursor (self->$(name)), "%s", item);
+                    item = (char *) zhash_next (self->$(name));
+                }
+            }
+.       elsif type = "chunk"
+            {
+            char *hex = NULL;
+            STR_FROM_BYTES (hex, zchunk_data (self->$(name)), zchunk_size (self->$(name)));
+            zconfig_putf (config, "$(name)", "%s", hex);
+            zstr_free (&hex);
+            }
+.       elsif type = "uuid"
+            if (self->$(name))
+                zconfig_putf (config, "$(name)", "%s", zuuid_str (self->$(name)));
+.       elsif type = "frame"
+            {
+            char *hex = NULL;
+            STR_FROM_BYTES (hex, zframe_data (self->$(name)), zframe_size (self->$(name)));
+            zconfig_putf (config, "$(name)", "%s", hex);
+            zstr_free (&hex);
+            }
+.       elsif type = "msg"
+            {
+            char *hex = NULL;
+            byte *buffer;
+            size_t size = zmsg_encode (self->$(name), &buffer);
+            STR_FROM_BYTES (hex, buffer, size);
+            zconfig_putf (config, "$(name)", "%s", hex);
+            zstr_free (&hex);
+            free (buffer); buffer= NULL;
+            }
+.       endif
+.   endfor
+            break;
+            }
+.endfor
+    }
+    return root;
+}
 
 //  --------------------------------------------------------------------------
 //  Get/set the message routing_id
@@ -1721,6 +2074,7 @@ $(class.name)_test (bool verbose)
 
     //  @selftest
     //  Simple create/destroy test
+    zconfig_t *config;
     $(class.name)_t *self = $(class.name)_new ();
     assert (self);
     $(class.name)_destroy (&self);
@@ -1806,6 +2160,10 @@ $(class.name)_test (bool verbose)
     output = zmsg_new ();
     assert (output);
 .endif
+    // convert to zpl
+    config = $(class.name)_zpl (self, NULL);
+    if (verbose)
+        zconfig_print (config);
     //  Send twice
     $(class.name)_send (self, output);
     $(class.name)_send (self, output);
@@ -1815,12 +2173,19 @@ $(class.name)_test (bool verbose)
     input = zmsg_dup (output);
     assert (input);
 .endif
-    for (instance = 0; instance < 2; instance++) {
-        $(class.name)_recv (self, input);
+    for (instance = 0; instance < 3; instance++) {
+        $(class.name)_t *self_temp = self;
+        if (instance < 2)
+            $(class.name)_recv (self, input);
+        else {
+            self = $(class.name)_new_zpl (config);
+            zconfig_destroy (&config);
+        }
+        if (instance < 2)
 .if class.virtual ?= 1
-        assert ($(class.name)_routing_id (self) == NULL);
+            assert ($(class.name)_routing_id (self) == NULL);
 .else
-        assert ($(class.name)_routing_id (self));
+            assert ($(class.name)_routing_id (self));
 .endif
 .   for field where !defined (value)
 .       if type = "number"
@@ -1893,6 +2258,10 @@ $(class.name)_test (bool verbose)
             zuuid_destroy (&$(message.name)_$(name));
 .       endif
 .   endfor
+        if (instance == 2) {
+            zm_proto_destroy (&self);
+            self = self_temp;
+        }
     }
 .endfor
 
