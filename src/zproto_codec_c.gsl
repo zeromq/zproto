@@ -32,6 +32,7 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
+.echo "switches.private=?$(switches.private)"
 .if switches.zproject ?= 1 & switches.private ?<> 1
 .   file.delete ("$(class.package_dir)/$(class.name).h")
 .   directory.create ("../api")
@@ -84,6 +85,7 @@ set_defaults ()
 
 <method name = "dup">
     Create a deep copy of a $(class.name) instance
+    <return type="$(class.name)" fresh="1" />
 </method>
 
 .   if class.virtual ?= 1
