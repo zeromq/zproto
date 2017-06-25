@@ -32,7 +32,6 @@ expand_headers ()
 generate_bnf ()
 set_defaults ()
 .endtemplate
-.echo "switches.private=?$(switches.private)"
 .if switches.zproject ?= 1 & switches.private ?<> 1
 .   file.delete ("$(class.package_dir)/$(class.name).h")
 .   directory.create ("../api")
