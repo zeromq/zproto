@@ -84,6 +84,7 @@ set_defaults ()
 
 <method name = "dup">
     Create a deep copy of a $(class.name) instance
+    <return type="$(class.name)" fresh="1" />
 </method>
 
 .   if class.virtual ?= 1
