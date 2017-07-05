@@ -2260,7 +2260,7 @@ $(class.name)_test (bool verbose)
 .       endif
 .   endfor
         if (instance == 2) {
-            zm_proto_destroy (&self);
+            $(class.name:c)_destroy (&self);
             self = self_temp;
         }
     }
