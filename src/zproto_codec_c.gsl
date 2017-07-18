@@ -1744,7 +1744,7 @@ $(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
                 char *$(name) = (char *) zlist_first (self->$(name));
                 while ($(name)) {
                     char *key = zsys_sprintf ("%zu", i);
-                    zconfig_putf (config, key, "%s", $(name));
+                    zconfig_putf (strings, key, "%s", $(name));
                     zstr_free (&key);
                     i++;
                     $(name) = (char *) zlist_next (self->$(name));
