@@ -1,60 +1,57 @@
 
-<A name="toc1-3" title="zproto - a protocol framework for ZeroMQ" />
 # zproto - a protocol framework for ZeroMQ
 
-<A name="toc2-6" title="Contents" />
 ## Contents
 
 
-**<a href="#toc2-11">Man Page</a>**
+**[Man Page](#man-page)**
 
-**<a href="#toc2-43">The Codec Generator</a>**
+**[The Codec Generator](#the-codec-generator)**
 
-**<a href="#toc2-67">The Server Generator</a>**
+**[The Server Generator](#the-server-generator)**
 
-**<a href="#toc3-72">Quick Background</a>**
+**[Quick Background](#quick-background)**
 
-**<a href="#toc3-93">The State Machine Model</a>**
+**[The State Machine Model](#the-state-machine-model)**
 
-**<a href="#toc3-110">The zproto Server Model</a>**
+**[The zproto Server Model](#the-zproto-server-model)**
 
-**<a href="#toc3-237">Superstates</a>**
+**[Superstates](#superstates)**
 
-**<a href="#toc3-278">Client and Server Properties</a>**
+**[Client and Server Properties](#client-and-server-properties)**
 
-**<a href="#toc3-291">Client Connection Expiry</a>**
+**[Client Connection Expiry](#client-connection-expiry)**
 
-**<a href="#toc3-311">Server Configuration File</a>**
+**[Server Configuration File](#server-configuration-file)**
 
-**<a href="#toc3-331">CZMQ Reactor Integration</a>**
+**[CZMQ Reactor Integration](#czmq-reactor-integration)**
 
-**<a href="#toc2-380">The Client Generator</a>**
+**[The Client Generator](#the-client-generator)**
 
-**<a href="#toc3-389">The zproto Client Model</a>**
+**[The zproto Client Model](#the-zproto-client-model)**
 
-**<a href="#toc3-520">Heartbeating</a>**
+**[Heartbeating](#heartbeating)**
 
-**<a href="#toc3-525">Superstates</a>**
+**[Superstates](#superstates)**
 
-**<a href="#toc3-573">Before/After State Actions</a>**
+**[Before/After State Actions](#beforeafter-state-actions)**
 
-**<a href="#toc3-595">Client Properties</a>**
+**[Client Properties](#client-properties)**
 
-**<a href="#toc3-605">Client Expiry Timer</a>**
+**[Client Expiry Timer](#client-expiry-timer)**
 
-**<a href="#toc3-610">Method Framework</a>**
+**[Method Framework](#method-framework)**
 
-**<a href="#toc3-705">Custom hand-written methods</a>**
+**[Custom hand-written methods](#custom-hand-written-methods)**
 
-**<a href="#toc2-759">Protocol Design Notes</a>**
+**[Protocol Design Notes](#protocol-design-notes)**
 
-**<a href="#toc3-764">Heartbeating and Client Expiry</a>**
+**[Heartbeating and Client Expiry](#heartbeating-and-client-expiry)**
 
-**<a href="#toc2-781">For More Information</a>**
+**[For More Information](#for-more-information)**
 
-**<a href="#toc2-790">This document</a>**
+**[This document](#this-document)**
 
-<A name="toc2-11" title="Man Page" />
 ## Man Page
 
 zproto is a set of code generators that can produce:
@@ -86,7 +83,6 @@ To rebuild the codec, first build and install https://github.com/imatix/gsl. The
 
 To use zproto as the base for your own projects, create a new project with [zproject](http://github.com/zeromq/zproject) which nicely integrates with zproto.
 
-<A name="toc2-43" title="The Codec Generator" />
 ## The Codec Generator
 
 Goals of the codec generator:
@@ -110,12 +106,10 @@ To use:
 * Add the generated .h and .c files to your git repository.
 * Don't modify generated codecs. Change the model, and regenerate.
 
-<A name="toc2-67" title="The Server Generator" />
 ## The Server Generator
 
 While ZeroMQ gives you a powerful communications engine to use in many different ways, building a conventional server is still fairly heavy work. We use the ROUTER socket for that, managing the state for each individual client connection. The zproto project includes a tool that generates whole servers, in C, from state machine models.
 
-<A name="toc3-72" title="Quick Background" />
 ### Quick Background
 
 By Pieter Hintjens.
@@ -136,7 +130,6 @@ The Libero model is especially good at designing server-side logic, where you wa
 
 So this is what I made: a GSL code generator that takes a finite-state machine model inspired by Libero, and turns out a full working server. The current code generator produces C (that builds on CZMQ). In this article I'll explain briefly how this works, and how to use it.
 
-<A name="toc3-93" title="The State Machine Model" />
 ### The State Machine Model
 
 State machines are a little unusual, conceptually. If you're not familiar with them it'll take a few days before they click. The Libero model is fairly simple and high level, meant to be designed and understood by humans:
@@ -153,7 +146,6 @@ State machines are a little unusual, conceptually. If you're not familiar with t
 
 * Any action can set an *exception event* that interrupts the flow through the action list and to the next state.
 
-<A name="toc3-110" title="The zproto Server Model" />
 ### The zproto Server Model
 
 The zproto_server_c.gsl code generator outputs a single .inc file called an *engine* that does the hard work. If needed, it'll also generate you a skeleton .c file for your server, which you edit and build. It doesn't re-create that file again, though it will append new action stubs.
@@ -280,7 +272,6 @@ Your server code (the actions) gets a small API to work with:
     static void
     engine_configure (server_t *server, const char *path, const char *value);
 
-<A name="toc3-237" title="Superstates" />
 ### Superstates
 
 Superstates are a shorthand to reduce the amount of error-prone repetition in a state machine. Here is the same state machine using a superstate:
@@ -321,7 +312,6 @@ For complex protocols you can collect error handling together using the wildcard
         </event>
     </state>
 
-<A name="toc3-278" title="Client and Server Properties" />
 ### Client and Server Properties
 
 In your server code, you have two structures, client_t and server_t. Note that the client_t structure MUST always start with these variables (the message uses whatever protocol name you defined):
@@ -334,7 +324,6 @@ And the server_t structure MUST always start with these variables:
     zsock_t *pipe;              //  Actor pipe back to caller
     zconfig_t *config;          //  Current loaded configuration
 
-<A name="toc3-291" title="Client Connection Expiry" />
 ### Client Connection Expiry
 
 If you define an "expired" event anywhere in your dialog, the server will automatically expire idle clients after a timeout, which defaults to 60 seconds. It's smart to put this into a superstate:
@@ -354,7 +343,6 @@ To tune the expiry time, use this method (e.g. to set to 1 second):
 
 The server timeout can also come from a configuration file, see below. It is good practice to do heartbeating by sending a PING from the client and responding to that with a PONG or suchlike. Do not heartbeat from the server to clients; that is fragile.
 
-<A name="toc3-311" title="Server Configuration File" />
 ### Server Configuration File
 
 You can call the 'configure' method on the server object to configure it, and you can also call the 'set' method later to change individual configuration options. The configuration file format is ZPL (ZeroMQ RFC 5), which looks like this:
@@ -374,7 +362,6 @@ You can call the 'configure' method on the server object to configure it, and yo
 
 'echo' and 'bind' in the 'hello_server' section are executed automatically.
 
-<A name="toc3-331" title="CZMQ Reactor Integration" />
 ### CZMQ Reactor Integration
 
 The generated engine offers zloop integration so you can monitor your own sockets for activity and execute callbacks when messages arrive on them. Use this API method:
@@ -423,7 +410,6 @@ Were 'some_monitor' looks like this:
         return 0;                   //  0 = continue, -1 = end reactor
     }
 
-<A name="toc2-380" title="The Client Generator" />
 ## The Client Generator
 
 The zproto project lets you generate full asynchronous client stacks in C to talk to the server engines. Overall the model and toolchain is similar to that used for servers. See the zproto_client_c.gsl code generator. The main differences is that:
@@ -432,7 +418,6 @@ The zproto project lets you generate full asynchronous client stacks in C to tal
 * We generate a full CLASS API that wraps the client actor with conventional methods;
 * The client XML model has a language for defining these methods.
 
-<A name="toc3-389" title="The zproto Client Model" />
 ### The zproto Client Model
 
 Your input to the code generator is two XML files that defines a set of 'states', and the protocol messages as used to generate the codec. Here is a minimal 'hello_client.xml' example that defines a Hello, World client:
@@ -563,12 +548,10 @@ Your client code (the actions) gets a small API to work with:
     static void
     engine_handle_socket (client_t *client, zsock_t *socket, zloop_reader_fn handler);
 
-<A name="toc3-520" title="Heartbeating" />
 ### Heartbeating
 
 Use the engine_set_heartbeat method to generate a regular "heartbeat" event when connected, and send a PING each time. The server needs to respond with a PONG. Then, set an expiry timeout of 2 or 3 times the heartbeat interval, and use this to detect a dead server.
 
-<A name="toc3-525" title="Superstates" />
 ### Superstates
 
 Superstates are a shorthand to reduce the amount of error-prone repetition in a state machine. Here is the same state machine using a superstate:
@@ -616,7 +599,6 @@ For complex protocols you can collect error handling together using the wildcard
         </event>
     </state>
 
-<A name="toc3-573" title="Before/After State Actions" />
 ### Before/After State Actions
 
 As another way to reduce error-prone repetition, it is possible to add actions to be executed for any event that transitions to or from a given state. This is modelled with a before or after element containing one or more action elements inside of a state element. The given actions will be executed only when the state of the machine changes to or from that state (due to an event that has the "next" attribute defined).
@@ -638,7 +620,6 @@ As another way to reduce error-prone repetition, it is possible to add actions t
         </after>
     </state>
 
-<A name="toc3-595" title="Client Properties" />
 ### Client Properties
 
 In your client code, you have a client_t structure. Note that the client_t structure MUST always start with these variables (the msgout and msgin will use whatever protocol name you defined):
@@ -648,12 +629,10 @@ In your client code, you have a client_t structure. Note that the client_t struc
     my_msg_t *msgout;           //  Message to send to server
     my_msg_t *msgin;            //  Message received from server
 
-<A name="toc3-605" title="Client Expiry Timer" />
 ### Client Expiry Timer
 
 If you define an "expired" event anywhere in your dialog, the client will automatically execute an expired_event after a timeout. To define the expiry timeout, use engine_set_expiry (). The expired event will repeat whenever there is no activity from the server, until you set a expiry of zero (which ends it).
 
-<A name="toc3-610" title="Method Framework" />
 ### Method Framework
 
 To simplify the delivery of a conventional non-actor API, you can define methods in your state machine. Here are some examples taken from real projects:
@@ -748,7 +727,6 @@ The fields you pass in a method are accessible to client state machine actions v
         zsys_warning ("could not connect to %s", self->args->endpoint);
     }
 
-<A name="toc3-705" title="Custom hand-written methods" />
 ### Custom hand-written methods
 
 Within your state model you can include another XML file with custom hand-written methods to easily extend the state maschine. To do so include the following:
@@ -802,12 +780,10 @@ When using zprojects API you'll need to escape '<' and '>' for now:
         }
     </source>
 
-<A name="toc2-759" title="Protocol Design Notes" />
 ## Protocol Design Notes
 
 This section covers some learned experience designing protocols, using zproto and more generally:
 
-<A name="toc3-764" title="Heartbeating and Client Expiry" />
 ### Heartbeating and Client Expiry
 
 The simplest and most robust heartbeat / connection expiry model appears to be the following:
@@ -824,7 +800,6 @@ The simplest and most robust heartbeat / connection expiry model appears to be t
 
 This approach resolves stale TCP connections, as well as dead clients and dead servers. It makes the heartbeating interval a client-side decision, and client expiry a server-side decision (this seems best in both cases).
 
-<A name="toc2-781" title="For More Information" />
 ## For More Information
 
 Though [the Libero documentation](http://legacy.imatix.com/html/libero/) is quite old now, it's useful as a guide to what's possible with state machines. The Libero model added superstates, substates, and other useful ways to manage larger state machines.
@@ -833,7 +808,6 @@ The current working example of the zproto server generator is the [zeromq/zbroke
 
 You can find [GSL on Github](https://github.com/imatix/gsl) and there's a [old backgrounder](http://download.imatix.com/mop/) for the so-called "model oriented programming" we used at iMatix.
 
-<A name="toc2-790" title="This document" />
 ## This document
 
 _This documentation was generated from zproto/README.txt using [Gitdown](https://github.com/zeromq/gitdown)_
