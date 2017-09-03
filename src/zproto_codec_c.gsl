@@ -925,7 +925,7 @@ $(class.name)_dup ($(class.name)_t *other)
     $(class.name)_t *copy = $(class.name)_new ();
 
     // Copy the routing and message id
-    $(class.name)_set_routing_id (copy, zframe_dup ($(class.name)_routing_id (other)));
+    $(class.name)_set_routing_id (copy, $(class.name)_routing_id (other));
     $(class.name)_set_id (copy, $(class.name)_id (other));
 
     // Copy the rest of the fields
