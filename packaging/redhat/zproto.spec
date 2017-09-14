@@ -41,7 +41,7 @@ make install DESTDIR=%{buildroot} %{?_smp_mflags}
 
 %files
 %defattr(-,root,root)
-%{_bindir}
+%{_bindir}/*.gsl
 %{_mandir}/man7/*
 %doc README.md
 %doc README.txt
