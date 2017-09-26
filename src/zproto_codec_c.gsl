@@ -1715,7 +1715,9 @@ $(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
                 zstr_free (&hex);
             }
 
+.   if count (field) > 0
             zconfig_t *config = zconfig_new ("content", root);
+.   endif
 .   for field
 .       if type = "number"
 .           if defined (field.value)
