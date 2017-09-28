@@ -2222,14 +2222,17 @@ $(class.name)_test (bool verbose)
         zlist_destroy (&$(message.name)_$(name));
 .       elsif type = "hash"
         zhash_t *$(name) = $(class.name)_get_$(name) (self);
+        // Order of values is not guaranted
 .           if defined (->test)
 .               for test
 .                   if first ()
-        assert (streq ((char *) zhash_first ($(field.name)), "$(test.)"));
-        assert (streq ((char *) zhash_cursor ($(field.name)), "$(test.name)"));
+        char *zhash_$(field.name)_value = (char *) zhash_lookup ($(field.name), "$(test.name)");
+        assert (zhash_$(field.name)_value != NULL);
+        assert (streq (zhash_$(field.name)_value, "$(test.)"));
 .                   else
-        assert (streq ((char *) zhash_next ($(field.name)), "$(test.)"));
-        assert (streq ((char *) zhash_cursor ($(field.name)), "$(test.name)"));
+        zhash_$(field.name)_value = (char *) zhash_lookup ($(field.name), "$(test.name)");
+        assert (zhash_$(field.name)_value != NULL);
+        assert (streq (zhash_$(field.name)_value, "$(test.)"));
 .                   endif
 .               endfor
 .           else
