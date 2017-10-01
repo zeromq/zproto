@@ -876,7 +876,13 @@ $(class.name)_t *
                 $(class.name)_destroy (&self);
                 return NULL;
             }
+#if CZMQ_VERSION_MAJOR == 4
+            zframe_t *frame = zframe_new (bvalue, strlen (s) / 2);
+            zmsg_t *msg = zmsg_decode (frame);
+            zframe_destroy (&frame);
+#else
             zmsg_t *msg = zmsg_decode (bvalue, strlen (s) / 2);
+#endif
             free (bvalue);
             self->$(name) = msg;
             }
@@ -1785,12 +1791,20 @@ $(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
 .       elsif type = "msg"
             {
             char *hex = NULL;
+#if CZMQ_VERSION_MAJOR == 4
+            zframe_t *frame = zmsg_encode (self->$(name));
+            STR_FROM_BYTES (hex, zframe_data (frame), zframe_size (frame));
+            zconfig_putf (config, "$(name)", "%s", hex);
+            zstr_free (&hex);
+            zframe_destroy (&frame);
+#else
             byte *buffer;
             size_t size = zmsg_encode (self->$(name), &buffer);
             STR_FROM_BYTES (hex, buffer, size);
             zconfig_putf (config, "$(name)", "%s", hex);
             zstr_free (&hex);
             free (buffer); buffer= NULL;
+#endif
             }
 .       endif
 .   endfor
