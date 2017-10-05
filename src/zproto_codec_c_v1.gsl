@@ -807,8 +807,9 @@ struct _$(class.name)_t {
 \\
     size_t strlen_2 = strlen (str) / 2; \\
     byte *mem = (byte*) zmalloc (strlen_2); \\
+    size_t i; \\
 \\
-    for (size_t i = 0; i != strlen_2; i++) \\
+    for (i = 0; i != strlen_2; i++) \\
     { \\
         char buff[3] = {0x0, 0x0, 0x0}; \\
         strncpy (buff, str, 2); \\
@@ -828,7 +829,8 @@ struct _$(class.name)_t {
     size_t len = (size_t) (_len); \\
     char* ret = (char*) zmalloc (2*len + 1); \\
     char* aux = ret; \\
-    for (size_t i = 0; i != len; i++) \\
+    size_t i; \\
+    for (i = 0; i != len; i++) \\
     { \\
         sprintf (aux, "%02x", mem [i]); \\
         aux+=2; \\
