@@ -837,6 +837,7 @@ $(class.name)_t *
             zchunk_t *chunk = zchunk_new (bvalue, strlen (s) / 2);
             free (bvalue);
             self->$(name) = chunk;
+            }
 .       elsif type = "uuid"
             {
             char *s = zconfig_get (content, "$(name)", NULL);
