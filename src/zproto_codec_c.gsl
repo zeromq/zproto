@@ -72,7 +72,7 @@ set_defaults ()
 <constructor>
     Create a new empty $(class.name)
 </constructor>
-    
+
 <constructor name = "new_zpl">
     Create a new $(class.name) from zpl/zconfig_t *
     <argument name = "config" type = "zconfig" />
@@ -1745,7 +1745,13 @@ $(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
             zconfig_putf (config, "$(name)", "%s", hex);
             zstr_free (&hex);
             }
-.       elsif type = "string" | type = "longstr"
+.       elsif type = "string"
+.           if defined (field.value)
+            zconfig_putf (config, "$(name)", "%s", "$(field.value)");
+.           else
+            zconfig_putf (config, "$(name)", "%s", self->$(name));
+.           endif
+.       elsif type = "longstr"
 .           if defined (field.value)
             zconfig_putf (config, "$(name)", "%s", "$(field.value)");
 .           else
