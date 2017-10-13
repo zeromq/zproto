@@ -944,7 +944,7 @@ $(class.name)_dup ($(class.name)_t *other)
     {
         const char *str = $(class.name)_$(name) (other);
         if (str) {
-            $(class.name)_set_$(name) (copy, strdup (str));
+            $(class.name)_set_$(name) (copy, str);
         }
     }
 .   elsif type = "hash" | type = "chunk" | type = "frame" | type = "msg"
