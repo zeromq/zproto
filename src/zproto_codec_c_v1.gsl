@@ -2302,6 +2302,9 @@ $(class.name)_test (bool verbose)
     zconfig_destroy (&config);
     zsock_destroy (&input);
     zsock_destroy (&output);
+#if defined (__WINDOWS__)
+    zsys_shutdown();
+#endif
     //  @end
 
     printf ("OK\\n");
