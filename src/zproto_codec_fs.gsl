@@ -1,0 +1,332 @@
+.template 0
+#
+#   Generates a codec for a protocol specification. 
+#
+#   This is a code generator built using the iMatix GSL code generation
+#   language. See https://github.com/imatix/gsl for details.
+#
+#   Copyright (c) the Contributors as noted in the AUTHORS file.
+#
+#   This Source Code Form is subject to the terms of the Mozilla Public
+#   License, v. 2.0. If a copy of the MPL was not distributed with this
+#   file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+include "zproto_lib.gsl"
+include "zproto_lib_fs.gsl"
+resolve_includes ()
+expand_headers ()
+set_fs_defaults ()
+ignorecase = 0
+.endtemplate
+.output "$(class.source_dir)/$(class.name:Pascal).fs"
+module $(class.module)
+
+open System
+open System.Text
+open FsNetMQ
+open FsNetMQ.Stream
+open FsNetMQ.Stream.Reader
+
+.for message
+[<LiteralAttribute>]
+let $(message.name)MessageId = $(id)uy
+.endfor
+
+.for message
+type $(message.name) = {
+.   for field where !defined (value)
+.      if type = "number"
+        $(name) : $(fstype)            
+.      elsif type = "octets"
+        $(name) : byte[]            
+.      elsif type = "string"
+        $(name) : string            
+.      elsif type = "longstr"
+        $(name) : string            
+.      elsif type = "strings"
+        $(name) : string list            
+.      elsif type = "hash"
+        $(name) : Map<string,string>                    
+.      elsif type = "uuid"
+        $(name) : System.Guid
+.      elsif type = "msg"
+        $(name) : byte[] list                        
+.      elsif type = "chunk"
+        $(name) : byte[]             
+.      elsif type = "frame" 
+        $(name) : byte[]
+.      endif
+.   endfor
+    }
+    
+.endfor
+type T = 
+.for message
+    | $(message.name) of $(message.name)
+.endfor
+
+.for message
+module $(message.name) =    
+.    for field where type = "octets"
+    let $(field.name)Size = $(size)
+.    endfor
+    let getMessageSize (msg:$(name)) = 
+        0 +         
+.   for field
+.       if type = "number"
+            $(size) +    
+.       elsif type = "octets"
+            $(size) +
+.       elsif type = "string"
+.           if defined (field.value)
+            1 + String.length "$(value:)" +
+.           else
+            1 + String.length msg.$(name) +
+.           endif
+.       elsif type = "longstr"
+            4 + String.length msg.$(name) +			
+.       elsif type = "strings"
+            List.fold (fun state (value:string) -> state + 4 + Encoding.UTF8.GetByteCount (value)) 4 msg.$(name) + 				
+.       elsif type = "hash"
+            Map.fold (fun state (key:string) (value:string) -> state + 5 + Encoding.UTF8.GetByteCount (key) +  Encoding.UTF8.GetByteCount (value)) 4 msg.$(name) +				
+.       elsif type = "chunk"
+            4 + Array.length msg.$(name) +			
+.       elsif type = "uuid"
+            16 +        				
+.       elsif type = "frame"
+.       elsif type = "msg"
+.           class.msg = name
+.           if item () <> count (message.field)
+.               echo "E: in $(message.name:), $(field.name) must come last"
+.           endif
+.       endif
+.   endfor
+            0
+
+    let write (msg:$(name)) stream =
+        stream
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+        |> Stream.writeNumber$(size) $(value:)$(literal) 
+.           else
+        |> Stream.writeNumber$(size) msg.$(name) 
+.           endif
+.       elsif type = "octets"
+        |> Stream.writeBytes msg.$(name) $(size)				
+.       elsif type = "string"
+.           if defined (field.value)
+        |> Stream.writeString "$(value:)"           				
+.           else
+        |> Stream.writeString msg.$(name)
+.           endif
+.       elsif type = "longstr"
+        |> Stream.writeLongString msg.$(name)				
+.       elsif type = "strings"
+        |> Stream.writeStrings msg.$(name)        				
+.       elsif type = "hash"
+        |> Stream.writeMap msg.$(name)            
+.       elsif type = "chunk"             
+        |> Stream.writeNumber4 (uint32 (Array.length msg.$(name)))
+        |> Stream.writeBytes msg.$(name) (Array.length msg.$(name))				
+.       elsif type = "uuid"
+        |> Stream.writeBytes (msg.$(name).ToByteArray()) 16			
+.       endif
+.   endfor            
+    
+    let read = 
+        reader {
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+            let! $(name) = Stream.readNumber$(size)
+            do! check ($(name) = $(value:)$(literal))										
+.           else
+            let! $(name) = Stream.readNumber$(size)
+.           endif
+.       elsif type = "octets"
+            let! $(name) = Stream.readBytes $(size)				
+.       elsif type = "string"
+.           if defined (field.value)
+				
+            let! $(name) = Stream.readString
+            do! check ($(name) = "$(value:)")                                  			
+.           else
+            let! $(name) = Stream.readString
+.           endif
+.       elsif type = "longstr"
+            let! $(name) = Stream.readLongString
+.       elsif type = "strings"
+            let! $(name) = Stream.readStrings								
+.       elsif type = "hash"
+            let! $(name) = Stream.readMap				
+.       elsif type = "chunk"
+            let! $(name)Length = Stream.readNumber4
+            let! $(name) = Stream.readBytes (int $(name)Length)				                						
+.       elsif type = "uuid"
+            let! $(name)Bytes = Stream.readBytes 16
+            let $(name) = new System.Guid ($(name)Bytes) 					
+.       endif
+.   endfor
+
+            return {
+.   for field where !defined (value)
+                $(name) = $(name);
+.   endfor                
+            }
+        }
+        
+.endfor
+
+let recv socket = 
+    let stream, more = Stream.recv socket
+    
+    // Drop the rest if any
+    if more then Multipart.skip socket
+    
+    let readMessage messageId stream = 
+        match messageId with
+.for class.message        
+        | $(message.name)MessageId -> 
+            match $(message.name).read stream with
+            | None,stream -> None,stream
+            | Some msg, stream -> Some ($(message.name) msg), stream                      
+.endfor
+        | _ -> None, stream   
+ 
+    let r = reader {
+                let! signature = Stream.readNumber2
+                do! check (signature = (0xAAA0us ||| $(class.signature)us))
+                let! messageId = Stream.readNumber1
+                let! message = readMessage messageId
+                return message           
+            }
+            
+    run r stream                    											
+
+let send msg socket = 
+    let writeMessage = function
+.for class.message        
+        | $(message.name) msg -> $(message.name).write msg 
+.endfor  
+
+    let messageId = 
+        match msg with 
+.for class.message        
+        | $(message.name) _ -> $(message.name)MessageId 
+.endfor
+
+    let messageSize = 
+        match msg with
+.for class.message        
+        | $(message.name) msg -> $(message.name).getMessageSize msg 
+.endfor
+
+    //  Signature + message ID + message size
+    let frameSize = 2 + 1 + messageSize
+    let stream = Stream.create frameSize
+    
+    let stream' = 
+        stream
+        |> Stream.writeNumber2 (0xAAA0us ||| $(class.signature)us) 
+        |> Stream.writeNumber1 messageId
+        |> writeMessage msg
+		
+    Stream.send stream' socket
+
+.output "$(class.test_dir)/$(class.name:Pascal)Tests.fs"
+module $(class.test_module)
+
+open Xunit
+open FsUnit.Xunit
+open FsNetMQ
+open $(class.module)     
+
+.for class.message
+    
+[<Fact>]
+let ``send and recv $(message.name)``() =
+    let msg = $(name) {
+.   for field where !defined (value)
+.       if type = "number"
+        $(name) = 123$(literal);
+.       elsif type = "octets"
+        $(name) = Array.create $(size) 123uy;								    
+.       elsif type = "string" | type = "longstr"
+        $(name) = "Life is short but Now lasts for ever";
+.       elsif type = "strings"
+        $(name) = ["Name: Brutus";"Age: 43"];				
+.       elsif type = "hash"
+        $(name) = 
+            Map.empty
+            |> Map.add "Name" "Brutus"
+            |> Map.add "Age" "43"				
+.       elsif type = "uuid"
+        $(name) = System.Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E");
+.       elsif type = "chunk"
+        $(name) = "Captcha Diem"B;
+.       endif           
+.   endfor     
+    }
+    
+    use server = Socket.dealer ()
+    Socket.bind server "inproc://$(name).test"
+    
+    use client = Socket.dealer ()
+    Socket.connect client "inproc://$(name).test"
+ 
+    $(class.module).send msg server
+    
+    let msg' = $(class.module).recv client
+    
+    msg' |> should equal (Some msg)                 
+
+[<Fact>]    
+let ``$(message.name) size fits stream ``() =
+    let $(name:lower) = {
+.   for field where !defined (value)
+.       if type = "number"
+        $(name) = 123$(literal);
+.       elsif type = "octets"
+        $(name) = Array.create $(size) 123uy;								    
+.       elsif type = "string" | type = "longstr"
+        $(name) = "Life is short but Now lasts for ever";
+.       elsif type = "strings"
+        $(name) = ["Name: Brutus";"Age: 43"];				
+.       elsif type = "hash"
+        $(name) = 
+            Map.empty
+            |> Map.add "Name" "Brutus"
+            |> Map.add "Age" "43"				
+.       elsif type = "uuid"
+        $(name) = System.Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E");
+.       elsif type = "chunk"
+        $(name) = "Captcha Diem"B;
+.       endif           
+.   endfor     
+    }       
+    
+    let messageSize = $(name).getMessageSize $(name:lower)
+    
+    let stream =
+        Stream.create messageSize 
+        |> $(name).write $(name:lower)
+    
+    let offset = Stream.getOffset stream                          
+    
+    messageSize |> should equal offset    
+.endfor
+
+[<Fact>]
+let ``malformed message return None``() =
+    use server = Socket.dealer ()
+    Socket.bind server "inproc://$(name).test"
+    
+    use client = Socket.dealer ()
+    Socket.connect client "inproc://$(name).test"
+    
+    Frame.send server "hello world"B
+    
+    let msg = $(class.module).recv client
+    msg |> should equal None                 
+ 
