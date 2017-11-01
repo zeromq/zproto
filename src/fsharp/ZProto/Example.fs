@@ -96,16 +96,16 @@ module Log =
             let! host = Stream.readString
             let! data = Stream.readLongString
 
-            return {
-                sequence = sequence;
-                level = level;
-                event = event;
-                node = node;
-                peer = peer;
-                time = time;
-                host = host;
-                data = data;
-            }
+            return ({
+                        sequence = sequence;
+                        level = level;
+                        event = event;
+                        node = node;
+                        peer = peer;
+                        time = time;
+                        host = host;
+                        data = data;
+                    }: Log)
         }
 
 module Structures =
@@ -128,11 +128,11 @@ module Structures =
             let! aliases = Stream.readStrings
             let! headers = Stream.readMap
 
-            return {
-                sequence = sequence;
-                aliases = aliases;
-                headers = headers;
-            }
+            return ({
+                        sequence = sequence;
+                        aliases = aliases;
+                        headers = headers;
+                    }: Structures)
         }
 
 module Binary =
@@ -162,12 +162,12 @@ module Binary =
             let! identifierBytes = Stream.readBytes 16
             let identifier = new System.Guid (identifierBytes)
 
-            return {
-                sequence = sequence;
-                flags = flags;
-                publicKey = publicKey;
-                identifier = identifier;
-            }
+            return ({
+                        sequence = sequence;
+                        flags = flags;
+                        publicKey = publicKey;
+                        identifier = identifier;
+                    }: Binary)
         }
 
 module Types =
@@ -208,17 +208,17 @@ module Types =
             let! supplierMobile = Stream.readString
             let! supplierEmail = Stream.readString
 
-            return {
-                sequence = sequence;
-                clientForename = clientForename;
-                clientSurname = clientSurname;
-                clientMobile = clientMobile;
-                clientEmail = clientEmail;
-                supplierForename = supplierForename;
-                supplierSurname = supplierSurname;
-                supplierMobile = supplierMobile;
-                supplierEmail = supplierEmail;
-            }
+            return ({
+                        sequence = sequence;
+                        clientForename = clientForename;
+                        clientSurname = clientSurname;
+                        clientMobile = clientMobile;
+                        clientEmail = clientEmail;
+                        supplierForename = supplierForename;
+                        supplierSurname = supplierSurname;
+                        supplierMobile = supplierMobile;
+                        supplierEmail = supplierEmail;
+                    }: Types)
         }
 
 
@@ -258,7 +258,7 @@ let recv socket =
 
     run r stream
 
-let send msg socket =
+let send socket msg =
     let writeMessage = function
         | Log msg -> Log.write msg
         | Structures msg -> Structures.write msg
@@ -289,5 +289,5 @@ let send msg socket =
         |> Stream.writeNumber1 messageId
         |> writeMessage msg
 
-    Stream.send stream' socket
+    Stream.send socket stream'
 
