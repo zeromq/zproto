@@ -275,7 +275,7 @@ let ``send and recv $(message.name)``() =
     use client = Socket.dealer ()
     Socket.connect client "inproc://$(name).test"
  
-    $(class.module).send msg server
+    $(class.module).send server msg
     
     let msg' = $(class.module).recv client
     
