@@ -169,11 +169,11 @@ module $(message.name) =
 .       endif
 .   endfor
 
-            return {
+            return ({
 .   for field where !defined (value)
-                $(name) = $(name);
+                        $(name) = $(name);
 .   endfor                
-            }
+                    }: $(message.name))
         }
         
 .endfor
@@ -204,7 +204,7 @@ let recv socket =
             
     run r stream                    											
 
-let send msg socket = 
+let send socket msg = 
     let writeMessage = function
 .for class.message        
         | $(message.name) msg -> $(message.name).write msg 
@@ -232,9 +232,9 @@ let send msg socket =
         |> Stream.writeNumber1 messageId
         |> writeMessage msg
 		
-    Stream.send stream' socket
+    Stream.send socket stream'
 
-.output "$(class.test_dir)/$(class.name:Pascal)Tests.fs"
+.output "$(class.test_dir)/$(class.name:Pascal).Tests.fs"
 module $(class.test_module)
 
 open Xunit
@@ -275,7 +275,7 @@ let ``send and recv $(message.name)``() =
     use client = Socket.dealer ()
     Socket.connect client "inproc://$(name).test"
  
-    $(class.module).send msg server
+    $(class.module).send server msg
     
     let msg' = $(class.module).recv client
     
@@ -283,7 +283,7 @@ let ``send and recv $(message.name)``() =
 
 [<Fact>]    
 let ``$(message.name) size fits stream ``() =
-    let $(name:lower) = {
+    let $(name:lower):$(name) = {
 .   for field where !defined (value)
 .       if type = "number"
         $(name) = 123$(literal);

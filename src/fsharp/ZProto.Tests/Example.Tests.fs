@@ -33,7 +33,7 @@ let ``send and recv Log``() =
 
 [<Fact>]
 let ``Log size fits stream ``() =
-    let log = {
+    let log:Log = {
         sequence = 123us;
         level = 123uy;
         event = 123uy;
@@ -79,7 +79,7 @@ let ``send and recv Structures``() =
 
 [<Fact>]
 let ``Structures size fits stream ``() =
-    let structures = {
+    let structures:Structures = {
         sequence = 123us;
         aliases = ["Name: Brutus";"Age: 43"];
         headers =
@@ -121,7 +121,7 @@ let ``send and recv Binary``() =
 
 [<Fact>]
 let ``Binary size fits stream ``() =
-    let binary = {
+    let binary:Binary = {
         sequence = 123us;
         flags = Array.create 4 123uy;
         publicKey = "Captcha Diem"B;
@@ -166,7 +166,7 @@ let ``send and recv Types``() =
 
 [<Fact>]
 let ``Types size fits stream ``() =
-    let types = {
+    let types:Types = {
         sequence = 123us;
         clientForename = "Life is short but Now lasts for ever";
         clientSurname = "Life is short but Now lasts for ever";
