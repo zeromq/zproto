@@ -16,6 +16,7 @@ dist_zproto_DATA = \
 	zproto_codec_clj.gsl \
 	zproto_codec_python.gsl \
 	zproto_codec_fs.gsl \
+	zproto_codec_cs.gsl \
 	zproto_server_c.gsl \
 	zproto_server_clj.gsl \
 	zproto_server_go.gsl \
@@ -27,7 +28,8 @@ dist_zproto_DATA = \
 	zproto_lib_php.gsl \
 	zproto_lib_java.gsl \
 	zproto_lib_clj.gsl \
-	zproto_lib_fs.gsl
+	zproto_lib_fs.gsl \
+	zproto_lib_cs.gsl
 
 # Produce generated models; do this manually in src directory
 code:
