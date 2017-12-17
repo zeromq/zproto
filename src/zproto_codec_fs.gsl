@@ -33,149 +33,157 @@ let $(message.name)MessageId = $(id)uy
 .endfor
 
 .for message
+.   if count(field) <> 0
 type $(message.name) = {
-.   for field where !defined (value)
-.      if type = "number"
+.      for field where !defined (value)
+.         if type = "number"
         $(name) : $(fstype)            
-.      elsif type = "octets"
+.         elsif type = "octets"
         $(name) : byte[]            
-.      elsif type = "string"
+.         elsif type = "string"
         $(name) : string            
-.      elsif type = "longstr"
+.         elsif type = "longstr"
         $(name) : string            
-.      elsif type = "strings"
-        $(name) : string list            
-.      elsif type = "hash"
+.         elsif type = "strings"
+        $(name) : string list
+.         elsif type = "hash"
         $(name) : Map<string,string>                    
-.      elsif type = "uuid"
+.         elsif type = "uuid"
         $(name) : System.Guid
-.      elsif type = "msg"
+.         elsif type = "msg"
         $(name) : byte[] list                        
-.      elsif type = "chunk"
+.         elsif type = "chunk"
         $(name) : byte[]             
-.      elsif type = "frame" 
+.         elsif type = "frame" 
         $(name) : byte[]
-.      endif
-.   endfor
+.         endif
+.      endfor
     }
+.   endif
     
 .endfor
 type T = 
 .for message
+.   if count(field) = 0
+    | $(message.name)
+.   else    
     | $(message.name) of $(message.name)
+.endif    
 .endfor
 
 .for message
+.   if count(field) <> 0    
 module $(message.name) =    
-.    for field where type = "octets"
+.       for field where type = "octets"
     let $(field.name)Size = $(size)
-.    endfor
+.       endfor
     let getMessageSize (msg:$(name)) = 
         0 +         
-.   for field
-.       if type = "number"
+.       for field
+.           if type = "number"
             $(size) +    
-.       elsif type = "octets"
+.           elsif type = "octets"
             $(size) +
-.       elsif type = "string"
-.           if defined (field.value)
+.           elsif type = "string"
+.               if defined (field.value)
             1 + String.length "$(value:)" +
-.           else
+.               else
             1 + String.length msg.$(name) +
-.           endif
-.       elsif type = "longstr"
+.               endif
+.           elsif type = "longstr"
             4 + String.length msg.$(name) +			
-.       elsif type = "strings"
+.           elsif type = "strings"
             List.fold (fun state (value:string) -> state + 4 + Encoding.UTF8.GetByteCount (value)) 4 msg.$(name) + 				
-.       elsif type = "hash"
+.           elsif type = "hash"
             Map.fold (fun state (key:string) (value:string) -> state + 5 + Encoding.UTF8.GetByteCount (key) +  Encoding.UTF8.GetByteCount (value)) 4 msg.$(name) +				
-.       elsif type = "chunk"
+.           elsif type = "chunk"
             4 + Array.length msg.$(name) +			
-.       elsif type = "uuid"
+.           elsif type = "uuid"
             16 +        				
-.       elsif type = "frame"
-.       elsif type = "msg"
-.           class.msg = name
-.           if item () <> count (message.field)
-.               echo "E: in $(message.name:), $(field.name) must come last"
+.           elsif type = "frame"
+.           elsif type = "msg"
+.               class.msg = name
+.               if item () <> count (message.field)
+.                   echo "E: in $(message.name:), $(field.name) must come last"
+.               endif
 .           endif
-.       endif
-.   endfor
+.       endfor
             0
-
+            
     let write (msg:$(name)) stream =
         stream
-.   for field
-.       if type = "number"
-.           if defined (field.value)
+.       for field
+.           if type = "number"
+.               if defined (field.value)
         |> Stream.writeNumber$(size) $(value:)$(literal) 
-.           else
+.               else
         |> Stream.writeNumber$(size) msg.$(name) 
-.           endif
-.       elsif type = "octets"
+.               endif
+.           elsif type = "octets"
         |> Stream.writeBytes msg.$(name) $(size)				
-.       elsif type = "string"
-.           if defined (field.value)
+.           elsif type = "string"
+.               if defined (field.value)
         |> Stream.writeString "$(value:)"           				
-.           else
+.               else
         |> Stream.writeString msg.$(name)
-.           endif
-.       elsif type = "longstr"
+.               endif
+.           elsif type = "longstr"
         |> Stream.writeLongString msg.$(name)				
-.       elsif type = "strings"
+.           elsif type = "strings"
         |> Stream.writeStrings msg.$(name)        				
-.       elsif type = "hash"
+.           elsif type = "hash"
         |> Stream.writeMap msg.$(name)            
-.       elsif type = "chunk"             
+.           elsif type = "chunk"             
         |> Stream.writeNumber4 (uint32 (Array.length msg.$(name)))
         |> Stream.writeBytes msg.$(name) (Array.length msg.$(name))				
-.       elsif type = "uuid"
+.           elsif type = "uuid"
         |> Stream.writeBytes (msg.$(name).ToByteArray()) 16			
-.       endif
-.   endfor            
-    
-    let read = 
+.           endif
+.       endfor            
+         
+    let read =            
         reader {
-.   for field
-.       if type = "number"
-.           if defined (field.value)
+.       for field
+.           if type = "number"
+.               if defined (field.value)
             let! $(name) = Stream.readNumber$(size)
             do! check ($(name) = $(value:)$(literal))										
-.           else
+.               else
             let! $(name) = Stream.readNumber$(size)
-.           endif
-.       elsif type = "octets"
+.               endif
+.           elsif type = "octets"
             let! $(name) = Stream.readBytes $(size)				
-.       elsif type = "string"
-.           if defined (field.value)
+.           elsif type = "string"
+.               if defined (field.value)
 				
             let! $(name) = Stream.readString
             do! check ($(name) = "$(value:)")                                  			
-.           else
+.               else
             let! $(name) = Stream.readString
-.           endif
-.       elsif type = "longstr"
+.               endif
+.           elsif type = "longstr"
             let! $(name) = Stream.readLongString
-.       elsif type = "strings"
+.           elsif type = "strings"
             let! $(name) = Stream.readStrings								
-.       elsif type = "hash"
+.           elsif type = "hash"
             let! $(name) = Stream.readMap				
-.       elsif type = "chunk"
+.           elsif type = "chunk"
             let! $(name)Length = Stream.readNumber4
             let! $(name) = Stream.readBytes (int $(name)Length)				                						
-.       elsif type = "uuid"
+.           elsif type = "uuid"
             let! $(name)Bytes = Stream.readBytes 16
             let $(name) = new System.Guid ($(name)Bytes) 					
-.       endif
-.   endfor
+.           endif
+.       endfor
 
             return ({
-.   for field where !defined (value)
+.       for field where !defined (value)
                         $(name) = $(name);
-.   endfor                
+.       endfor                
                     }: $(message.name))
         }
-        
+
+.   endif        
 .endfor
 
 let recv socket = 
@@ -187,10 +195,14 @@ let recv socket =
     let readMessage messageId stream = 
         match messageId with
 .for class.message        
-        | $(message.name)MessageId -> 
+        | $(message.name)MessageId ->
+.   if count(field) = 0
+            Some $(message.name), stream
+.   else                            
             match $(message.name).read stream with
             | None,stream -> None,stream
-            | Some msg, stream -> Some ($(message.name) msg), stream                      
+            | Some msg, stream -> Some ($(message.name) msg), stream
+.   endif                                  
 .endfor
         | _ -> None, stream   
  
@@ -206,8 +218,12 @@ let recv socket =
 
 let send socket msg = 
     let writeMessage = function
-.for class.message        
-        | $(message.name) msg -> $(message.name).write msg 
+.for class.message
+.   if count(field) = 0
+        | $(message.name) -> id
+.   else                
+        | $(message.name) msg -> $(message.name).write msg
+.   endif         
 .endfor  
 
     let messageId = 
@@ -218,8 +234,12 @@ let send socket msg =
 
     let messageSize = 
         match msg with
-.for class.message        
-        | $(message.name) msg -> $(message.name).getMessageSize msg 
+.for class.message  
+.   if count(field) = 0      
+        | $(message.name) -> 0
+.   else        
+        | $(message.name) msg -> $(message.name).getMessageSize msg
+.   endif         
 .endfor
 
     //  Signature + message ID + message size
@@ -237,37 +257,41 @@ let send socket msg =
 .output "$(class.test_dir)/$(class.name:Pascal).Tests.fs"
 module $(class.test_module)
 
-open Xunit
-open FsUnit.Xunit
+open NUnit.Framework
+open FsUnit
 open FsNetMQ
 open $(class.module)     
 
 .for class.message
     
-[<Fact>]
+[<Test>]
 let ``send and recv $(message.name)``() =
+.   if count(field) = 0
+    let msg = $(name)
+.   else
     let msg = $(name) {
-.   for field where !defined (value)
-.       if type = "number"
+.       for field where !defined (value)
+.           if type = "number"
         $(name) = 123$(literal);
-.       elsif type = "octets"
+.           elsif type = "octets"
         $(name) = Array.create $(size) 123uy;								    
-.       elsif type = "string" | type = "longstr"
+.           elsif type = "string" | type = "longstr"
         $(name) = "Life is short but Now lasts for ever";
-.       elsif type = "strings"
+.           elsif type = "strings"
         $(name) = ["Name: Brutus";"Age: 43"];				
-.       elsif type = "hash"
+.           elsif type = "hash"
         $(name) = 
             Map.empty
             |> Map.add "Name" "Brutus"
             |> Map.add "Age" "43"				
-.       elsif type = "uuid"
+.           elsif type = "uuid"
         $(name) = System.Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E");
-.       elsif type = "chunk"
+.           elsif type = "chunk"
         $(name) = "Captcha Diem"B;
-.       endif           
-.   endfor     
+.           endif           
+.       endfor     
     }
+.   endif
     
     use server = Socket.dealer ()
     Socket.bind server "inproc://$(name).test"
@@ -281,30 +305,31 @@ let ``send and recv $(message.name)``() =
     
     msg' |> should equal (Some msg)                 
 
-[<Fact>]    
+.   if count(field) <> 0
+[<Test>]    
 let ``$(message.name) size fits stream ``() =
     let $(name:lower):$(name) = {
-.   for field where !defined (value)
-.       if type = "number"
+.       for field where !defined (value)
+.           if type = "number"
         $(name) = 123$(literal);
-.       elsif type = "octets"
+.           elsif type = "octets"
         $(name) = Array.create $(size) 123uy;								    
-.       elsif type = "string" | type = "longstr"
+.           elsif type = "string" | type = "longstr"
         $(name) = "Life is short but Now lasts for ever";
-.       elsif type = "strings"
+.           elsif type = "strings"
         $(name) = ["Name: Brutus";"Age: 43"];				
-.       elsif type = "hash"
+.           elsif type = "hash"
         $(name) = 
             Map.empty
             |> Map.add "Name" "Brutus"
             |> Map.add "Age" "43"				
-.       elsif type = "uuid"
+.           elsif type = "uuid"
         $(name) = System.Guid.Parse("DED9D22A-FCE1-488B-8761-84752ACC113E");
-.       elsif type = "chunk"
+.           elsif type = "chunk"
         $(name) = "Captcha Diem"B;
-.       endif           
-.   endfor     
-    }       
+.           endif           
+.       endfor     
+    }          
     
     let messageSize = $(name).getMessageSize $(name:lower)
     
@@ -314,10 +339,11 @@ let ``$(message.name) size fits stream ``() =
     
     let offset = Stream.getOffset stream                          
     
-    messageSize |> should equal offset    
+    messageSize |> should equal offset
+.   endif            
 .endfor
 
-[<Fact>]
+[<Test>]
 let ``malformed message return None``() =
     use server = Socket.dealer ()
     Socket.bind server "inproc://$(name).test"
