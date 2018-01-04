@@ -569,6 +569,8 @@ s_client_new (s_server_t *server, zframe_t *routing_id)
 
     self->client.server = (server_t *) server;
     self->client.message = server->message;
+    //  propagate client identifier 
+    self->client.unique_id = self->unique_id;
 
 .if count (class.event, name = "expired")
     //  If expiry timers are being used, create client ticket
@@ -1169,6 +1171,7 @@ struct _client_t {
     //  and are set by the generated engine; do not modify them!
     server_t *server;           //  Reference to parent server
     $(proto)_t *message;        //  Message in and out
+    uint  unique_id;            //  Client identifier (for correlation purpose with the engine)
 
     //  TODO: Add specific properties for your application
 };
