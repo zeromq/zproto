@@ -257,6 +257,9 @@ for class.recv
         method.cname = "$(name:c)"
         method.pattern = ""
         method.return = ""
+        if recv.virtual = 0
+            method.return = "0"
+        endif
         for proto.message where name = -1.cname
             for field
                 copy field to method
@@ -268,7 +271,7 @@ for class.recv
             pattern += "$(field.bin_pattern:)"
             #   We must return a single msg type
             if type = "msg"
-                method.return = name
+                method.return = "self->$(name)"
             endif
         endfor
         if method.return = ""
@@ -386,10 +389,17 @@ endif
 .   endfor
 .endfor
 .for class.recv
+.   if recv.virtual ?= 0
+    <method name = "recv">
+        Receive message from server; Returns >= 0 if successful, -1 if interrupted.
+        <return type = "integer" />
+    </method>
+.else
     <method name = "recv">
         Receive message from server; caller destroys message when done
         <return type = "zmsg" fresh = "1" />
     </method>
+.   endif
 
     <method name = "command">
         Return last received command. Can be one of these values:
@@ -512,9 +522,15 @@ $(CLASS.EXPORT_MACRO)int
 .   endfor
 .endfor
 .for class.recv
+.   if recv.virtual = 0
+//  Receive message from server; Returns >= 0 if successful, -1 if interrupted.
+$(CLASS.EXPORT_MACRO)int
+    $(class.name)_recv ($(class.name)_t *self);
+.   else
 //  Receive message from server; caller destroys message when done
 $(CLASS.EXPORT_MACRO)zmsg_t *
     $(class.name)_recv ($(class.name)_t *self);
+.   endif
 
 //  Return last received command. Can be one of these values:
 .   for message
@@ -1517,13 +1533,21 @@ $(class.name)_$(.method:c) ($(class.name)_t *self$(args))
 //  ---------------------------------------------------------------------------
 //  Receive message from server; caller destroys message when done
 
+.   if recv.virtual = 0
+int
+.   else
 zmsg_t *
+.   endif
 $(class.name)_recv ($(class.name)_t *self)
 {
     zstr_free (&self->command);
     self->command = zstr_recv (self->msgpipe);
     if (!self->command)
+.   if recv.virtual = 0
+        return -1;              //  Interrupted
+.   else
         return NULL;            //  Interrupted
+.   endif
 
 .   for message as method
 .   if index () > 1
@@ -1535,10 +1559,14 @@ $(class.name)_recv ($(class.name)_t *self)
 , &self->$(name)\
 .       endfor
 );
-        return self->$(return);
+        return $(return);
     }
 .   endfor
+.   if recv.virtual = 0
+    return -1;
+.   else
     return NULL;
+.   endif
 }
 
 //  ---------------------------------------------------------------------------

@@ -625,10 +625,12 @@ To simplify the delivery of a conventional non-actor API, you can define methods
         <field name = "content" type = "string" />
     </method>
 
-    <method name = "recv" return = "content" immediate = "1">
+    <method name = "recv" return = "content" immediate = "1" virtual = "1">
     Receive next message from server. Returns the message content, as a string,
     if any. The caller should not modify or free this string. This method is
     defined as "immediate" and so does not send any message to the client actor.
+    Virtual 1 means recv method returns msg part of incomming message. Virtual 0 means
+    recv returns 0/-1 and message parts are accessible using client methods.
         <accept reply = "MESSAGE" />
     </method>
 
