@@ -74,6 +74,11 @@ function set_defaults ()
             endfor
         endfor
     endfor
+
+#   for recv the default is virtual="1", be backward compatible
+    for class.recv
+        recv.virtual ?= 1
+    endfor
 endfunction
 
 function resolve_types ()
