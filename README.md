@@ -176,6 +176,7 @@ Your input to the code generator is two XML files (without schemas, DTDs, entity
         title = "Hello server"
         script = "zproto_server_c"
         protocol_class = "hello_msg"
+        protocol_dir = ""
         package_dir = "../include"
         source_dir = "."
         project_header = "hello.h"
@@ -189,7 +190,7 @@ Your input to the code generator is two XML files (without schemas, DTDs, entity
         </state>
     </class>
 
-You will also need a minimal 'hello_msg.xml' as below. It's name is defined line 5 of 'hello_server.xml', as 'protocol_class'.
+You will also need a minimal 'hello_msg.xml' as below. It's name is defined line 5 of 'hello_server.xml', as 'protocol_class'. Variable 'protocol_dir' allows developer to split protocol from client/server implementation to different projects.
 
     <class
         name = "hello_msg"

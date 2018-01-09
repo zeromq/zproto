@@ -19,7 +19,8 @@ generate_dot ()
 set_defaults ()
 
 #   Load message structures for this engine
-global.proto = xml.load_file (class.protocol_class + ".xml")
+protocol_file = class.protocol_dir + class.protocol_class + ".xml"
+global.proto = xml.load_file (protocol_file)
 class.proto = class.protocol_class
 
 #   Lowercase state/event/action names

@@ -79,6 +79,8 @@ function set_defaults ()
     for class.recv
         recv.virtual ?= 1
     endfor
+
+    class.protocol_dir ?= ""
 endfunction
 
 function resolve_types ()
