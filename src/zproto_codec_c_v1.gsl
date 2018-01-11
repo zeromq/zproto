@@ -57,9 +57,9 @@ set_defaults ()
     </destructor>
 
     <method name = "is" singleton = "1">
-        Parse a zmsg_t and decides whether it is $(class.name). Returns
-        true if it is, false otherwise. Doesn't destroy or modify the
-        original message.
+        Parses a zmsg_t and decides whether it carries a $(class.name).
+        Returns true if it does, false otherwise.
+        Doesn't destroy or modify the original message.
         <argument name = "msg" type = "zmsg" />
         <return type = "boolean" />
     </method>
@@ -396,9 +396,9 @@ $(CLASS.EXPORT_MACRO)$(class.name)_t *
 $(CLASS.EXPORT_MACRO)void
     $(class.name)_destroy ($(class.name)_t **self_p);
 
-//  Parse a zmsg_t and decides whether it is $(class.name). Returns
-//  true if it is, false otherwise. Doesn't destroy or modify the
-//  original message.
+//  Parses a zmsg_t and decides whether it carries a $(class.name).
+//  Returns true if it does, false otherwise.
+//  Doesn't destroy or modify the original message.
 $(CLASS.EXPORT_MACRO)bool
     $(class.name)_is (zmsg_t *msg_p);
 
@@ -1066,9 +1066,9 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     }
 }
 
-//  Parse a zmsg_t and decides whether it is $(class.name). Returns
-//  true if it is, false otherwise. Doesn't destroy or modify the
-//  original message.
+//  Parses a zmsg_t and decides whether it carries a $(class.name).
+//  Returns true if it does, false otherwise.
+//  Doesn't destroy or modify the original message.
 bool
 $(class.name)_is (zmsg_t *msg)
 {
