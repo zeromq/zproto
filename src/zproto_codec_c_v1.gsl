@@ -1044,6 +1044,8 @@ $(class.name)_destroy ($(class.name)_t **self_p)
     assert (self_p);
     if (*self_p) {
         $(class.name)_t *self = *self_p;
+.# TODO: If the class has some magic header or checksum, this is a good place
+.# to test validity of the call (that we asked to destroy correct object type)
 
         //  Free class properties
         zframe_destroy (&self->routing_id);
@@ -1072,6 +1074,7 @@ $(class.name)_is (zmsg_t *msg)
 {
     if (msg == NULL)
         return false;
+    assert (zmsg_is (msg));
 
     zframe_t *frame = zmsg_first (msg);
     if (frame == NULL)
