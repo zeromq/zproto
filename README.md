@@ -338,7 +338,7 @@ If you define an "expired" event anywhere in your dialog, the server will automa
         </event>
     </state>
 
-To tune the expiry time, use this method (e.g. to set to 1 second):
+To tune the expiry time, use this method (e.g. to set to 5 second):
 
     hello_server_set (self, "server/timeout", "5000");
 
