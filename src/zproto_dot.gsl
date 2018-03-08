@@ -14,7 +14,7 @@ function generate_event (event, inherited)
         label = "<<table border=\"0\" cellborder=\"0\" cellpadding=\"3\" bgcolor=\"white\"><tr><td bgcolor=\"black\" align=\"center\" colspan=\"2\"><font color=\"white\">$(event.name)</font></td></tr>"
 
         for event.action as action
-            label = label + "<tr><td align=\"left\" port=\"r3\">$(action.name)</td></tr>"
+            label = label + "<tr><td align=\"left\" port=\"r3\">$(action.name)$(defined(action.message) ?? " (" + action.message + ")")</td></tr>"
         endfor
 
         label = label + "</table>>"
