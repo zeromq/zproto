@@ -158,7 +158,7 @@ extern "C" {
 //      zstr_send ($(class.name:c), "VERBOSE");
 //
 //  Bind $(class.name) to specified endpoint. TCP endpoints may specify
-//  the port number as "*" to aquire an ephemeral port:
+//  the port number as "*" to acquire an ephemeral port:
 //
 //      zstr_sendx ($(class.name:c), "BIND", endpoint, NULL);
 //
