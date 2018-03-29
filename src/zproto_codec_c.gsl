@@ -60,13 +60,19 @@ set_defaults ()
 .       endif
 >
 .   for define
-    <constant name = "$(define.name)" value = "$(define.value:)" />
+    <constant name = "$(define.name)" value = "$(define.value:)" >
+    $(string.trim (define.?''))
+    </constant>
 .   endfor
 .   for message
-    <constant name = "$(message.name)" value = "$(id)" />
+    <constant name = "$(message.name)" value = "$(id)" >
+    $(string.trim (define.?''))
+    </constant>
 .   endfor
 .   for class.field where type = "octets"
-    <constant name = "$(field.name) size" value = "$(size)" />
+    <constant name = "$(field.name) size" value = "$(size)" >
+    $(string.trim (define.?''))
+    </constant>
 .   endfor
 
 <constructor>
