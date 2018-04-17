@@ -805,7 +805,8 @@ $(class.name)_t *
             if (zstrings) {
                 zlist_t *strings = zlist_new ();
                 zlist_autofree (strings);
-                for (zconfig_t *child = zconfig_child (zstrings);
+                zconfig_t *child;
+                for (child = zconfig_child (zstrings);
                                 child != NULL;
                                 child = zconfig_next (child))
                 {
@@ -820,7 +821,8 @@ $(class.name)_t *
             if (zhash) {
                 zhash_t *hash = zhash_new ();
                 zhash_autofree (hash);
-                for (zconfig_t *child = zconfig_child (zhash);
+                zconfig_t *child;
+                for (child = zconfig_child (zhash);
                                 child != NULL;
                                 child = zconfig_next (child))
                 {
