@@ -1,12 +1,12 @@
 module Example.Test
 
-open Xunit
-open FsUnit.Xunit
+open NUnit.Framework
+open FsUnit
 open FsNetMQ
 open Example
 
 
-[<Fact>]
+[<Test>]
 let ``send and recv Log``() =
     let msg = Log {
         sequence = 123us;
@@ -25,13 +25,13 @@ let ``send and recv Log``() =
     use client = Socket.dealer ()
     Socket.connect client "inproc://Log.test"
 
-    Example.send msg server
+    Example.send server msg
 
     let msg' = Example.recv client
 
     msg' |> should equal (Some msg)
 
-[<Fact>]
+[<Test>]
 let ``Log size fits stream ``() =
     let log:Log = {
         sequence = 123us;
@@ -54,7 +54,7 @@ let ``Log size fits stream ``() =
 
     messageSize |> should equal offset
 
-[<Fact>]
+[<Test>]
 let ``send and recv Structures``() =
     let msg = Structures {
         sequence = 123us;
@@ -71,13 +71,13 @@ let ``send and recv Structures``() =
     use client = Socket.dealer ()
     Socket.connect client "inproc://Structures.test"
 
-    Example.send msg server
+    Example.send server msg
 
     let msg' = Example.recv client
 
     msg' |> should equal (Some msg)
 
-[<Fact>]
+[<Test>]
 let ``Structures size fits stream ``() =
     let structures:Structures = {
         sequence = 123us;
@@ -98,7 +98,7 @@ let ``Structures size fits stream ``() =
 
     messageSize |> should equal offset
 
-[<Fact>]
+[<Test>]
 let ``send and recv Binary``() =
     let msg = Binary {
         sequence = 123us;
@@ -113,13 +113,13 @@ let ``send and recv Binary``() =
     use client = Socket.dealer ()
     Socket.connect client "inproc://Binary.test"
 
-    Example.send msg server
+    Example.send server msg
 
     let msg' = Example.recv client
 
     msg' |> should equal (Some msg)
 
-[<Fact>]
+[<Test>]
 let ``Binary size fits stream ``() =
     let binary:Binary = {
         sequence = 123us;
@@ -138,7 +138,7 @@ let ``Binary size fits stream ``() =
 
     messageSize |> should equal offset
 
-[<Fact>]
+[<Test>]
 let ``send and recv Types``() =
     let msg = Types {
         sequence = 123us;
@@ -158,13 +158,13 @@ let ``send and recv Types``() =
     use client = Socket.dealer ()
     Socket.connect client "inproc://Types.test"
 
-    Example.send msg server
+    Example.send server msg
 
     let msg' = Example.recv client
 
     msg' |> should equal (Some msg)
 
-[<Fact>]
+[<Test>]
 let ``Types size fits stream ``() =
     let types:Types = {
         sequence = 123us;
@@ -188,7 +188,7 @@ let ``Types size fits stream ``() =
 
     messageSize |> should equal offset
 
-[<Fact>]
+[<Test>]
 let ``malformed message return None``() =
     use server = Socket.dealer ()
     Socket.bind server "inproc://Example.test"
