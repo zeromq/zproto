@@ -317,12 +317,7 @@ module $(message.name) =
 .   endif        
 .endfor
 
-let recv socket = 
-    let stream, more = Stream.recv socket
-    
-    // Drop the rest if any
-    if more then Multipart.skip socket
-    
+let private decode stream = 
     let readMessage messageId stream = 
         match messageId with
 .for class.message        
@@ -345,8 +340,25 @@ let recv socket =
                 return message           
             }
             
-    run r stream                    											
+    run r stream
 
+let recv socket = 
+    let stream, more = Stream.recv socket
+    
+    // Drop the rest if any
+    if more then Multipart.skip socket
+    
+    decode stream
+           
+let tryRecv socket timeout = 
+    match Stream.tryRecv socket timeout with
+    | None -> None
+    | Some (stream, more) ->       
+        // Drop the rest if any
+        if more then Multipart.skip socket
+        
+        decode stream
+        
 let send socket msg = 
     let writeMessage = function
 .for class.message
@@ -404,7 +416,7 @@ let ``send and recv $(message.name)``() =
 .           if type = "number"
     let msg = $(message.name) 123$(literal)
 .           elsif type = "octets"
-    let msg = $(message.name) Array.create $(size) 123uy								    
+    let msg = $(message.name) (Array.create $(size) 123uy)								    
 .           elsif type = "string" | type = "longstr"
     let msg = $(message.name) "Life is short but Now lasts for ever"
 .           elsif type = "strings"
