@@ -430,6 +430,17 @@ endif
  />
     </method>
 
+.   if defined (destructor)
+    <method name = "get_$(name)">
+        Return last received $(name) and transfer ownership to caller
+        <return type = "$(zproject_type)"\
+.       if defined (property.size)
+ size = "$(zproject_size)"\
+.       endif
+ />
+    </method>
+
+.endif
 .endfor
 .for class.custom
 .   for api
@@ -555,6 +566,12 @@ $(CLASS.EXPORT_MACRO)const char *
 $(CLASS.EXPORT_MACRO)$(const)$(ctype)
     $(class.name)_$(name) ($(class.name)_t *self);
 
+.   if defined (destructor)
+//  Return last received $(name) and transfer ownership to caller
+$(CLASS.EXPORT_MACRO)$(const)$(ctype)
+    $(class.name)_get_$(name) ($(class.name)_t *self);
+
+.   endif
 .endfor
 .for class.custom
 .   for header
@@ -1606,6 +1623,21 @@ $(class.name)_$(name) ($(class.name)_t *self)
     assert (self);
     return self->$(name);
 }
+.   if defined (destructor)
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received $(name) and transfer ownership to caller
+
+$(const)$(ctype)
+$(class.name)_get_$(name) ($(class.name)_t *self)
+{
+    assert (self);
+    $(ctype) $(name) = self->$(name);
+    self->$(name) = NULL;
+    return $(name);
+}
+.   endif
 .endfor
 
 
