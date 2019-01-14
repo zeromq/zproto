@@ -180,6 +180,7 @@ function assume_property (field, allocated)
         for class.property where name = my.field.name
             if my.allocated = 0
                 property.destructor =
+                my.field.destructor =
             endif
         endfor
     endif
@@ -263,12 +264,20 @@ for class.recv
         endif
         for proto.message where name = -1.cname
             for field
-                copy field to method
+                if count (method.field, name = field.name) = 0
+                    copy field to method
+                endif
             endfor
         endfor
         for method.field
             check_field (field)
-            assume_property (field, 0)
+            if field.type = "string"
+                assume_property (field, 0)
+            elsif field.type = "msg" & recv.virtual = "1"
+                assume_property (field, 0)
+            else
+                assume_property (field, 1)
+            endif
             pattern += "$(field.bin_pattern:)"
             #   We must return a single msg type
             if type = "msg"
@@ -1555,6 +1564,9 @@ $(class.name)_recv ($(class.name)_t *self)
     else
 .   endif
     if (streq (self->command, "$(NAME)")) {
+.       for field where defined (destructor)
+        $(destructor) (&self->$(name));
+.       endfor
         zsock_brecv (self->msgpipe, "$(pattern:)"\
 .       for field
 , &self->$(name)\
