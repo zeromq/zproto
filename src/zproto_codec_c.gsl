@@ -808,8 +808,10 @@ $(class.name)_t *
 
 .if class.pubsub ?= 1
     char *topic = zconfig_get (config, "topic", NULL);
-    if (topic)
+    if (topic) {
+        zstr_free (&self->topic);
         self->topic = strdup (topic);
+    }
 .endif
 
     zconfig_t *content = NULL;
