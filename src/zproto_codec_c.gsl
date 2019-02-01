@@ -2032,6 +2032,7 @@ void
 $(class.name)_set_topic ($(class.name)_t *self, const char *topic)
 {
     assert (self);
+    zstr_free (&self->topic);
     self->topic = strdup (topic);
 }
 
