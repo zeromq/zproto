@@ -867,7 +867,7 @@ $(class.name)_t *
                 return NULL;
             }
 .           if type = "string"
-            strncpy (self->$(name), s, 256);
+            strncpy (self->$(name), s, 255);
 .           else
             self->$(name) = strdup (s);
 .           endif
@@ -1146,7 +1146,7 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
 .if class.pubsub ?= 1
     GET_NUMBER1 (self->id);
     zstr_free (&self->topic);
-    size_t topic_size = strnlen (self->needle, self->ceiling - self->needle - 1);
+    size_t topic_size = strnlen ((char *) self->needle, self->ceiling - self->needle - 1);
     self->topic = (char *) malloc (topic_size + 1);
     memcpy (self->topic, self->needle, topic_size + 1);
     self->needle += topic_size + 1;
@@ -1454,7 +1454,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 .if class.pubsub ?= 1
     GET_NUMBER1 (self->id);
     zstr_free (&self->topic);
-    size_t topic_size = strnlen (self->needle, self->ceiling - self->needle - 1);
+    size_t topic_size = strnlen ((char *) self->needle, self->ceiling - self->needle - 1);
     self->topic = (char *) malloc (topic_size + 1);
     memcpy (self->topic, self->needle, topic_size + 1);
     self->needle += topic_size + 1;
