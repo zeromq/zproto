@@ -141,7 +141,7 @@ set_defaults ()
     <argument name = "routing id" type = "zframe" />
 </method>
 
-.   if class.pubsub ?= 1
+.   if class.pubsub = 1
 <method name = "topic">
     Get the topic of the message for publishing over pub/sub
     <return type = "string" />
@@ -169,7 +169,7 @@ set_defaults ()
 
 <method name = "id">
     Get the $(class.name) message id
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     <return type = "char" />
 .else
     <return type = "integer" />
@@ -178,7 +178,7 @@ set_defaults ()
 
 <method name = "set id">
     Set the $(class.name) message id
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     <argument name = "id" type = "char" />
 .else
     <argument name = "id" type = "integer" />
@@ -373,7 +373,7 @@ $(CLASS.EXPORT_MACRO)int
 
 .endif
 
-.if class.pubsub ?= 1
+.if class.pubsub = 1
 //  Get the topic of the message for publishing over pub/sub
 $(CLASS.EXPORT_MACRO)const char *
     $(class.name)_topic ($(class.name)_t *self);
@@ -407,14 +407,14 @@ $(CLASS.EXPORT_MACRO)void
     $(class.name)_set_routing_id ($(class.name)_t *self, zframe_t *routing_id);
 
 //  Get the $(class.name) id and printable command
-.if class.pubsub ?= 1
+.if class.pubsub = 1
 $(CLASS.EXPORT_MACRO)char
 .else
 $(CLASS.EXPORT_MACRO)int
 .endif
     $(class.name)_id ($(class.name)_t *self);
 $(CLASS.EXPORT_MACRO)void
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     $(class.name)_set_id ($(class.name)_t *self, char id);
 .else
     $(class.name)_set_id ($(class.name)_t *self, int id);
@@ -536,7 +536,7 @@ $(CLASS.EXPORT_MACRO)void
 
 struct _$(class.name)_t {
     zframe_t *routing_id;               //  Routing_id from ROUTER, if any
-.   if class.pubsub ?= 1
+.   if class.pubsub = 1
     char id;                            //  $(class.name) message ID
     char *topic;                        //  Topic to send and receive over pub/sub
 .else
@@ -806,7 +806,7 @@ $(class.name)_t *
         self->routing_id = frame;
     }
 
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     char *topic = zconfig_get (config, "topic", NULL);
     if (topic) {
         zstr_free (&self->topic);
@@ -990,7 +990,7 @@ $(class.name)_destroy ($(class.name)_t **self_p)
         $(class.name)_t *self = *self_p;
 
         //  Free class properties
-.if class.pubsub ?= 1
+.if class.pubsub = 1
         zstr_free (&self->topic);
 .endif
         zframe_destroy (&self->routing_id);
@@ -1025,7 +1025,7 @@ $(class.name)_dup ($(class.name)_t *other)
     $(class.name)_set_routing_id (copy, $(class.name)_routing_id (other));
     $(class.name)_set_id (copy, $(class.name)_id (other));
 
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     // Copy the topic
     $(class.name)_set_topic (copy, $(class.name)_topic (other));
 .endif
@@ -1058,7 +1058,7 @@ $(class.name)_dup ($(class.name)_t *other)
 }
 
 .macro calculate_frame_size
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     size_t frame_size = 1 + strlen(self->topic) + 1; //  Message ID, topic and NULL
 .else
     size_t frame_size = 2 + 1;          //  Signature and message ID
@@ -1143,7 +1143,7 @@ $(class.name)_recv ($(class.name)_t *self, zmsg_t *input)
     self->needle = zframe_data (frame);
     self->ceiling = self->needle + zframe_size (frame);
 
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     GET_NUMBER1 (self->id);
     zstr_free (&self->topic);
     size_t topic_size = strnlen ((char *) self->needle, self->ceiling - self->needle - 1);
@@ -1293,7 +1293,7 @@ $(class.name)_send ($(class.name)_t *self, zmsg_t *output)
     //  Now serialize message into the frame
     zframe_t *frame = zframe_new (NULL, frame_size);
     self->needle = zframe_data (frame);
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     PUT_NUMBER1 (self->id);
     size_t topic_size = strlen (self->topic);
     memcpy(self->needle, self->topic, topic_size + 1);
@@ -1451,7 +1451,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
 .if switches.digest ?= 1
     zdigest_t *digest = zdigest_new ();
 .endif
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     GET_NUMBER1 (self->id);
     zstr_free (&self->topic);
     size_t topic_size = strnlen ((char *) self->needle, self->ceiling - self->needle - 1);
@@ -1626,7 +1626,7 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
     zmq_msg_t frame;
     zmq_msg_init_size (&frame, frame_size);
     self->needle = (byte *) zmq_msg_data (&frame);
-.if class.pubsub ?= 1
+.if class.pubsub = 1
     PUT_NUMBER1 (self->id);
     size_t topic_size = strlen (self->topic);
     memcpy(self->needle, self->topic, topic_size + 1);
@@ -1759,7 +1759,7 @@ $(class.name)_print ($(class.name)_t *self)
 .for class.message
         case $(CLASS.NAME)_$(MESSAGE.NAME):
             zsys_debug ("$(CLASS.NAME)_$(MESSAGE.NAME):");
-.   if class.pubsub ?= 1
+.   if class.pubsub = 1
             zsys_debug ("    topic='%s'", self->topic);
 .   endif
 .   for field
@@ -1857,7 +1857,7 @@ $(class.name)_zpl ($(class.name)_t *self, zconfig_t *parent)
                 zstr_free (&hex);
             }
 
-.   if class.pubsub ?= 1
+.   if class.pubsub = 1
             zconfig_putf (root, "topic", "%s", self->topic);
 .   endif
 
@@ -1979,7 +1979,7 @@ $(class.name)_set_routing_id ($(class.name)_t *self, zframe_t *routing_id)
 //  --------------------------------------------------------------------------
 //  Get/set the $(class.name) id
 
-.if class.pubsub ?= 1
+.if class.pubsub = 1
 char
 .else
 int
@@ -1991,7 +1991,7 @@ $(class.name)_id ($(class.name)_t *self)
 }
 
 void
-.if class.pubsub ?= 1
+.if class.pubsub = 1
 $(class.name)_set_id ($(class.name)_t *self, char id)
 .else
 $(class.name)_set_id ($(class.name)_t *self, int id)
@@ -2017,7 +2017,7 @@ $(class.name)_command ($(class.name)_t *self)
     return "?";
 }
 
-.if class.pubsub ?= 1
+.if class.pubsub = 1
 //  --------------------------------------------------------------------------
 //  Get/set the topic field
 
@@ -2312,7 +2312,7 @@ $(class.name)_test (bool verbose)
     self = $(class.name)_new ();
 .for class.message
     $(class.name)_set_id (self, $(CLASS.NAME)_$(MESSAGE.NAME));
-.   if class.pubsub ?= 1
+.   if class.pubsub = 1
     $(class.name)_set_topic (self, "Hello");
 .endif
 .   for field where !defined (value)
@@ -2398,7 +2398,7 @@ $(class.name)_test (bool verbose)
 .else
             assert ($(class.name)_routing_id (self));
 .endif
-.if class.pubsub ?= 1
+.if class.pubsub = 1
         assert (streq ($(class.name)_topic (self), "Hello"));
 .endif
 .   for field where !defined (value)
