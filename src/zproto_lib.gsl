@@ -35,6 +35,7 @@ function set_defaults ()
     resolve_types ()
 
     class.signature ?= 0
+    class.pubsub ?= 0
     class.source_dir ?= "."
     if switches.zproject ?= 1 & switches.private ?= 1
         class.package_dir ?= "."
