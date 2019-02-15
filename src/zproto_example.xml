@@ -5,6 +5,7 @@
     script = "zproto_codec_c"
     package_dir = "../include"
     source_dir = "."
+    pubsub = "0"
     >
 This is an example protocol designed to teach you how this stuff works.
 
@@ -15,6 +16,12 @@ provide the relative location for these two output files. Default is "."
 The signature is put into every protocol message and lets us filter bogus
 or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
 for each protocol you write, at least.
+
+The pubsub flag allows to use the protocol with ZMQ's PUB/SUB sockets. It
+disables the signature and instead places the message's id + topic name
+infront of the message. Subscribers thus must subscribe to message id +
+topic name in order to receive messages. The codec has subscribe and
+unsubscribe methods for convenience though.
 
 When using zproto with zproject you won't need to set package_dir and
 source_dir as those will be configured by zproject depending on the class's
