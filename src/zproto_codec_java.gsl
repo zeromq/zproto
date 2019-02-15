@@ -78,7 +78,11 @@ public class $(ClassName) implements java.lang.AutoCloseable
 .endfor
 
 .for message
+.   if class.pubsub = 1
+    public static final char $(MESSAGE.NAME)      = $(id:);
+.   else
     public static final int $(MESSAGE.NAME)       = $(id);
+.   endif
 .endfor
 .for class.field where type = "octets"
     public static final int $(FIELD.NAME)_SIZE    = $(size);
@@ -86,7 +90,12 @@ public class $(ClassName) implements java.lang.AutoCloseable
 
     //  Structure of our class
     private ZFrame routingId;           // Routing_id from ROUTER, if any
+.if class.pubsub = 1
+    private char id;                    //  $(ClassName) message ID
+    private String topic;               //  Topic to send and receive over pub/sub
+.else
     private int id;                     //  $(ClassName) message ID
+.endif
     private ByteBuffer needle;          //  Read/write pointer for serialization
 
 .for class.field
@@ -123,7 +132,11 @@ public class $(ClassName) implements java.lang.AutoCloseable
 .   endif
 .endfor
 
-    public $(ClassName)( int id )
+.if class.pubsub = 1
+    public $(ClassName)(char id)
+.else
+    public $(ClassName)(int id)
+.endif
     {
         this.id = id;
     }
@@ -155,12 +168,12 @@ public class $(ClassName) implements java.lang.AutoCloseable
 
     //  Get a 1-byte number to the frame
     //  then make it unsigned
-    private int getNumber1 ()
+    private byte getNumber1 ()
     {
         int value = needle.get ();
         if (value < 0)
             value = (0xff) & value;
-        return value;
+        return (byte) value;
     }
 
     //  Put a 2-byte number to the frame
@@ -263,7 +276,11 @@ public class $(ClassName) implements java.lang.AutoCloseable
     public static $(ClassName) recv (Socket input)
     {
         assert (input != null);
+.if class.pubsub = 1
+        $(ClassName) self = new $(ClassName) ('A');
+.else
         $(ClassName) self = new $(ClassName) (0);
+.endif
         ZFrame frame = null;
 
         try {
@@ -287,6 +304,10 @@ public class $(ClassName) implements java.lang.AutoCloseable
 
                 //  Get and check protocol signature
                 self.needle = ByteBuffer.wrap (frame.getData ());
+.if class.pubsub = 1
+                //  In case of pubsub the message cannot contain garbage data
+                break;
+.else
                 int signature = self.getNumber2 ();
                 if (signature == (0xAAA0 | $(class.signature)))
                     break;                  //  Valid signature
@@ -297,10 +318,20 @@ public class $(ClassName) implements java.lang.AutoCloseable
                     frame = ZFrame.recvFrame (input);
                 }
                 frame.destroy ();
+.endif
             }
 
             //  Get message id, which is first byte in frame
-            self.id = self.getNumber1 ();
+            self.id = (char) self.getNumber1 ();
+.if class.pubsub = 1
+            final StringBuilder topicBuilder = new StringBuilder();
+            char next = (char) self.needle.get();
+            do {
+                topicBuilder.append(next);
+                next = (char) self.needle.get();
+            } while ('\\0' != next);
+            self.topic = topicBuilder.toString();
+.endif
             int listSize;
             int hashSize;
 
@@ -377,7 +408,11 @@ public class $(ClassName) implements java.lang.AutoCloseable
 
         } catch (Exception e) {
             //  Error returns
+.if class.pubsub = 1
+            System.out.printf ("E: malformed message '%c'\\n", self.id);
+.else
             System.out.printf ("E: malformed message '%d'\\n", self.id);
+.endif
             self.destroy ();
             return null;
         } finally {
@@ -399,7 +434,11 @@ public class $(ClassName) implements java.lang.AutoCloseable
             msg.add (routingId);
         }
 
+.if class.pubsub = 1
+        int frameSize = 1 + this.topic.length() + 1; //  Message ID, topic and NULL
+.else
         int frameSize = 2 + 1;          //  Signature and message ID
+.endif
         switch (id) {
 .for class.message
         case $(MESSAGE.NAME):
@@ -464,8 +503,14 @@ public class $(ClassName) implements java.lang.AutoCloseable
         ZFrame frame = new ZFrame (new byte [frameSize]);
         needle = ByteBuffer.wrap (frame.getData ());
         int frameFlags = 0;
+.if class.pubsub = 1
+        putNumber1 ((byte) id);
+        needle.put (topic.getBytes(ZMQ.CHARSET));
+        needle.put ((byte) '\\0');
+.else
         putNumber2 (0xAAA0 | $(class.signature));
         putNumber1 ((byte) id);
+.endif
 
         switch (id) {
 .for class.message
@@ -829,12 +874,20 @@ public class $(ClassName) implements java.lang.AutoCloseable
     //  --------------------------------------------------------------------------
     //  Get/set the $(class.name) id
 
+.if class.pubsub = 1
+    public char id ()
+.else
     public int id ()
+.endif
     {
         return id;
     }
 
+.if class.pubsub = 1
+    public void setId (char id)
+.else
     public void setId (int id)
+.endif
     {
         this.id = id;
     }
@@ -1004,7 +1057,33 @@ public class $(ClassName) implements java.lang.AutoCloseable
         this.$(name) = $(name);
     }
 .   endif
+
 .endfor
+.   if class.pubsub = 1
+    //  Get/set the topic of the message for publishing over pub/sub
+    public String topic()
+    {
+        return topic;
+    }
+
+    public void setTopic(String topic)
+    {
+        this.topic = topic;
+    }
+
+    //  Subscribe a socket to a specific message id and a topic.
+    public void subscribe(Socket sub, char id, final String topic)
+    {
+        sub.subscribe(id + topic);
+    }
+
+    //  Unsubscribe a socket from a specific message id and a topic.
+    public void unsubscribe (Socket sub, char id, final String topic)
+    {
+        sub.unsubscribe(id + topic);
+    }
+.   endif
+
 }
 .directory.create ("$(topdir)/test/java/$(name_path)")
 .output "$(topdir)/test/java/$(name_path)/Test$(ClassName).java"
@@ -1020,12 +1099,16 @@ import org.zeromq.ZContext;
 public class Test$(ClassName)
 {
     @Test
-    public void test$(ClassName) ()
+    public void test$(ClassName) () throws InterruptedException
     {
         System.out.printf (" * $(class.name): ");
 
         //  Simple create/destroy test
+.if class.pubsub = 1
+        $(ClassName) self = new $(ClassName) ('A');
+.else
         $(ClassName) self = new $(ClassName) (0);
+.endif
         assert (self != null);
         self.destroy ();
 
@@ -1033,10 +1116,18 @@ public class Test$(ClassName)
         ZContext ctx = new ZContext ();
         assert (ctx != null);
 
+.if class.pubsub = 1
+        Socket output = ctx.createSocket (ZMQ.PUB);
+.else
         Socket output = ctx.createSocket (ZMQ.DEALER);
+.endif
         assert (output != null);
         output.bind ("inproc://selftest");
+.if class.pubsub = 1
+        Socket input = ctx.createSocket (ZMQ.SUB);
+.else
         Socket input = ctx.createSocket (ZMQ.ROUTER);
+.endif
         assert (input != null);
         input.connect ("inproc://selftest");
 
@@ -1044,6 +1135,11 @@ public class Test$(ClassName)
 .for class.message
 
         self = new $(ClassName) ($(ClassName).$(MESSAGE.NAME));
+.   if class.pubsub = 1
+        self.setTopic ("HELLO");
+        self.subscribe(input, $(ClassName).$(MESSAGE.NAME), "HELLO");
+        Thread.sleep(100);  //  Give time for subscription to become valid
+.   endif
 .   for field where !defined (value)
 .       if type = "number"
         self.set$(Name) ((byte) 123);
@@ -1070,6 +1166,9 @@ public class Test$(ClassName)
 
         self = $(ClassName).recv (input);
         assert (self != null);
+.   if class.pubsub = 1
+        assertEquals(self.topic(), "HELLO");
+.   endif
 .   for field where !defined (value)
 .       if type = "number"
         assertEquals (self.$(name) (), 123);
