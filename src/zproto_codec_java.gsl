@@ -1070,13 +1070,13 @@ public class $(ClassName) implements java.lang.AutoCloseable
     }
 
     //  Subscribe a socket to a specific message id and a topic.
-    public void subscribe(Socket sub, char id, final String topic)
+    public static void subscribe(Socket sub, char id, final String topic)
     {
         sub.subscribe(id + topic);
     }
 
     //  Unsubscribe a socket from a specific message id and a topic.
-    public void unsubscribe (Socket sub, char id, final String topic)
+    public static void unsubscribe (Socket sub, char id, final String topic)
     {
         sub.unsubscribe(id + topic);
     }
