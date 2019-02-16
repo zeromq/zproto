@@ -787,6 +787,9 @@ public class $(ClassName) implements java.lang.AutoCloseable
         case $(MESSAGE.NAME):
             {
             System.out.println ("$(MESSAGE.NAME):");
+.   if class.pubsub = 1
+            System.out.printf ("    topic=%s\\n", topic);
+.   endif
 .   for field
 .       if type = "number"
 .           if defined (field.value)
