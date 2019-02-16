@@ -63,13 +63,11 @@ set_defaults ()
 
 package $(namespace);
 
-import java.util.*;
 import java.nio.ByteBuffer;
-
 import org.zeromq.ZFrame;
-import org.zeromq.ZMsg;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
+import org.zeromq.ZMsg;
 
 public class $(ClassName) implements java.lang.AutoCloseable
 {
@@ -789,6 +787,9 @@ public class $(ClassName) implements java.lang.AutoCloseable
         case $(MESSAGE.NAME):
             {
             System.out.println ("$(MESSAGE.NAME):");
+.   if class.pubsub = 1
+            System.out.printf ("    topic=%s\\n", topic);
+.   endif
 .   for field
 .       if type = "number"
 .           if defined (field.value)
@@ -1072,13 +1073,13 @@ public class $(ClassName) implements java.lang.AutoCloseable
     }
 
     //  Subscribe a socket to a specific message id and a topic.
-    public void subscribe(Socket sub, char id, final String topic)
+    public static void subscribe(Socket sub, char id, final String topic)
     {
         sub.subscribe(id + topic);
     }
 
     //  Unsubscribe a socket from a specific message id and a topic.
-    public void unsubscribe (Socket sub, char id, final String topic)
+    public static void unsubscribe (Socket sub, char id, final String topic)
     {
         sub.unsubscribe(id + topic);
     }
