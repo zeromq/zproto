@@ -63,13 +63,11 @@ set_defaults ()
 
 package $(namespace);
 
-import java.util.*;
 import java.nio.ByteBuffer;
-
 import org.zeromq.ZFrame;
-import org.zeromq.ZMsg;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
+import org.zeromq.ZMsg;
 
 public class $(ClassName) implements java.lang.AutoCloseable
 {
