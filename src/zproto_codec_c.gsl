@@ -165,6 +165,11 @@ set_defaults ()
     <argument name = "id" type = "char" />
     <argument name = "topic" type = "string" />
 </method>
+
+<method name = "is subscribe">
+    Get whether the last subscription received on XPUB socket was of type subscribe.
+    <return type = "boolean" />
+</method>
 .endif
 
 <method name = "id">
@@ -390,6 +395,10 @@ $(CLASS.EXPORT_MACRO) void
 $(CLASS.EXPORT_MACRO) void
     $(class.name)_unsubscribe (zsock_t *sub, char id, const char* topic);
 
+//  Get the type of subscription received from a XPUB socket
+$(CLASS.EXPORT_MACRO) bool
+    $(class.name)_is_subscribe ($(class.name)_t *self) {
+
 .endif
 
 //  Print contents of message to stdout
@@ -539,6 +548,7 @@ struct _$(class.name)_t {
 .   if class.pubsub = 1
     char id;                            //  $(class.name) message ID
     char *topic;                        //  Topic to send and receive over pub/sub
+    bool is_subscribe;                  //  Indicate if it a subscribe or unsubscribe command
 .else
     int id;                             //  $(class.name) message ID
 .endif
@@ -1444,9 +1454,24 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
         rc = -1;                //  Interrupted
         goto malformed;
     }
-    //  Get and check protocol signature
     self->needle = (byte *) zmq_msg_data (&frame);
     self->ceiling = self->needle + zmq_msg_size (&frame);
+
+.if class.pubsub ?= 1
+    if (zsock_type (input) == ZMQ_XPUB) {
+        byte is_subscribe;
+        GET_NUMBER1 (is_subscribe);
+        self->is_subscribe = is_subscribe == 1;
+        GET_NUMBER1 (self->id);
+        zstr_free (&self->topic);
+        size_t topic_size = self->ceiling - self->needle;
+        self->topic = (char *) malloc (topic_size + 1);
+        memcpy (self->topic, self->needle, topic_size);
+        self->topic[topic_size] = '\\0';
+        zmq_msg_close (&frame);
+        return rc;
+    }
+.endif
 
 .if switches.digest ?= 1
     zdigest_t *digest = zdigest_new ();
@@ -1459,6 +1484,7 @@ $(class.name)_recv ($(class.name)_t *self, zsock_t *input)
     memcpy (self->topic, self->needle, topic_size + 1);
     self->needle += topic_size + 1;
 .else
+    //  Get and check protocol signature
     uint16_t signature;
     GET_NUMBER2 (signature);
     if (signature != (0xAAA0 | $(class.signature))) {
@@ -2051,6 +2077,15 @@ $(class.name)_unsubscribe (zsock_t *sub, char id, const char *topic) {
     char* subscription = zsys_sprintf ("%c%s", id, topic);
     zsock_set_unsubscribe (sub, subscription);
     zstr_free (&subscription);
+}
+
+//  --------------------------------------------------------------------------
+//  Get the type of subscription received from a XPUB socket
+
+bool
+$(class.name)_is_subscribe ($(class.name)_t *self) {
+    assert (self);
+    return self->is_subscribe;
 }
 .endif
 
