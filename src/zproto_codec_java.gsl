@@ -64,6 +64,8 @@ set_defaults ()
 package $(namespace);
 
 import java.nio.ByteBuffer;
+
+import org.zeromq.SocketType;
 import org.zeromq.ZFrame;
 import org.zeromq.ZMQ;
 import org.zeromq.ZMQ.Socket;
@@ -91,6 +93,7 @@ public class $(ClassName) implements java.lang.AutoCloseable
 .if class.pubsub = 1
     private char id;                    //  $(ClassName) message ID
     private String topic;               //  Topic to send and receive over pub/sub
+    private boolean isSubscribe;       //  Indicate if it is a subscribe or unsubscribe command
 .else
     private int id;                     //  $(ClassName) message ID
 .endif
@@ -319,15 +322,31 @@ public class $(ClassName) implements java.lang.AutoCloseable
 .endif
             }
 
+.if class.pubsub = 1
+            if (input.getSocketType().equals(SocketType.XPUB)) {
+                byte isSubscribe = self.getNumber1 ();
+                self.isSubscribe = isSubscribe == 1;
+                self.id = (char) self.getNumber1 ();
+                final StringBuilder topicBuilder = new StringBuilder();
+                char next = (char) self.needle.get();
+                while (self.needle.hasRemaining()) {
+                    topicBuilder.append(next);
+                    next = (char) self.needle.get();
+                }
+                self.topic = topicBuilder.toString();
+                return self;
+            }
+.endif
+
             //  Get message id, which is first byte in frame
             self.id = (char) self.getNumber1 ();
 .if class.pubsub = 1
             final StringBuilder topicBuilder = new StringBuilder();
             char next = (char) self.needle.get();
-            do {
+            while ('\\0' != next) {
                 topicBuilder.append(next);
                 next = (char) self.needle.get();
-            } while ('\\0' != next);
+            }
             self.topic = topicBuilder.toString();
 .endif
             int listSize;
@@ -1082,6 +1101,12 @@ public class $(ClassName) implements java.lang.AutoCloseable
     public static void unsubscribe (Socket sub, char id, final String topic)
     {
         sub.unsubscribe(id + topic);
+    }
+
+    //  Get the type of subscription received from a XPUB socket
+    public boolean isSubscribe ()
+    {
+        return this.isSubscribe;
     }
 .   endif
 
