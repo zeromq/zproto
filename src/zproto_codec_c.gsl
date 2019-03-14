@@ -397,7 +397,7 @@ $(CLASS.EXPORT_MACRO) void
 
 //  Get the type of subscription received from a XPUB socket
 $(CLASS.EXPORT_MACRO) bool
-    $(class.name)_is_subscribe ($(class.name)_t *self) {
+    $(class.name)_is_subscribe ($(class.name)_t *self);
 
 .endif
 
