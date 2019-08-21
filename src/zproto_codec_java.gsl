@@ -327,13 +327,15 @@ public class $(ClassName) implements java.lang.AutoCloseable
                 byte isSubscribe = self.getNumber1 ();
                 self.isSubscribe = isSubscribe == 1;
                 self.id = (char) self.getNumber1 ();
-                final StringBuilder topicBuilder = new StringBuilder();
-                char next = (char) self.needle.get();
-                while (self.needle.hasRemaining()) {
-                    topicBuilder.append(next);
-                    next = (char) self.needle.get();
+                if (self.needle.hasRemaining()) {
+                    final StringBuilder topicBuilder = new StringBuilder();
+                    char next = (char) self.needle.get();
+                    while (self.needle.hasRemaining()) {
+                        topicBuilder.append(next);
+                        next = (char) self.needle.get();
+                    }
+                    self.topic = topicBuilder.toString();
                 }
-                self.topic = topicBuilder.toString();
                 return self;
             }
 .endif
