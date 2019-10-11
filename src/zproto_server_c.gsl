@@ -110,7 +110,7 @@ endfor
 
 .endtemplate
 .#  This is the API for the server
-.output "$(class.package_dir)/$(class.name).h"
+.output "$(class.package_dir)/$(class.name).$(class.header_ext)"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -252,7 +252,7 @@ typedef enum {
 } event_t;
 
 //  Names for state machine logging and error reporting
-static char *
+static const char *
 s_state_name [] = {
     "(NONE)",
 .for class.state
@@ -260,7 +260,7 @@ s_state_name [] = {
 .endfor
 };
 
-static char *
+static const char *
 s_event_name [] = {
     "(NONE)",
     "terminate",
@@ -1158,7 +1158,7 @@ $(class.name) (zsock_t *pipe, void *args)
     assert (self);
     zsock_signal (pipe, 0);
     //  Actor argument may be a string used for logging
-    self->log_prefix = args? (char *) args: "";
+    self->log_prefix = args? (char *) args: (char*)"";
 
     //  Set-up server monitor to watch for config file changes
     engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);
@@ -1173,7 +1173,7 @@ $(class.name) (zsock_t *pipe, void *args)
     s_server_destroy (&self);
 }
 .#  Generate source file first time only
-.source_file = "$(class.name).c"
+.source_file = "$(class.name).$(class.source_ext)"
 .if !file.exists (source_file)
 .   output source_file
 /*  =========================================================================
@@ -1197,8 +1197,8 @@ $(class.name) (zsock_t *pipe, void *args)
 #include "$(class.project_header)"
 .endif
 //  TODO: Change these to match your project's needs
-#include "$(class.package_dir)/$(class.protocol_class).h"
-#include "$(class.package_dir)/$(class.name).h"
+#include "$(class.package_dir)/$(class.protocol_class).$(class.header_ext)"
+#include "$(class.package_dir)/$(class.name).$(class.header_ext)"
 
 //  ---------------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
@@ -1307,7 +1307,7 @@ $(class.name)_test (bool verbose)
         printf ("\\n");
 
     //  @selftest
-    zactor_t *server = zactor_new ($(class.name), "server");
+    zactor_t *server = zactor_new ($(class.name), (char*)"server");
     if (verbose)
         zstr_send (server, "VERBOSE");
     zstr_sendx (server, "BIND", "ipc://@/$(class.name)", NULL);

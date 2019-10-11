@@ -33,7 +33,7 @@ generate_bnf ()
 set_defaults ()
 .endtemplate
 .if switches.zproject ?= 1 & switches.private?0 <> 1
-.   file.delete ("$(class.package_dir)/$(class.name).h")
+.   file.delete ("$(class.package_dir)/$(class.name).$(class.header_ext)")
 .   directory.create ("../api")
 .   output "../api/$(class.name).api"
 <!--
@@ -268,7 +268,7 @@ set_defaults ()
 .   endfor
 </class>
 .else
-.   output "$(class.package_dir)/$(class.name).h"
+.   output "$(class.package_dir)/$(class.name).$(class.header_ext)"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -504,7 +504,7 @@ $(CLASS.EXPORT_MACRO)void
 
 #endif
 .endif
-.output "$(class.source_dir)/$(class.name).c"
+.output "$(class.source_dir)/$(class.name).$(class.source_ext)"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -539,7 +539,7 @@ $(CLASS.EXPORT_MACRO)void
 .if defined (class.project_header)
 #include "$(class.project_header)"
 .endif
-#include "$(class.package_dir)/$(class.name).h"
+#include "$(class.package_dir)/$(class.name).$(class.header_ext)"
 
 //  Structure of our class
 

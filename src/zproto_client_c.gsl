@@ -300,7 +300,7 @@ endif
 .endtemplate
 .#  This is the API for the client
 .if switches.zproject ?= 1
-.   file.delete ("$(class.package_dir)/$(class.name).h")
+.   file.delete ("$(class.package_dir)/$(class.name).$(class.header_ext)")
 .   directory.create ("../api")
 .   output "../api/$(class.name).api"
 <!--
@@ -453,7 +453,7 @@ $(api.:)
     </method>
 </class>
 .else
-.   output "$(class.package_dir)/$(class.name).h"
+.   output "$(class.package_dir)/$(class.name).$(class.header_ext)"
 /*  =========================================================================
     $(class.name) - $(class.title:)
 
@@ -632,7 +632,7 @@ typedef enum {
 } event_t;
 
 //  Names for state machine logging and error reporting
-static char *
+static const char *
 s_state_name [] = {
     "(NONE)",
 .for class.state
@@ -640,7 +640,7 @@ s_state_name [] = {
 .endfor
 };
 
-static char *
+static const char *
 s_event_name [] = {
     "(NONE)",
 .for class.event
@@ -1657,7 +1657,7 @@ $(source.:)
 .   endfor
 .endfor
 .#  Generate source file first time only
-.source_file = "$(class.name).c"
+.source_file = "$(class.name).$(class.source_ext)"
 .if !file.exists (source_file)
 .   output source_file
 /*  =========================================================================
@@ -1681,8 +1681,8 @@ $(source.:)
 #include "$(class.project_header)"
 .endif
 //  TODO: Change these to match your project's needs
-#include "$(class.package_dir)/$(class.protocol_class).h"
-#include "$(class.package_dir)/$(class.name).h"
+#include "$(class.package_dir)/$(class.protocol_class).$(class.header_ext)"
+#include "$(class.package_dir)/$(class.name).$(class.header_ext)"
 
 //  Forward reference to method arguments structure
 typedef struct _client_args_t client_args_t;
