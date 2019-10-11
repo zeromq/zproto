@@ -9,9 +9,13 @@
     >
 This is an example protocol designed to teach you how this stuff works.
 
-The class name tells the code generator what .h and .c to generate. Use
-the same name as you're using for this .xml file. The header/source values
-provide the relative location for these two output files. Default is "."
+The class name tells the code generator what .h and .c to generate.
+Use the same name as you're using for this .xml file. The
+header/source values provide the relative location for these two
+output files. Default is ".".  The .h/.c are default and may be set by
+specifying additional options to the class.  For example, when
+generating source that is to be used in a C++ project one might set
+header_ext="hpp" and source_ext="cpp".
 
 The signature is put into every protocol message and lets us filter bogus
 or unknown protocols. It is a 4-bit number from 0 to 15. Use a unique value
