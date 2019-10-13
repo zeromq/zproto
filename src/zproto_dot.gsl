@@ -41,13 +41,36 @@ function generate_dot
     >digraph "$(class.name)" {
 
     # Mark super-states (those, which are inherited by some other state)
+    for class.state as state where defined (inherit)
+         > "$(state.name)" -> "$(state.inherit)" [style=dotted,arrowhead=empty]
+    endfor
+
+    for class.state
+        >
+        > "$(name)" [shape = "doublecircle"];
+
+        for event
+            generate_event (event, 0)
+        endfor
+
+    endfor
+    >}
+
+endfunction
+
+function generate_dot_old
+    output "$(class.name)_old.dot"
+    >## Automatically generated from $(class.name).xml by gsl
+    >digraph "$(class.name)" {
+
+    # Mark super-states (those, which are inherited by some other state)
     for class.state where defined (inherit)
         for class.state as superstate where name = state.inherit
             superstate.superstate = 1
         endfor
     endfor
 
-    # Go through all classes except superstates, which does not have
+    # GO through all classes except superstates, which does not have
     # an entry point and are merged with their descendants
     for class.state where ! defined (superstate)
         >
@@ -71,4 +94,5 @@ function generate_dot
     >}
 
 endfunction
+
 .endtemplate
