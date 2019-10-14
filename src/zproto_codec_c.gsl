@@ -2382,7 +2382,7 @@ $(class.name)_test (bool verbose)
     zhash_insert ($(message.name)_$(field.name), "$(test.name)", "$(test.)");
 .               endfor
 .           else
-    zhash_insert ($(message.name)_$(field.name), "Name", "Brutus");
+    zhash_insert ($(message.name)_$(field.name), "Name", (void*)"Brutus");
 .           endif
     $(class.name)_set_$(name) (self, &$(message.name)_$(name));
 .       elsif type = "chunk" | type = "frame"
