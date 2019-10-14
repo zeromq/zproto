@@ -23,6 +23,13 @@ protocol_file = class.protocol_dir + class.protocol_class + ".xml"
 global.proto = xml.load_file (protocol_file)
 class.proto = class.protocol_class
 
+if !defined (class.header_ext)
+  class.header_ext = "h"
+endif
+if !defined (class.source_ext)
+  class.source_ext = "c"
+endif
+
 #   Lowercase state/event/action names
 for class.state
     state.name = "$(name)"
