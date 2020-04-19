@@ -2,11 +2,11 @@ The following ABNF grammar defines the zproto example protocol:
 
     zproto_example  = *( LOG | STRUCTURES | BINARY | TYPES )
 
-    ;  Log an event.                                                         
+    ;  Log an event.
 
     LOG             = signature %d1 sequence version level event node peer time host data
     signature       = %xAA %xA0             ; two octets
-    sequence        = number-2              ; 
+    sequence        = number-2              ;
     version         = number-2              ; Version
     level           = number-1              ; Log severity level
     event           = number-1              ; Type of event
@@ -16,27 +16,27 @@ The following ABNF grammar defines the zproto example protocol:
     host            = string                ; Originating hostname
     data            = longstr               ; Actual log message
 
-    ;  This message contains a list and a hash.                              
+    ;  This message contains a list and a hash.
 
     STRUCTURES      = signature %d2 sequence aliases headers
-    sequence        = number-2              ; 
+    sequence        = number-2              ;
     aliases         = strings               ; List of strings
     headers         = hash                  ; Other random properties
 
-    ;  Deliver a multi-part message.                                         
+    ;  Deliver a multi-part message.
 
     BINARY          = signature %d3 sequence flags public_key identifier address content
-    sequence        = number-2              ; 
+    sequence        = number-2              ;
     flags           = 4OCTET                ; A set of flags
     public_key      = chunk                 ; Our public key
     identifier      = uuid                  ; Unique identity
     address         = frame                 ; Return address as frame
     content         = msg                   ; Message to be delivered
 
-    ;  Demonstrate custom-defined types                                      
+    ;  Demonstrate custom-defined types
 
     TYPES           = signature %d4 sequence client supplier
-    sequence        = number-2              ; 
+    sequence        = number-2              ;
     client          = person                ; Client contact
     supplier        = person                ; Supplier contact
     person          = forename surname mobile email
@@ -59,7 +59,7 @@ The following ABNF grammar defines the zproto example protocol:
     ; A chunk has 4-octet length + binary contents
     chunk           = number-4 *OCTET
 
-    ; A uuid is 16-octet binary content 
+    ; A uuid is 16-octet binary content
     uuid            = 16OCTET
 
     ; A frame is zero or more octets encoded as a ZeroMQ frame

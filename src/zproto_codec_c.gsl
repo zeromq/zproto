@@ -119,6 +119,11 @@ set_defaults ()
     <argument name = "output" type = "zsock" />
     <return type = "integer" />
 </method>
+
+<method name = "encode">
+    Encode the first frame of $(class.name). Does not destroy it. Returns the frame if OK, else NULL.
+    <return type = "zframe" />
+</method>
 .   endif
 
 <method name = "print">
@@ -388,6 +393,11 @@ $(CLASS.EXPORT_MACRO)int
 //  Send the $(class.name) to the output socket, does not destroy it
 $(CLASS.EXPORT_MACRO)int
     $(class.name)_send ($(class.name)_t *self, zsock_t *output);
+
+//  Encode the first frame of $(class.name). Does not destroy it. Returns the frame if
+//  OK, else NULL.
+$(CLASS.EXPORT_MACRO)zframe_t *
+$(class.name)_encode ($(class.name)_t *self);
 
 .endif
 
@@ -1178,6 +1188,98 @@ $(class.name)_dup ($(class.name)_t *other)
 .endfor
     }
 .endmacro
+
+.macro encode_frame
+    //  Now serialize message into the frame
+.if class.pubsub = 1
+    PUT_NUMBER1 (self->id);
+    size_t topic_size = strlen (self->topic);
+    memcpy(self->needle, self->topic, topic_size + 1);
+    self->needle += topic_size + 1;
+.else
+    PUT_NUMBER2 (0xAAA0 | $(class.signature));
+    PUT_NUMBER1 (self->id);
+.endif
+.if defined (class.msg)
+    bool have_$(class.msg) = false;
+.endif
+    size_t nbr_frames = 1;              //  Total number of frames to send
+
+    switch (self->id) {
+.for class.message where count (field)
+        case $(CLASS.NAME)_$(MESSAGE.NAME):
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+            PUT_NUMBER$(size) ($(value:));
+.           else
+            PUT_NUMBER$(size) (self->$(name));
+.           endif
+.       elsif type = "octets"
+            PUT_OCTETS (self->$(name), $(size));
+.       elsif type = "string"
+.           if defined (field.value)
+            PUT_STRING ("$(value:)");
+.           else
+            PUT_STRING (self->$(name));
+.           endif
+.       elsif type = "longstr"
+            if (self->$(name)) {
+                PUT_LONGSTR (self->$(name));
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty string
+.       elsif type = "strings"
+            if (self->$(name)) {
+                PUT_NUMBER4 (zlist_size (self->$(name)));
+                char *$(name) = (char *) zlist_first (self->$(name));
+                while ($(name)) {
+                    PUT_LONGSTR ($(name));
+                    $(name) = (char *) zlist_next (self->$(name));
+                }
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty string array
+.       elsif type = "hash"
+            if (self->$(name)) {
+                PUT_NUMBER4 (zhash_size (self->$(name)));
+                char *item = (char *) zhash_first (self->$(name));
+                while (item) {
+                    PUT_STRING (zhash_cursor (self->$(name)));
+                    PUT_LONGSTR (item);
+                    item = (char *) zhash_next (self->$(name));
+                }
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty hash
+.       elsif type = "chunk"
+            if (self->$(name)) {
+                PUT_NUMBER4 (zchunk_size (self->$(name)));
+                memcpy (self->needle,
+                        zchunk_data (self->$(name)),
+                        zchunk_size (self->$(name)));
+                self->needle += zchunk_size (self->$(name));
+            }
+            else
+                PUT_NUMBER4 (0);    //  Empty chunk
+.       elsif type = "uuid"
+            if (self->$(name))
+                zuuid_export (self->$(name), self->needle);
+            else
+                memset (self->needle, 0, ZUUID_LEN);
+            self->needle += ZUUID_LEN;
+.       elsif type = "frame"
+            nbr_frames++;
+.       elsif type = "msg"
+            nbr_frames += self->$(name)? zmsg_size (self->$(name)): 1;
+            have_$(class.msg) = true;
+.       endif
+.   endfor
+            break;
+
+.endfor
+    }
+.endmacro
 .#
 .if class.virtual ?= 1
 //  --------------------------------------------------------------------------
@@ -1700,98 +1802,13 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
         zframe_send (&self->routing_id, output, ZFRAME_MORE + ZFRAME_REUSE);
 
 .   calculate_frame_size ()
-    //  Now serialize message into the frame
+
     zmq_msg_t frame;
     zmq_msg_init_size (&frame, frame_size);
     self->needle = (byte *) zmq_msg_data (&frame);
-.if class.pubsub = 1
-    PUT_NUMBER1 (self->id);
-    size_t topic_size = strlen (self->topic);
-    memcpy(self->needle, self->topic, topic_size + 1);
-    self->needle += topic_size + 1;
-.else
-    PUT_NUMBER2 (0xAAA0 | $(class.signature));
-    PUT_NUMBER1 (self->id);
-.endif
-.if defined (class.msg)
-    bool have_$(class.msg) = false;
-.endif
-    size_t nbr_frames = 1;              //  Total number of frames to send
 
-    switch (self->id) {
-.for class.message where count (field)
-        case $(CLASS.NAME)_$(MESSAGE.NAME):
-.   for field
-.       if type = "number"
-.           if defined (field.value)
-            PUT_NUMBER$(size) ($(value:));
-.           else
-            PUT_NUMBER$(size) (self->$(name));
-.           endif
-.       elsif type = "octets"
-            PUT_OCTETS (self->$(name), $(size));
-.       elsif type = "string"
-.           if defined (field.value)
-            PUT_STRING ("$(value:)");
-.           else
-            PUT_STRING (self->$(name));
-.           endif
-.       elsif type = "longstr"
-            if (self->$(name)) {
-                PUT_LONGSTR (self->$(name));
-            }
-            else
-                PUT_NUMBER4 (0);    //  Empty string
-.       elsif type = "strings"
-            if (self->$(name)) {
-                PUT_NUMBER4 (zlist_size (self->$(name)));
-                char *$(name) = (char *) zlist_first (self->$(name));
-                while ($(name)) {
-                    PUT_LONGSTR ($(name));
-                    $(name) = (char *) zlist_next (self->$(name));
-                }
-            }
-            else
-                PUT_NUMBER4 (0);    //  Empty string array
-.       elsif type = "hash"
-            if (self->$(name)) {
-                PUT_NUMBER4 (zhash_size (self->$(name)));
-                char *item = (char *) zhash_first (self->$(name));
-                while (item) {
-                    PUT_STRING (zhash_cursor (self->$(name)));
-                    PUT_LONGSTR (item);
-                    item = (char *) zhash_next (self->$(name));
-                }
-            }
-            else
-                PUT_NUMBER4 (0);    //  Empty hash
-.       elsif type = "chunk"
-            if (self->$(name)) {
-                PUT_NUMBER4 (zchunk_size (self->$(name)));
-                memcpy (self->needle,
-                        zchunk_data (self->$(name)),
-                        zchunk_size (self->$(name)));
-                self->needle += zchunk_size (self->$(name));
-            }
-            else
-                PUT_NUMBER4 (0);    //  Empty chunk
-.       elsif type = "uuid"
-            if (self->$(name))
-                zuuid_export (self->$(name), self->needle);
-            else
-                memset (self->needle, 0, ZUUID_LEN);
-            self->needle += ZUUID_LEN;
-.       elsif type = "frame"
-            nbr_frames++;
-.       elsif type = "msg"
-            nbr_frames += self->$(name)? zmsg_size (self->$(name)): 1;
-            have_$(class.msg) = true;
-.       endif
-.   endfor
-            break;
+.   encode_frame ()
 
-.endfor
-    }
     //  Now send the data frame
     zmq_msg_send (&frame, zsock_resolve (output), --nbr_frames? ZMQ_SNDMORE: 0);
 
@@ -1830,6 +1847,25 @@ $(class.name)_send ($(class.name)_t *self, zsock_t *output)
     }
 .endif
     return 0;
+}
+
+//  --------------------------------------------------------------------------
+//  Encode the first frame of $(class.name). Does not destroy it. Returns the frame if
+//  OK, else NULL.
+
+zframe_t *
+$(class.name)_encode ($(class.name)_t *self)
+{
+    assert (self);
+
+.   calculate_frame_size ()
+
+    zframe_t *frame = zframe_new (NULL, frame_size);
+    self->needle = (byte *) zframe_data (frame);
+
+.   encode_frame ()
+
+    return frame;
 }
 
 
