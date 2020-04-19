@@ -12,26 +12,26 @@
      * The XML model used for this code generation: zproto_example.xml, or
      * The code generation script that built this file: zproto_codec_c
     ************************************************************************
-    Copyright (C) 2014 the Authors                                         
-                                                                           
-    Permission is hereby granted, free of charge, to any person obtaining  
-    a copy of this software and associated documentation files (the        
-    "Software"), to deal in the Software without restriction, including    
-    without limitation the rights to use, copy, modify, merge, publish,    
-    distribute, sublicense, and/or sell copies of the Software, and to     
-    permit persons to whom the Software is furnished to do so, subject to  
-    the following conditions:                                              
-                                                                           
+    Copyright (C) 2014 the Authors
+
+    Permission is hereby granted, free of charge, to any person obtaining
+    a copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to
+    the following conditions:
+
     The above copyright notice and this permission notice shall be included
-    in all copies or substantial portions of the Software.                 
-                                                                           
+    in all copies or substantial portions of the Software.
+
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF             
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
-    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   
-    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   
-    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      
-    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     =========================================================================
 */
 
@@ -41,7 +41,7 @@
 /*  These are the zproto_example messages:
 
     LOG - Log an event.
-        sequence            number 2    
+        sequence            number 2
         version             number 2    Version
         level               number 1    Log severity level
         event               number 1    Type of event
@@ -52,12 +52,12 @@
         data                longstr     Actual log message
 
     STRUCTURES - This message contains a list and a hash.
-        sequence            number 2    
+        sequence            number 2
         aliases             strings     List of strings
         headers             hash        Other random properties
 
     BINARY - Deliver a multi-part message.
-        sequence            number 2    
+        sequence            number 2
         flags               octets [4]  A set of flags
         public_key          chunk       Our public key
         identifier          uuid        Unique identity
@@ -65,7 +65,7 @@
         content             msg         Message to be delivered
 
     TYPES - Demonstrate custom-defined types
-        sequence            number 2    
+        sequence            number 2
         client_forename     string      Given name
         client_surname      string      Family name
         client_mobile       string      Mobile phone number
@@ -101,12 +101,21 @@ typedef struct _zproto_example_t zproto_example_t;
 zproto_example_t *
     zproto_example_new (void);
 
+//  Create a new zproto_example from zpl/zconfig_t *
+zproto_example_t *
+    zproto_example_new_zpl (zconfig_t *config);
+
 //  Destroy a zproto_example instance
 void
     zproto_example_destroy (zproto_example_t **self_p);
 
+//  Create a deep copy of a zproto_example instance
+zproto_example_t *
+    zproto_example_dup (zproto_example_t *other);
+
 //  Receive a zproto_example from the socket. Returns 0 if OK, -1 if
-//  there was an error. Blocks if there is no message waiting.
+//  the read was interrupted, or -2 if the message is malformed.
+//  Blocks if there is no message waiting.
 int
     zproto_example_recv (zproto_example_t *self, zsock_t *input);
 
@@ -114,10 +123,20 @@ int
 int
     zproto_example_send (zproto_example_t *self, zsock_t *output);
 
+//  Encode the first frame of zproto_example. Does not destroy it. Returns the frame if
+//  OK, else NULL.
+zframe_t *
+zproto_example_encode (zproto_example_t *self);
+
+
 
 //  Print contents of message to stdout
 void
     zproto_example_print (zproto_example_t *self);
+
+//  Export class as zconfig_t*. Caller is responsibe for destroying the instance
+zconfig_t *
+    zproto_example_zpl (zproto_example_t *self, zconfig_t* parent);
 
 //  Get/set the message routing id
 zframe_t *
