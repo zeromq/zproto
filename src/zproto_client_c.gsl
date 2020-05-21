@@ -184,13 +184,13 @@ endfunction
 function assume_property (field, allocated)
     if count (class.property, name = my.field.name) = 0
         copy field to class as property
-        for class.property where name = my.field.name
-            if my.allocated = 0
-                property.destructor =
-                my.field.destructor =
-            endif
-        endfor
     endif
+    for class.property where name = my.field.name
+        if my.allocated = 0
+            property.destructor =
+            my.field.destructor =
+        endif
+    endfor
 endfunction
 
 #   Process replies from actor, and methods to actor
@@ -271,7 +271,7 @@ for class.recv
         endif
         for proto.message where name = -1.cname
             for field
-                if count (method.field, name = field.name) = 0
+                if count (method.field, name = -1.name) = 0
                     copy field to method
                 endif
             endfor
