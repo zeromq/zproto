@@ -2557,28 +2557,39 @@ $(class.name)_test (bool verbose)
     config = $(class.name)_zpl (self, NULL);
     if (verbose)
         zconfig_print (config);
+
+.if class.virtual ?= 1
+    $(class.name)_send (self, output);
+
+    zmsg_destroy (&input);
+    input = zmsg_dup (output);
+    assert (input);
+
+    for (instance = 0; instance < 2; instance++) {
+.else
     //  Send twice
     $(class.name)_send (self, output);
     $(class.name)_send (self, output);
 
-.if class.virtual ?= 1
-    zmsg_destroy (&input);
-    input = zmsg_dup (output);
-    assert (input);
-.endif
     for (instance = 0; instance < 3; instance++) {
+.endif
         $(class.name)_t *self_temp = self;
+.if class.virtual ?= 1
+        if (instance < 1)
+.else
         if (instance < 2)
+.endif
             $(class.name)_recv (self, input);
         else {
             self = $(class.name)_new_zpl (config);
             assert (self);
             zconfig_destroy (&config);
         }
-        if (instance < 2)
 .if class.virtual ?= 1
+        if (instance < 1)
             assert ($(class.name)_routing_id (self) == NULL);
 .else
+        if (instance < 2)
             assert ($(class.name)_routing_id (self));
 .endif
 .if class.pubsub = 1
