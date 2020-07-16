@@ -413,7 +413,7 @@ public class $(ClassName) implements java.lang.AutoCloseable
                 self.$(name) = ZFrame.recvFrame (input);
 .       elsif type = "msg"
                 self.$(name) = new ZMsg();
-                if (input.hasReceiveMore ())
+                while (input.hasReceiveMore ())
                     self.$(name).add(ZFrame.recvFrame (input));
 .       endif
 .    endfor
@@ -744,13 +744,13 @@ public class $(ClassName) implements java.lang.AutoCloseable
                 self.$(name) = new UUID(bb$(Name).getLong(), bb$(Name).getLong());
 .       elsif type = "frame"
                 //  Get next frame, leave current untouched
-                if (!input.hasReceiveMore ())
+                if (input.isEmpty())
                     throw new IllegalArgumentException ();
-                self.$(name) = ZFrame.recvFrame (input);
+                self.$(name) = input.pop();
 .       elsif type = "msg"
                 self.$(name) = new ZMsg();
-                if (input.hasReceiveMore ())
-                    self.$(name).add(ZFrame.recvFrame (input));
+                while (! input.isEmpty())
+                    self.$(name).add(input.pop());
 .       endif
 .    endfor
                 }
