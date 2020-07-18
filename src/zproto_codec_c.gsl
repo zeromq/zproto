@@ -2465,12 +2465,14 @@ $(class.name)_test (bool verbose)
     assert (self);
     $(class.name)_destroy (&self);
 .if class.virtual ?= 1
+	static const int MAX_INSTANCE = 2;
     zmsg_t *output = zmsg_new ();
     assert (output);
 
     zmsg_t *input = zmsg_new ();
     assert (input);
 .else
+	static const int MAX_INSTANCE = 3;
     //  Create pair of sockets we can send through
     //  We must bind before connect if we wish to remain compatible with ZeroMQ < v4
     zsock_t *output = zsock_new (ZMQ_DEALER);
@@ -2565,20 +2567,16 @@ $(class.name)_test (bool verbose)
     input = zmsg_dup (output);
     assert (input);
 
-    for (instance = 0; instance < 2; instance++) {
+    for (instance = 0; instance < MAX_INSTANCE; instance++) {
 .else
     //  Send twice
     $(class.name)_send (self, output);
     $(class.name)_send (self, output);
 
-    for (instance = 0; instance < 3; instance++) {
+    for (instance = 0; instance < MAX_INSTANCE; instance++) {
 .endif
         $(class.name)_t *self_temp = self;
-.if class.virtual ?= 1
-        if (instance < 1)
-.else
-        if (instance < 2)
-.endif
+        if (instance < MAX_INSTANCE - 1)
             $(class.name)_recv (self, input);
         else {
             self = $(class.name)_new_zpl (config);
@@ -2586,10 +2584,10 @@ $(class.name)_test (bool verbose)
             zconfig_destroy (&config);
         }
 .if class.virtual ?= 1
-        if (instance < 1)
+        if (instance < MAX_INSTANCE - 1)
             assert ($(class.name)_routing_id (self) == NULL);
 .else
-        if (instance < 2)
+        if (instance < MAX_INSTANCE - 1)
             assert ($(class.name)_routing_id (self));
 .endif
 .if class.pubsub = 1
@@ -2646,32 +2644,32 @@ $(class.name)_test (bool verbose)
         assert (streq ((char *) zhash_cursor ($(name)), "Name"));
 .           endif
         zhash_destroy (&$(name));
-        if (instance == 2)
+        if (instance == MAX_INSTANCE - 1)
             zhash_destroy (&$(message.name)_$(name));
 .       elsif type = "chunk"
         assert (memcmp (zchunk_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.?"Captcha Diem"):)) == 0);
-        if (instance == 2)
+        if (instance == MAX_INSTANCE - 1)
             zchunk_destroy (&$(message.name)_$(name));
 .       elsif type = "frame" & class.use_zmq_msg
         assert (memcmp (zmq_msg_data ($(class.name)_$(name) (self)), "$(->test.?"Captcha Diem":)", $(->test.??12?string.length(->test.?"Captcha Diem"):)) == 0);
 .       elsif type = "frame"
         assert (zframe_streq ($(class.name)_$(name) (self), "$(->test.?"Captcha Diem":)"));
-        if (instance == 2)
+        if (instance == MAX_INSTANCE - 1)
             zframe_destroy (&$(message.name)_$(name));
 .       elsif type = "msg"
         assert (zmsg_size ($(class.name)_$(name) (self)) == 1);
         char *content = zmsg_popstr ($(class.name)_$(name) (self));
         assert (streq (content, "$(->test.?"Captcha Diem":)"));
         zstr_free (&content);
-        if (instance == 2)
+        if (instance == MAX_INSTANCE - 1)
             zmsg_destroy (&$(message.name)_$(name));
 .       elsif type = "uuid"
         assert (zuuid_eq ($(message.name)_$(name), zuuid_data ($(class.name)_$(name) (self))));
-        if (instance == 2)
+        if (instance == MAX_INSTANCE - 1)
             zuuid_destroy (&$(message.name)_$(name));
 .       endif
 .   endfor
-        if (instance == 2) {
+        if (instance == MAX_INSTANCE - 1) {
             $(class.name:c)_destroy (&self);
             self = self_temp;
         }
