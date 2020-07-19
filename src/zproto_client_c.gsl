@@ -1358,6 +1358,13 @@ $(class.name)_destroy ($(class.name)_t **self_p)
             $(class.name)_destructor (self);
 .endfor
         }
+		// Before destroy the msgpipe we have to flush any pending traffic
+		// because it delivered by pointer
+		while (zsock_events (self->msgpipe) & ZMQ_POLLIN) {
+			zmsg_t* msg = $(class.name)_recv(self);
+			zmsg_destroy(&msg);
+		}
+		
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
 .for class.recv
