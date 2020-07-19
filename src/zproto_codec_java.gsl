@@ -66,6 +66,8 @@ package $(namespace);
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.zeromq.SocketType;
 import org.zeromq.ZFrame;
@@ -413,7 +415,7 @@ public class $(ClassName) implements java.lang.AutoCloseable
                 self.$(name) = ZFrame.recvFrame (input);
 .       elsif type = "msg"
                 self.$(name) = new ZMsg();
-                if (input.hasReceiveMore ())
+                while (input.hasReceiveMore ())
                     self.$(name).add(ZFrame.recvFrame (input));
 .       endif
 .    endfor
@@ -645,6 +647,333 @@ public class $(ClassName) implements java.lang.AutoCloseable
         return true;
     }
 
+
+
+    //  --------------------------------------------------------------------------
+    //  Receive and parse a $(ClassName) from the ZMsg. Returns new object or
+    //  null if error. 
+
+    public static $(ClassName) recv (ZMsg input)
+    {
+        assert (input != null);
+.if class.pubsub = 1
+        $(ClassName) self = new $(ClassName) ('A');
+.else
+        $(ClassName) self = new $(ClassName) (0);
+.endif
+        ZFrame frame = null;
+
+        try {
+			if(input.isEmpty())
+				return null;
+			//  Read and parse command in frame
+			frame = input.pop();
+			if (frame == null)
+				return null;             //  Interrupted
+
+			//  Get and check protocol signature
+			self.needle = ByteBuffer.wrap (frame.getData ());
+.if class.pubsub = 1
+            //  Get message id, which is first byte in frame
+            self.id = (char) self.getNumber1 ();
+            final StringBuilder topicBuilder = new StringBuilder();
+            char next = (char) self.needle.get();
+            while ('\\0' != next) {
+                topicBuilder.append(next);
+                next = (char) self.needle.get();
+            }
+            self.topic = topicBuilder.toString();
+.else
+			int signature = self.getNumber2 ();
+			if (signature != (0xAAA0 | $(class.signature)))
+				return null;                  //  Valid signature
+            self.id = (char) self.getNumber1 ();
+.endif
+
+
+            int listSize;
+            int hashSize;
+
+            switch (self.id) {
+.for class.message
+            case $(MESSAGE.NAME):
+                {
+.   for field
+.       if type = "number"
+                self.$(name) = self.getNumber$(size) ();
+.               if defined (field.value)
+                if (self.$(name) != $(field.value:))
+                    throw new IllegalArgumentException ();
+.               endif
+.       elsif type = "octets"
+                self.$(name) = self.getBlock ($(size));
+.           if defined (field.value)
+                if (self.$(name) != $(field.value:))
+                    throw new IllegalArgumentException ();
+.           endif
+.       elsif type = "string"
+                self.$(name) = self.getString ();
+.           if defined (field.value)
+                if (!self.$(name).equals( "$(field.value:)"))
+                    throw new IllegalArgumentException ();
+.           endif
+.       elsif type = "longstr"
+                self.$(name) = self.getLongString ();
+.           if defined (field.value)
+                if (!self.$(name).equals( "$(field.value:)"))
+                    throw new IllegalArgumentException ();
+.           endif
+.       elsif type = "strings"
+                listSize = (int) self.getNumber4 ();
+                self.$(name) = new ArrayList<String> ();
+                while (listSize-- > 0) {
+                    String string = self.getLongString ();
+                    self.$(name).add (string);
+                }
+.       elsif type = "hash"
+                hashSize = (int) self.getNumber4 ();
+                self.$(name) = new HashMap <String, String> ();
+                while (hashSize-- > 0) {
+                    String key = self.getString ();
+                    String value = self.getLongString ();
+
+                    self.$(name).put(key, value);
+                }
+.       elsif type = "chunk"
+                self.$(name) = self.getBlock((int) self.getNumber4());
+.       elsif type = "uuid"
+                ByteBuffer bb$(Name) = ByteBuffer.wrap(self.getBlock(16));
+                self.$(name) = new UUID(bb$(Name).getLong(), bb$(Name).getLong());
+.       elsif type = "frame"
+                //  Get next frame, leave current untouched
+                if (input.isEmpty())
+                    throw new IllegalArgumentException ();
+                self.$(name) = input.pop();
+.       elsif type = "msg"
+                self.$(name) = new ZMsg();
+                while (! input.isEmpty())
+                    self.$(name).add(input.pop());
+.       endif
+.    endfor
+                }
+                break;
+
+.endfor
+            default:
+                throw new IllegalArgumentException ();
+            }
+
+            return self;
+
+        } catch (Exception e) {
+            //  Error returns
+.if class.pubsub = 1
+            System.out.printf ("E: malformed message '%c'\\n", self.id);
+.else
+            System.out.printf ("E: malformed message '%d'\\n", self.id);
+.endif
+            self.destroy ();
+            return null;
+        } finally {
+            if (frame != null)
+                frame.destroy ();
+        }
+    }
+
+    //  --------------------------------------------------------------------------
+    //  Send the $(ClassName) to the ZMsg, and destroy it
+
+    public ZMsg send ()
+    {
+        ZMsg output = new ZMsg();
+
+.if class.pubsub = 1
+        int frameSize = 1 + this.topic.length() + 1; //  Message ID, topic and NULL
+.else
+        int frameSize = 2 + 1;          //  Signature and message ID
+.endif
+        switch (id) {
+.for class.message
+        case $(MESSAGE.NAME):
+            {
+.   for field
+.       if type = "number"
+            //  $(name) is a $(size)-byte integer
+            frameSize += $(size);
+.       elsif type = "octets"
+            //  $(name) is a block of $(size) bytes
+            frameSize += $(size);
+.       elsif type = "string"
+            //  $(name) is a string with 1-byte length
+.           if defined (field.value)
+            frameSize += 1 + new String ("$(field.value:)").getBytes(ZMQ.CHARSET).length;
+.           else
+            frameSize ++;
+            frameSize += ($(name) != null) ? $(name).getBytes(ZMQ.CHARSET).length : 0;
+.           endif
+.       elsif type = "longstr"
+            //  $(name) is a long string with 4-byte length
+            frameSize += 4;
+            frameSize += ($(name) != null) ? $(name).getBytes(ZMQ.CHARSET).length : 0;
+.       elsif type = "strings"
+            //  $(name) is an array of strings
+            frameSize += 4;
+            if ($(name) != null) {
+                for (String value : $(name)) {
+                    frameSize += 4;
+                    frameSize += value.length ();
+                }
+            }
+.       elsif type = "hash"
+            //  $(name) is an array of key=value strings
+            frameSize += 4;
+            if ($(name) != null) {
+                $(name)Bytes = 0;
+                for (Map.Entry <String, String> entry: $(name).entrySet ()) {
+                    $(name)Bytes += 1 + entry.getKey().getBytes(ZMQ.CHARSET).length;
+                    $(name)Bytes += 4 + entry.getValue().getBytes(ZMQ.CHARSET).length;
+                }
+                frameSize += $(name)Bytes;
+            }
+.       elsif type = "chunk"
+            //  $(name) is a chunk with 4-byte length
+            frameSize += 4;
+            frameSize += ($(name) != null) ? $(name).length : 0;
+.       elsif type = "uuid"
+            //  $(name) is uuid with 16-byte length
+            frameSize += 16;
+.       endif
+.   endfor
+            }
+            break;
+
+.endfor
+        default:
+            System.out.printf ("E: bad message type '%d', not sent\\n", id);
+            assert (false);
+        }
+        //  Now serialize message into the frame
+        ZFrame frame = new ZFrame (new byte [frameSize]);
+        needle = ByteBuffer.wrap (frame.getData ());
+        int frameFlags = 0;
+.if class.pubsub = 1
+        putNumber1 ((byte) id);
+        needle.put (topic.getBytes(ZMQ.CHARSET));
+        needle.put ((byte) '\\0');
+.else
+        putNumber2 (0xAAA0 | $(class.signature));
+        putNumber1 ((byte) id);
+.endif
+
+        switch (id) {
+.for class.message
+        case $(MESSAGE.NAME):
+            {
+.   for field
+.       if type = "number"
+.           if defined (field.value)
+            putNumber$(size) ($(field.value:));
+.           else
+            putNumber$(size) ($(name));
+.           endif
+.       elsif type = "octets"
+            putBlock ($(name), $(size));
+.       elsif type = "string"
+.           if defined (field.value)
+            putString ("$(field.value:)");
+.           else
+            if ($(name) != null)
+                putString ($(name));
+            else
+                putNumber1 ((byte) 0);      //  Empty string
+.           endif
+.       elsif type = "longstr"
+.           if defined (field.value)
+            putLongString ("$(field.value:)");
+.           else
+            if ($(name) != null)
+                putLongString ($(name));
+            else
+                putNumber4 (0);      //  Empty string
+.           endif
+.       elsif type = "strings"
+            if ($(name) != null) {
+                putNumber4 ($(name).size ());
+                for (String value : $(name)) {
+                    putLongString (value);
+                }
+            }
+            else
+                putNumber4 (0);      //  Empty string array
+.       elsif type = "hash"
+            if ($(name) != null) {
+                putNumber4 ($(name).size ());
+                for (Map.Entry <String, String> entry: $(name).entrySet ()) {
+                    putString(entry.getKey());
+                    putLongString(entry.getValue());
+                }
+            }
+            else
+                putNumber4 (0);      //  Empty hash
+.       elsif type = "chunk"
+              if($(name) != null) {
+                  putNumber4($(name).length);
+                  needle.put($(name), 0, $(name).length);
+              } else {
+                  putNumber4(0);
+              }
+.       elsif type = "uuid"
+              if($(name) != null) {
+                  ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                  bb.putLong($(name).getMostSignificantBits());
+                  bb.putLong($(name).getLeastSignificantBits());
+                  needle.put(bb.array());
+              } else {
+                  needle.put(new byte[16]);    //  Empty Chunk
+              }
+.       endif
+.   endfor
+            }
+            break;
+
+.endfor
+        }
+        //  Now send the data frame
+        output.add(frame);
+
+        //  Now send any frame fields, in order
+        switch (id) {
+.for class.message where count (field, type = "frame")
+        case $(MESSAGE.NAME):
+            {
+.   for field where type = "frame"
+            //  If $(name) isn't set, send an empty frame
+            if ($(field.name) == null)
+                $(field.name) = new ZFrame ("".getBytes ());
+            output.add($(field.name));
+.   endfor
+            }
+            break;
+.endfor
+        }
+        switch (id) {
+.for class.message where count (field, type = "msg")
+        case $(MESSAGE.NAME):
+            {
+.   for field where type = "msg"
+            if( $(field.name) == null )
+                $(field.name) = new ZMsg();
+            for (ZFrame $(field.name)Part : $(field.name)) {
+                output.add($(field.name)Part);
+            }
+.   endfor
+            }
+            break;
+.endfor
+        }
+        destroy ();
+        return output;
+    }
 
 .for message
 //  --------------------------------------------------------------------------
