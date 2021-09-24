@@ -76,7 +76,7 @@ And then install the code generators:
 
 Next, read the src/zproto_example.xml file to learn how to write your own protocol specifications. The binary codec has the same name, and is src/zproto_example.c and include/zproto_example.h.
 
-To rebuild the codec, first build and install https://github.com/imatix/gsl. Then run these commands:
+To rebuild the codec, first build and install https://github.com/zeromq/gsl. Then run these commands:
 
     cd src
     make code check
@@ -95,7 +95,7 @@ Goals of the codec generator:
 
 The origin of this project is [Chapter 7 of the ZeroMQ Guide](http://zguide.zeromq.org/page:all#Serializing-Your-Data).
 
-To use this tool, please build and install the [iMatix GSL code generator](https://github.com/imatix/gsl).
+To use this tool, please build and install the [GSL code generator](https://github.com/zeromq/gsl).
 
 To contribute patches back to this code, please send GitHub pull requests, adding your name to AUTHORS. The full contract for contributions is ZeroMQ RFC 22, http://rfc.zeromq.org/spec:22, with the change of using the MIT license.
 
@@ -116,7 +116,7 @@ By Pieter Hintjens.
 
 zproto is based Chapter 7 of my ZeroMQ book, originally used in FileMQ, Zyre, and several other projects.
 
-My company iMatix used to do code generation as our main business. We got... very good at it. There are lots of ways to generate code, and the most powerful and sophisticated code generator ever built by mankind lives on Github.com at [imatix/gsl](https://github.com/imatix/gsl). It's an interpreter for programs that eat models (self-describing documents) and spew out text of any shape and form.
+My company iMatix used to do code generation as our main business. We got... very good at it. There are lots of ways to generate code, and the most powerful and sophisticated code generator ever built by mankind lives on Github.com at [imatix/gsl](https://github.com/imatix/gsl). (Development continues at [zeromq/gsl](https://github.com/zeromq/gsl).) It's an interpreter for programs that eat models (self-describing documents) and spew out text of any shape and form.
 
 The only problem with sophisticated magic like GSL is that it quickly excludes other people. So in ZeroMQ I've been very careful to not do a lot of code generation, only opening that mysterious black box when there was real need.
 
@@ -809,7 +809,7 @@ Though [the Libero documentation](http://legacy.imatix.com/html/libero/) is quit
 
 The current working example of the zproto server generator is the [zeromq/zbroker](https://github.com/zeromq/zbroker) project, and specifically the zpipes_server class.
 
-You can find [GSL on Github](https://github.com/imatix/gsl) and there's a [old backgrounder](http://download.imatix.com/mop/) for the so-called "model oriented programming" we used at iMatix.
+You can find [GSL on Github](https://github.com/zeromq/gsl) and there's a [old backgrounder](http://download.imatix.com/mop/) for the so-called "model oriented programming" we used at iMatix.
 
 ## This document
 
