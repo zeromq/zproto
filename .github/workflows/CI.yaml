@@ -1,0 +1,35 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            BUILD_TYPE: default
+            PACKAGES: generator-scripting-language libczmq-dev
+    env:
+      platform: ${{ matrix.platform }}
+      configuration: ${{ matrix.configuration }}
+      BUILD_TYPE: ${{ matrix.BUILD_TYPE }}
+    steps:
+    - name: Add debian packages
+      uses: myci-actions/add-deb-repo@10
+      with:
+        repo-name: obs
+        repo: deb http://download.opensuse.org/repositories/network:/messaging:/zeromq:/git-stable/xUbuntu_20.04/ ./
+        keys-asc: https://download.opensuse.org/repositories/network:/messaging:/zeromq:/git-stable/xUbuntu_20.04/Release.key
+        install: ${{ matrix.PACKAGES }}
+    - uses: actions/checkout@v2
+      with:
+        path: zproto
+    - name: build
+      shell: bash
+      working-directory: zproto
+      run: ./autogen.sh && ./configure && make distcheck
