@@ -1,75 +1,69 @@
 <services>
-  <service name="tar_scm">
+  <service name="obs_scm">
     <param name="url">https://github.com/zeromq/zproto</param>
     <param name="scm">git</param>
-    <param name="versionformat">@PARENT_TAG@+git%cd</param>
+    <param name="revision">master</param>
+    <!--<param name="versionformat">@PARENT_TAG@+git%cd</param>-->
     <param name="changesgenerate">enable</param>
+    <param name="filename">zproto</param>
+    <param name="extract">packaging/redhat/zproto.spec</param>
+    <param name="extract">packaging/debian/zproto.dsc</param>
   </service>
 
-  <!-- extract redhat packaging -->
-  <service name="extract_file">
-    <param name="archive">*.tar</param>
-    <param name="files">*/packaging/redhat/zproto.spec</param>
-    <param name="outfilename">zproto.spec</param>
-  </service>
+  <service name="tar" mode="buildtime"/>
 
   <!-- extract debian packaging -->
-  <service name="extract_file">
-    <param name="archive">*.tar</param>
-    <param name="files">*/packaging/debian/zproto.dsc.obs</param>
-    <param name="outfilename">zproto.dsc</param>
-  </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
   	<param name="files">*/packaging/debian/changelog</param>
     <param name="outfilename">debian.changelog</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/compat</param>
     <param name="outfilename">debian.compat</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/control</param>
     <param name="outfilename">debian.control</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/copyright</param>
     <param name="outfilename">debian.copyright</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/zproto.install</param>
     <param name="outfilename">debian.zproto.install</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/zproto.docs</param>
     <param name="outfilename">debian.zproto.docs</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/zproto-examples.install</param>
     <param name="outfilename">debian.zproto-examples.install</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/source/format</param>
     <param name="outfilename">debian.format</param>
   </service>
-  <service name="extract_file">
+  <service name="extract_file" mode="buildtime">
     <param name="archive">*.tar</param>
     <param name="files">*/packaging/debian/rules</param>
     <param name="outfilename">debian.rules</param>
   </service>
 
-  <service name="set_version">
+  <service name="set_version" mode="buildtime">
     <param name="basename">zproto</param>
   </service>
 
-  <service name="recompress">
+  <service name="recompress" mode="buildtime">
     <param name="file">*.tar</param>
     <param name="compression">gz</param>
   </service>
