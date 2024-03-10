@@ -71,3 +71,5 @@ This package contains examples to get started with zproto.
 %doc src/zyre_peer_example
 
 %changelog
+* Wed Dec 31 2014 zproto Developers <zeromq-dev@lists.zeromq.org
+- Initial packaging.
